@@ -10,8 +10,6 @@ body{background:#111214;color:#ECEEF2;font-family:-apple-system,BlinkMacSystemFo
 input,select,textarea{font-family:inherit;font-size:14px;}
 button{font-family:inherit;}
 ::-webkit-scrollbar{width:0;height:0;}
-
-/* Layout */
 #app{display:flex;flex-direction:column;min-height:100vh;}
 .header{background:#18191C;border-bottom:1px solid #2C2F35;padding:12px 16px;position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:10px;}
 .logo-icon{background:linear-gradient(135deg,#6B6380,#A89BC2);border-radius:9px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
@@ -22,157 +20,124 @@ button{font-family:inherit;}
 .nav-btn{flex:1;background:none;border:none;cursor:pointer;padding:10px 4px 14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:#4E5460;font-size:10px;font-weight:500;}
 .nav-btn.active{color:#C4BAD8;}
 .nav-btn svg{width:20px;height:20px;}
-
-/* Cards */
-.card{background:#1E2024;border:1px solid #2C2F35;border-radius:12px;padding:14px 16px;}
-.card+.card{margin-top:10px;}
-
-/* Buttons */
-.btn{padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;border:none;white-space:nowrap;}
+.card{background:#1E2024;border:1px solid #2C2F35;border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+.btn{padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;border:none;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;}
 .btn-primary{background:#A89BC2;color:#fff;}
 .btn-ghost{background:transparent;border:1px solid #2C2F35;color:#848A96;}
 .btn-danger{background:#B87070;color:#fff;}
 .btn-sm{padding:6px 10px;font-size:12px;}
-.btn-icon{padding:6px 8px;background:transparent;border:1px solid #2C2F35;border-radius:7px;cursor:pointer;color:#848A96;display:flex;align-items:center;}
-
-/* Forms */
+.btn-icon{padding:7px 9px;background:transparent;border:1px solid #2C2F35;border-radius:8px;cursor:pointer;color:#848A96;display:inline-flex;align-items:center;justify-content:center;}
 .field{margin-bottom:14px;}
 .field label{display:block;color:#848A96;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:5px;}
 .field input,.field select,.field textarea{width:100%;background:#18191C;border:1px solid #2C2F35;border-radius:8px;padding:9px 13px;color:#ECEEF2;font-size:14px;outline:none;}
 .field textarea{resize:vertical;min-height:60px;}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
-
-/* Modal */
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;display:flex;align-items:flex-end;backdrop-filter:blur(4px);}
 .modal{background:#1E2024;border:1px solid #2C2F35;border-radius:16px 16px 0 0;width:100%;max-height:92vh;overflow-y:auto;padding:20px 16px;}
 .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
 .modal-title{font-size:16px;font-weight:700;}
-.modal-close{background:none;border:none;cursor:pointer;color:#848A96;padding:4px;}
+.modal-close{background:none;border:none;cursor:pointer;color:#848A96;padding:4px;line-height:1;}
 .modal-footer{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;}
-
-/* Badges */
 .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
-.badge-done{background:#7BAF8A22;color:#7BAF8A;}
-.badge-pending{background:#C4A46A22;color:#C4A46A;}
-.badge-cancelled{background:#B8707022;color:#B87070;}
-.badge-low{background:#B8707022;color:#B87070;font-size:10px;}
-
-/* Section titles */
-.section-title{color:#848A96;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px;margin-top:20px;}
+.badge-low{background:#B8707022;color:#B87070;font-size:10px;padding:2px 8px;}
+.section-title{color:#848A96;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px;margin-top:16px;}
 .section-title:first-child{margin-top:0;}
-
-/* Chips */
-.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:16px;}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;}
 .chip{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap;border:1px solid #2C2F35;background:transparent;color:#848A96;}
 .chip.active{background:#A89BC2;color:#fff;border-color:#A89BC2;}
-
-/* Alert */
 .alert{border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-size:13px;}
 .alert-danger{background:#B8707012;border:1px solid #B8707044;color:#B87070;}
 .alert-info{background:#A89BC212;border:1px solid #A89BC244;color:#A89BC2;}
-
-/* Stat cards */
-.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
 .stat-card{background:#1E2024;border:1px solid #2C2F35;border-radius:12px;padding:14px;text-align:center;}
 .stat-val{font-weight:800;font-size:20px;margin-bottom:3px;}
 .stat-label{color:#ECEEF2;font-size:12px;font-weight:600;}
 .stat-sub{color:#848A96;font-size:11px;margin-top:2px;}
-
 /* Calendar */
-.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
-.cal-date-nav{display:flex;align-items:center;gap:8px;}
-.cal-date-label{font-weight:700;font-size:15px;}
-.time-grid{position:relative;overflow:hidden;}
-.time-row{display:flex;min-height:60px;border-bottom:1px solid #2C2F3522;}
-.time-label{width:44px;flex-shrink:0;padding:4px 8px 0 0;color:#4E5460;font-size:11px;text-align:right;}
-.time-slot{flex:1;position:relative;border-left:1px solid #2C2F3522;}
-.appt-block{position:absolute;left:4px;right:4px;border-radius:8px;padding:6px 8px;cursor:pointer;overflow:hidden;user-select:none;}
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;}
+.cal-nav{display:flex;align-items:center;gap:8px;flex:1;}
+.cal-date-label{font-weight:700;font-size:15px;flex:1;}
+.cal-sub{font-size:11px;color:#4E5460;}
+.view-chips{display:flex;gap:4px;margin-bottom:10px;}
+.view-chip{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid #2C2F35;background:transparent;color:#848A96;}
+.view-chip.active{background:#A89BC2;color:#fff;border-color:#A89BC2;}
+.time-grid{overflow-x:auto;}
+.time-grid-inner{display:flex;min-width:100%;}
+.time-labels{width:42px;flex-shrink:0;}
+.time-label-cell{height:60px;display:flex;align-items:flex-start;padding-top:4px;justify-content:flex-end;padding-right:6px;color:#4E5460;font-size:10px;border-bottom:1px solid #2C2F3520;}
+.day-columns{display:flex;flex:1;gap:0;}
+.day-col{flex:1;border-left:1px solid #2C2F3520;min-width:80px;}
+.day-col-header{text-align:center;padding:6px 4px;font-size:11px;font-weight:700;color:#848A96;border-bottom:1px solid #2C2F3530;background:#18191C;position:sticky;top:0;}
+.day-col-header.today{color:#A89BC2;}
+.time-cell{height:60px;border-bottom:1px solid #2C2F3518;position:relative;cursor:pointer;}
+.time-cell:hover{background:#A89BC208;}
+.appt-block{position:absolute;left:2px;right:2px;border-radius:6px;padding:4px 6px;cursor:pointer;overflow:hidden;z-index:2;}
 .appt-block-pending{background:#A89BC233;border-left:3px solid #A89BC2;}
 .appt-block-done{background:#7BAF8A22;border-left:3px solid #7BAF8A;}
 .appt-block-cancelled{background:#B8707022;border-left:3px solid #B87070;}
-.appt-name{font-size:12px;font-weight:700;color:#ECEEF2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.appt-svc{font-size:10px;color:#848A96;}
-
-/* Progress bar */
+.appt-name{font-size:11px;font-weight:700;color:#ECEEF2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.appt-svc{font-size:9px;color:#848A96;}
+/* Stock */
 .progress{background:#2C2F35;border-radius:4px;height:5px;overflow:hidden;margin-top:6px;}
 .progress-fill{height:100%;border-radius:4px;background:linear-gradient(to right,#6B6380,#C4BAD8);}
-
-/* Row items */
-.row-item{display:flex;align-items:center;gap:12px;padding:12px 14px;background:#1E2024;border:1px solid #2C2F35;border-radius:10px;margin-bottom:8px;}
+.row-item{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#1E2024;border:1px solid #2C2F35;border-radius:10px;margin-bottom:8px;}
 .row-item-left{flex:1;min-width:0;}
 .row-item-name{font-weight:600;font-size:14px;color:#ECEEF2;}
 .row-item-sub{font-size:12px;color:#848A96;margin-top:2px;}
 .row-item-right{text-align:right;flex-shrink:0;}
 .row-item-val{font-weight:700;font-size:15px;color:#C8CDD6;}
 .row-item-sub2{font-size:11px;color:#4E5460;}
-.row-item-actions{display:flex;gap:6px;flex-shrink:0;}
-
-/* Loading */
-.loading{text-align:center;color:#4E5460;padding:50px 0;font-size:14px;}
+.row-item-actions{display:flex;gap:5px;flex-shrink:0;}
 .empty{text-align:center;color:#4E5460;padding:50px 0;font-size:14px;}
-
-/* Tab content hidden/shown */
 .tab{display:none;}
 .tab.active{display:block;}
-
-/* Date input */
 input[type=date],input[type=time]{color-scheme:dark;}
-
-/* Receive stock form */
-.receive-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #2C2F3530;}
-.receive-row:last-child{border-bottom:none;}
 </style>
 </head>
 <body>
 <div id="app">
   <div class="header">
     <div class="logo-icon">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M6 3a3 3 0 110 6 3 3 0 010-6zM18 3a3 3 0 110 6 3 3 0 010-6zM8.22 8.22l7.56 7.56M16.73 14.27l1.5 1.5a3 3 0 11-4.24 4.24l-1.5-1.5M7.27 9.73L5.77 8.23A3 3 0 111.53 4"/>
-      </svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3a3 3 0 110 6 3 3 0 010-6zM18 3a3 3 0 110 6 3 3 0 010-6zM8.22 8.22l7.56 7.56M16.73 14.27l1.5 1.5a3 3 0 11-4.24 4.24l-1.5-1.5M7.27 9.73L5.77 8.23A3 3 0 111.53 4"/></svg>
     </div>
     <div>
       <div class="logo-text">Beauty CRM</div>
       <div class="logo-sub" id="headerDate"></div>
     </div>
   </div>
-
   <div class="content">
     <div class="tab active" id="tab-calendar"></div>
     <div class="tab" id="tab-stock"></div>
     <div class="tab" id="tab-services"></div>
     <div class="tab" id="tab-analytics"></div>
   </div>
-
   <nav class="bottom-nav">
-    <button class="nav-btn active" onclick="switchTab('calendar',this)">
+    <button class="nav-btn active" id="nav-calendar">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3M16 2v3M3 8h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>
       Записи
     </button>
-    <button class="nav-btn" onclick="switchTab('stock',this)">
+    <button class="nav-btn" id="nav-stock">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16V8zM3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>
       Склад
     </button>
-    <button class="nav-btn" onclick="switchTab('services',this)">
+    <button class="nav-btn" id="nav-services">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
       Послуги
     </button>
-    <button class="nav-btn" onclick="switchTab('analytics',this)">
+    <button class="nav-btn" id="nav-analytics">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 16l4-4 4 4 4-4"/></svg>
       Аналітика
     </button>
   </nav>
 </div>
-
-<!-- Modal container -->
-<div class="overlay" id="modal" style="display:none" onclick="closeModalOutside(event)">
+<div class="overlay" id="modal" style="display:none">
   <div class="modal" id="modalContent"></div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const fbConfig = {
   apiKey:"AIzaSyBtEcQ69spy8Lp8R6ttJOX8krl1iH2j8X4",
@@ -182,159 +147,184 @@ const fbConfig = {
   messagingSenderId:"1011794290495",
   appId:"1:1011794290495:web:d5dac454ea696e4924158a"
 };
-const fbApp = initializeApp(fbConfig);
-const db = getFirestore(fbApp);
+const db = getFirestore(initializeApp(fbConfig));
 
-// ── State ─────────────────────────────────────────────────────────
-let services = [], materials = [], appointments = [], purchases = [];
+// State
+let services=[], materials=[], appointments=[], purchases=[];
 let calDate = new Date().toISOString().slice(0,10);
+let calView = 1; // 1=день, 3=3 дні, 7=тиждень
+let currentTab = 'calendar';
+let stockCat = 'Всі';
+let stockSearch = '';
+let analyticsPeriod = 'month';
 
-// ── Helpers ───────────────────────────────────────────────────────
+// Helpers
 const fmt = n => new Intl.NumberFormat("uk-UA").format(Math.round(n));
-const fmtDate = d => new Date(d+'T00:00:00').toLocaleDateString("uk-UA",{day:"numeric",month:"long"});
 const today = () => new Date().toISOString().slice(0,10);
-const icon = (d,sz=16,col="currentColor") => `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+const addDays = (d,n) => { const dt=new Date(d+'T00:00:00'); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); };
+const fmtDateShort = d => new Date(d+'T00:00:00').toLocaleDateString("uk-UA",{day:"numeric",month:"short"});
+const fmtDateLong = d => new Date(d+'T00:00:00').toLocaleDateString("uk-UA",{day:"numeric",month:"long"});
+const dayNames = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
+const MAT_CATS = ["Фарби","Окислювачі","Порошки","Шампуні","Маски","Кондиціонери","Стайлінг","Інше"];
+const HOURS = Array.from({length:14},(_,i)=>i+8);
+
+const icon = (d,sz=16,col="currentColor") =>
+  `<svg width="${sz}" height="${sz}" viewBox="0 0 24 24" fill="none" stroke="${col}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
 const ic = {
-  plus:"M12 5v14M5 12h14",
-  edit:"M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
-  trash:"M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6",
-  x:"M18 6L6 18M6 6l12 12",
-  check:"M20 6L9 17l-5-5",
-  warn:"M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01",
-  arrow:"M15 18l-6-6 6-6",
-  arrowR:"M9 18l6-6-6-6",
+  plus:"M12 5v14M5 12h14", edit:"M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z",
+  trash:"M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6", x:"M18 6L6 18M6 6l12 12",
+  check:"M20 6L9 17l-5-5", warn:"M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01",
+  arrowL:"M15 18l-6-6 6-6", arrowR:"M9 18l6-6-6-6",
   pkg:"M16 16l-4 4-4-4M12 12v8M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3",
 };
 
-// ── Firebase listeners ────────────────────────────────────────────
-onSnapshot(collection(db,"services"), s => {
-  services = s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name));
-  renderAll();
-});
-onSnapshot(collection(db,"materials"), s => {
-  materials = s.docs.map(d=>({id:d.id,...d.data()}));
-  renderAll();
-});
-onSnapshot(query(collection(db,"appointments"),orderBy("date"),orderBy("time")), s => {
-  appointments = s.docs.map(d=>({id:d.id,...d.data()}));
-  renderAll();
-});
-onSnapshot(query(collection(db,"purchases"),orderBy("date")), s => {
-  purchases = s.docs.map(d=>({id:d.id,...d.data()}));
-  renderAll();
+// Firebase
+onSnapshot(collection(db,"services"), s => { services=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name)); render(); });
+onSnapshot(collection(db,"materials"), s => { materials=s.docs.map(d=>({id:d.id,...d.data()})); render(); });
+onSnapshot(query(collection(db,"appointments"),orderBy("date"),orderBy("time")), s => { appointments=s.docs.map(d=>({id:d.id,...d.data()})); render(); });
+onSnapshot(query(collection(db,"purchases"),orderBy("date")), s => { purchases=s.docs.map(d=>({id:d.id,...d.data()})); render(); });
+
+// Header date
+document.getElementById('headerDate').textContent = fmtDateLong(today());
+
+// Tab switching
+['calendar','stock','services','analytics'].forEach(t => {
+  document.getElementById('nav-'+t).addEventListener('click', () => {
+    currentTab = t;
+    document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
+    document.getElementById('tab-'+t).classList.add('active');
+    document.getElementById('nav-'+t).classList.add('active');
+    render();
+  });
 });
 
-// ── Tab switching ─────────────────────────────────────────────────
-window.switchTab = (tab, btn) => {
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('tab-'+tab).classList.add('active');
-  btn.classList.add('active');
-  renderAll();
-};
-
-// ── Modal ─────────────────────────────────────────────────────────
-window.openModal = (html) => {
+// Modal
+function openModal(html) {
   document.getElementById('modalContent').innerHTML = html;
   document.getElementById('modal').style.display = 'flex';
-};
-window.closeModal = () => {
-  document.getElementById('modal').style.display = 'none';
-};
-window.closeModalOutside = (e) => {
-  if(e.target.id==='modal') closeModal();
-};
+  document.getElementById('modal').onclick = e => { if(e.target.id==='modal') closeModal(); };
+}
+function closeModal() { document.getElementById('modal').style.display='none'; }
 
-// ── Header date ───────────────────────────────────────────────────
-document.getElementById('headerDate').textContent = fmtDate(today());
-
-// ════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // CALENDAR
-// ════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 function renderCalendar() {
   const el = document.getElementById('tab-calendar');
-  const hours = Array.from({length:14},(_,i)=>i+8); // 8:00–21:00
-  const dayAppts = appointments.filter(a=>a.date===calDate);
 
-  const dateLabel = fmtDate(calDate);
-  const pending = dayAppts.filter(a=>a.status==='pending').length;
+  // Build list of dates to show
+  const dates = Array.from({length:calView},(_,i)=>addDays(calDate,i));
+  const todayStr = today();
 
-  let timeGridHTML = '';
-  hours.forEach(h => {
-    const hStr = h.toString().padStart(2,'0')+':00';
-    // find appointments starting in this hour
-    const slotAppts = dayAppts.filter(a => {
-      const ah = parseInt(a.time.split(':')[0]);
-      return ah === h;
-    });
-    let apptBlocks = '';
-    slotAppts.forEach(a => {
-      const svc = services.find(s=>s.id===a.serviceId);
-      const dur = svc?.duration||60;
-      const mins = parseInt(a.time.split(':')[1]||0);
-      const topPct = (mins/60)*100;
-      const heightPct = (dur/60)*100;
-      const cls = `appt-block appt-block-${a.status}`;
-      apptBlocks += `
-        <div class="${cls}" style="top:${topPct}%;height:${heightPct}%" onclick="editAppt('${a.id}')">
+  // Date label
+  let dateLabel = calView===1 ? fmtDateLong(calDate) : `${fmtDateShort(calDate)} – ${fmtDateShort(dates[dates.length-1])}`;
+  const pendingToday = appointments.filter(a=>a.date===todayStr&&a.status==='pending').length;
+
+  // Day column headers
+  const colHeaders = dates.map(d => {
+    const isToday = d===todayStr;
+    const dn = dayNames[new Date(d+'T00:00:00').getDay()];
+    return `<div class="day-col-header ${isToday?'today':''}">${dn}<br><span style="font-size:13px;font-weight:800">${new Date(d+'T00:00:00').getDate()}</span></div>`;
+  }).join('');
+
+  // Time rows
+  let timeLabelsHTML = '';
+  let timeCellsHTML = dates.map(()=>`<div class="day-col"></div>`);
+
+  // Build cells
+  const cellsPerDay = dates.map(d => {
+    return HOURS.map(h => {
+      const hStr = h.toString().padStart(2,'0')+':00';
+      const dayAppts = appointments.filter(a=>a.date===d&&parseInt(a.time.split(':')[0])===h);
+      let blocks = '';
+      dayAppts.forEach(a => {
+        const svc = services.find(s=>s.id===a.serviceId);
+        const dur = svc?.duration||60;
+        const mins = parseInt(a.time.split(':')[1]||0);
+        const topPct = (mins/60)*100;
+        const heightPct = Math.max((dur/60)*100, 30);
+        blocks += `<div class="appt-block appt-block-${a.status}" style="top:${topPct}%;height:${heightPct}%" data-id="${a.id}">
           <div class="appt-name">${a.client}</div>
-          <div class="appt-svc">${a.time} · ${svc?.name||'?'}</div>
+          <div class="appt-svc">${a.time}${svc?' · '+svc.name:''}</div>
         </div>`;
-    });
-    timeGridHTML += `
-      <div class="time-row">
-        <div class="time-label">${hStr}</div>
-        <div class="time-slot" onclick="quickAddAppt('${h.toString().padStart(2,'0')}:00')">${apptBlocks}</div>
-      </div>`;
+      });
+      return `<div class="time-cell" data-date="${d}" data-time="${hStr}">${blocks}</div>`;
+    }).join('');
   });
+
+  HOURS.forEach(h => {
+    timeLabelsHTML += `<div class="time-label-cell">${h}:00</div>`;
+  });
+
+  const dayColsHTML = dates.map((d,i) =>
+    `<div class="day-col"><div class="day-col-header ${d===todayStr?'today':''}">${dayNames[new Date(d+'T00:00:00').getDay()]}<br><span style="font-size:13px;font-weight:800">${new Date(d+'T00:00:00').getDate()}</span></div>${cellsPerDay[i]}</div>`
+  ).join('');
 
   el.innerHTML = `
     <div class="cal-header">
-      <div class="cal-date-nav">
-        <button class="btn-icon" onclick="changeDay(-1)">${icon(ic.arrow)}</button>
-        <div>
-          <div class="cal-date-label">${dateLabel}</div>
-          <div style="font-size:11px;color:#4E5460">${pending} очікує</div>
-        </div>
-        <button class="btn-icon" onclick="changeDay(1)">${icon(ic.arrowR)}</button>
+      <button class="btn-icon" id="calPrev">${icon(ic.arrowL,18)}</button>
+      <div style="flex:1;text-align:center">
+        <div style="font-weight:700;font-size:15px">${dateLabel}</div>
+        ${calView===1?`<div class="cal-sub">${pendingToday} очікує сьогодні</div>`:''}
       </div>
-      <button class="btn btn-primary btn-sm" onclick="openApptModal(null)">+ Запис</button>
+      <button class="btn-icon" id="calNext">${icon(ic.arrowR,18)}</button>
+      <button class="btn btn-primary btn-sm" id="calAdd">${icon(ic.plus,14)} Запис</button>
     </div>
-    ${dayAppts.length===0?`<div class="alert alert-info">${icon(ic.check)} Вільний день — записів немає</div>`:''}
-    <div class="time-grid">${timeGridHTML}</div>`;
+    <div class="view-chips">
+      <button class="view-chip ${calView===1?'active':''}" data-view="1">День</button>
+      <button class="view-chip ${calView===3?'active':''}" data-view="3">3 дні</button>
+      <button class="view-chip ${calView===7?'active':''}" data-view="7">Тиждень</button>
+    </div>
+    <div class="time-grid">
+      <div class="time-grid-inner">
+        <div class="time-labels">${timeLabelsHTML}</div>
+        <div class="day-columns">${dayColsHTML}</div>
+      </div>
+    </div>`;
+
+  // Events
+  document.getElementById('calPrev').addEventListener('click', () => { calDate=addDays(calDate,-calView); renderCalendar(); });
+  document.getElementById('calNext').addEventListener('click', () => { calDate=addDays(calDate,calView); renderCalendar(); });
+  document.getElementById('calAdd').addEventListener('click', () => openApptModal(null, calDate, '10:00'));
+
+  el.querySelectorAll('.view-chip').forEach(btn => {
+    btn.addEventListener('click', () => { calView=+btn.dataset.view; renderCalendar(); });
+  });
+
+  el.querySelectorAll('.time-cell').forEach(cell => {
+    cell.addEventListener('click', e => {
+      if(e.target.closest('.appt-block')) return;
+      openApptModal(null, cell.dataset.date, cell.dataset.time);
+    });
+  });
+
+  el.querySelectorAll('.appt-block').forEach(block => {
+    block.addEventListener('click', e => {
+      e.stopPropagation();
+      const a = appointments.find(x=>x.id===block.dataset.id);
+      if(a) openApptModal(a, a.date, a.time);
+    });
+  });
 }
 
-window.changeDay = (d) => {
-  const dt = new Date(calDate+'T00:00:00');
-  dt.setDate(dt.getDate()+d);
-  calDate = dt.toISOString().slice(0,10);
-  renderCalendar();
-};
-
-window.quickAddAppt = (time) => openApptModal(null, time);
-window.editAppt = (id) => {
-  const a = appointments.find(x=>x.id===id);
-  if(a) openApptModal(a);
-};
-
-window.openApptModal = (appt=null, defaultTime='10:00') => {
-  const isEdit = !!appt;
+function openApptModal(appt, date, time) {
   const svcOptions = services.map(s=>`<option value="${s.id}" ${appt?.serviceId===s.id?'selected':''}>${s.name} — ${fmt(s.price)} грн</option>`).join('');
-  openModal(`
+  const html = `
     <div class="modal-header">
-      <div class="modal-title">${isEdit?'Редагувати запис':'Новий запис'}</div>
-      <button class="modal-close" onclick="closeModal()">${icon(ic.x,20)}</button>
+      <div class="modal-title">${appt?'Редагувати запис':'Новий запис'}</div>
+      <button class="modal-close" id="mClose">${icon(ic.x,20)}</button>
     </div>
     <div class="field"><label>Ім'я клієнтки</label><input id="ac" value="${appt?.client||''}" placeholder="Прізвище Ім'я"/></div>
     <div class="field"><label>Телефон</label><input id="ap" value="${appt?.phone||''}" placeholder="+380 xx xxx-xx-xx"/></div>
     <div class="field"><label>Послуга</label><select id="as"><option value="">— Оберіть —</option>${svcOptions}</select></div>
     <div class="grid-2">
-      <div class="field"><label>Дата</label><input type="date" id="ad" value="${appt?.date||calDate}"/></div>
-      <div class="field"><label>Час</label><input type="time" id="at" value="${appt?.time||defaultTime}"/></div>
+      <div class="field"><label>Дата</label><input type="date" id="ad" value="${appt?.date||date||today()}"/></div>
+      <div class="field"><label>Час</label><input type="time" id="at" value="${appt?.time||time||'10:00'}"/></div>
     </div>
     <div class="field"><label>Статус</label>
       <select id="ast">
-        <option value="pending" ${appt?.status==='pending'||!appt?'selected':''}>Очікує</option>
+        <option value="pending" ${!appt||appt?.status==='pending'?'selected':''}>Очікує</option>
         <option value="done" ${appt?.status==='done'?'selected':''}>Виконано</option>
         <option value="cancelled" ${appt?.status==='cancelled'?'selected':''}>Скасовано</option>
       </select>
@@ -342,423 +332,399 @@ window.openApptModal = (appt=null, defaultTime='10:00') => {
     <div class="field"><label>Оплачено (грн)</label><input type="number" id="apaid" value="${appt?.paid||0}"/></div>
     <div class="field"><label>Примітка</label><textarea id="an">${appt?.note||''}</textarea></div>
     <div class="modal-footer">
-      ${isEdit?`<button class="btn btn-danger btn-sm" onclick="deleteAppt('${appt.id}')">Видалити</button>`:''}
-      <button class="btn btn-ghost" onclick="closeModal()">Скасувати</button>
-      <button class="btn btn-primary" onclick="saveAppt('${appt?.id||''}')">Зберегти</button>
-    </div>`);
-};
-
-window.saveAppt = async (id) => {
-  const data = {
-    client: document.getElementById('ac').value,
-    phone: document.getElementById('ap').value,
-    serviceId: document.getElementById('as').value,
-    date: document.getElementById('ad').value,
-    time: document.getElementById('at').value,
-    status: document.getElementById('ast').value,
-    paid: +document.getElementById('apaid').value,
-    note: document.getElementById('an').value,
+      ${appt?`<button class="btn btn-danger btn-sm" id="mDel">Видалити</button>`:''}
+      <button class="btn btn-ghost" id="mCancel">Скасувати</button>
+      <button class="btn btn-primary" id="mSave">Зберегти</button>
+    </div>`;
+  openModal(html);
+  document.getElementById('mClose').onclick = closeModal;
+  document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('mSave').onclick = async () => {
+    const data = {
+      client:document.getElementById('ac').value,
+      phone:document.getElementById('ap').value,
+      serviceId:document.getElementById('as').value,
+      date:document.getElementById('ad').value,
+      time:document.getElementById('at').value,
+      status:document.getElementById('ast').value,
+      paid:+document.getElementById('apaid').value,
+      note:document.getElementById('an').value,
+    };
+    if(!data.client||!data.serviceId){alert("Заповніть ім'я та послугу");return;}
+    if(appt) await updateDoc(doc(db,'appointments',appt.id),data);
+    else await addDoc(collection(db,'appointments'),data);
+    closeModal();
   };
-  if(!data.client||!data.date||!data.serviceId){alert('Заповніть обов\'язкові поля');return;}
-  if(id) await updateDoc(doc(db,'appointments',id),data);
-  else await addDoc(collection(db,'appointments'),data);
-  closeModal();
-};
+  if(appt) document.getElementById('mDel').onclick = async () => {
+    if(confirm('Видалити запис?')){ await deleteDoc(doc(db,'appointments',appt.id)); closeModal(); }
+  };
+}
 
-window.deleteAppt = async (id) => {
-  if(confirm('Видалити запис?')){ await deleteDoc(doc(db,'appointments',id)); closeModal(); }
-};
-
-window.markDone = async (id) => {
-  const a = appointments.find(x=>x.id===id);
-  const svc = services.find(s=>s.id===a?.serviceId);
-  await updateDoc(doc(db,'appointments',id),{status:'done',paid:svc?.price||0});
-};
-
-// ════════════════════════════════════════════════════════════════
-// STOCK (Склад)
-// ════════════════════════════════════════════════════════════════
-const MAT_CATS = ["Фарби","Окислювачі","Порошки","Шампуні","Маски","Кондиціонери","Стайлінг","Інше"];
-let stockCat = 'Всі';
-
+// ═══════════════════════════════════════════
+// STOCK
+// ═══════════════════════════════════════════
 function renderStock() {
   const el = document.getElementById('tab-stock');
   const low = materials.filter(m=>m.qty<=m.minQty);
-  const filtered = materials.filter(m=>stockCat==='Всі'||m.category===stockCat);
+  const filtered = materials.filter(m=>(stockCat==='Всі'||m.category===stockCat)&&(!stockSearch||m.name.toLowerCase().includes(stockSearch.toLowerCase())));
   const grouped = MAT_CATS.map(c=>({c,items:filtered.filter(m=>m.category===c)})).filter(g=>g.items.length>0);
 
-  let lowAlert = low.length>0?`<div class="alert alert-danger">${icon(ic.warn,16,'#B87070')} Закінчується: ${low.map(m=>m.name).join(', ')}</div>`:'';
-  let chips = ['Всі',...MAT_CATS].map(c=>`<button class="chip ${stockCat===c?'active':''}" onclick="setStockCat('${c}')">${c}</button>`).join('');
-
-  let items = '';
-  if(filtered.length===0){
-    items = `<div class="empty">Матеріалів немає — додайте перший!</div>`;
-  } else {
-    grouped.forEach(({c,items:gi})=>{
-      items += `<div class="section-title">${c}</div>`;
-      gi.forEach(m=>{
-        const isLow = m.qty<=m.minQty;
-        const avgPrice = m.avgPrice||m.price||0;
-        items += `
-          <div class="row-item" style="border-left:3px solid ${isLow?'#B87070':'#2C2F35'}">
+  el.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" id="btnReceive">${icon(ic.pkg,14)} Прихід</button>
+      <button class="btn btn-ghost btn-sm" id="btnNewMat">${icon(ic.plus,14)} Новий</button>
+      <button class="btn btn-ghost btn-sm" id="btnHistory">📋 Історія</button>
+    </div>
+    <input id="stockSearchInput" style="width:100%;background:#18191C;border:1px solid #2C2F35;border-radius:8px;padding:9px 13px;color:#ECEEF2;font-size:14px;outline:none;margin-bottom:10px;" placeholder="🔍 Пошук по складу..." value="${stockSearch}"/>
+    ${low.length?`<div class="alert alert-danger">${icon(ic.warn,16,'#B87070')} Закінчується: ${low.map(m=>m.name).join(', ')}</div>`:''}
+    <div class="chips" id="stockChips">
+      ${['Всі',...MAT_CATS].map(c=>`<button class="chip ${stockCat===c?'active':''}" data-cat="${c}">${c}</button>`).join('')}
+    </div>
+    ${filtered.length===0?'<div class="empty">Нічого не знайдено</div>':
+      grouped.map(({c,items})=>`
+        <div class="section-title">${c}</div>
+        ${items.map(m=>{
+          const isLow=m.qty<=m.minQty;
+          return `<div class="row-item" style="border-left:3px solid ${isLow?'#B87070':'#2C2F35'}">
             <div class="row-item-left">
               <div class="row-item-name">${m.name} ${isLow?'<span class="badge badge-low">Мало</span>':''}</div>
-              <div class="row-item-sub">Сер. ціна: ${fmt(avgPrice)} грн/од.</div>
+              <div class="row-item-sub">Сер. ціна: ${fmt(m.avgPrice||m.price||0)} грн/од.</div>
             </div>
             <div class="row-item-right">
               <div class="row-item-val" style="color:${isLow?'#B87070':'#C4BAD8'}">${m.qty} ${m.unit}</div>
               <div class="row-item-sub2">мін. ${m.minQty}</div>
             </div>
             <div class="row-item-actions">
-              <button class="btn-icon btn-sm" onclick="openSpendModal('${m.id}')">${icon("M5 12h14",14)}</button>
-              <button class="btn-icon btn-sm" onclick="openMatModal('${m.id}')">${icon(ic.edit,14)}</button>
-              <button class="btn-icon btn-sm" onclick="deleteMat('${m.id}')">${icon(ic.trash,14,'#B87070')}</button>
+              <button class="btn-icon btn-sm" data-spend="${m.id}">${icon('M5 12h14',14)}</button>
+              <button class="btn-icon btn-sm" data-edit-mat="${m.id}">${icon(ic.edit,14)}</button>
+              <button class="btn-icon btn-sm" data-del-mat="${m.id}">${icon(ic.trash,14,'#B87070')}</button>
             </div>
           </div>`;
-      });
-    });
-  }
+        }).join('')}`).join('')}`;
 
-  el.innerHTML = `
-    <div style="display:flex;gap:8px;margin-bottom:14px;align-items:center;">
-      <button class="btn btn-primary btn-sm" onclick="openReceiveModal()">${icon(ic.pkg,14)} Прихід</button>
-      <button class="btn btn-ghost btn-sm" onclick="openMatModal(null)">${icon(ic.plus,14)} Новий</button>
-    </div>
-    ${lowAlert}
-    <div class="chips">${chips}</div>
-    ${items}`;
+  document.getElementById('btnReceive').onclick = () => openReceiveModal();
+  document.getElementById('btnNewMat').onclick = () => openMatModal(null);
+  document.getElementById('btnHistory').onclick = () => openHistoryModal();
+  document.getElementById('stockSearchInput').addEventListener('input', e => { stockSearch=e.target.value; renderStock(); });
+  el.querySelectorAll('[data-cat]').forEach(b=>b.addEventListener('click',()=>{stockCat=b.dataset.cat;renderStock();}));
+  el.querySelectorAll('[data-spend]').forEach(b=>b.addEventListener('click',()=>openSpendModal(b.dataset.spend)));
+  el.querySelectorAll('[data-edit-mat]').forEach(b=>b.addEventListener('click',()=>openMatModal(b.dataset.editMat)));
+  el.querySelectorAll('[data-del-mat]').forEach(b=>b.addEventListener('click',async()=>{if(confirm('Видалити?'))await deleteDoc(doc(db,'materials',b.dataset.delMat));}));
 }
 
-window.setStockCat = (c) => { stockCat=c; renderStock(); };
+function openHistoryModal() {
+  const recent = purchases.slice(-30).reverse();
+  const rows = recent.map(p=>{
+    const typeLabel = p.type==='receive'?'📦 Прихід':'📉 Витрата';
+    const color = p.type==='receive'?'#7BAF8A':'#B87070';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #2C2F3530;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;font-weight:700;color:${color}">${typeLabel}</div>
+        <div style="font-size:13px;color:#ECEEF2;margin:2px 0">${p.materialName||'?'}</div>
+        <div style="font-size:11px;color:#848A96">${p.date} · ${p.qty} од.${p.discount?' · знижка '+p.discount+'%':''}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;">
+        <div style="font-weight:700;color:#C8CDD6;font-size:13px">${fmt(p.total||0)} грн</div>
+        <button class="btn-icon btn-sm" style="margin-top:4px" data-cancel-op="${p.id}" data-cancel-type="${p.type}" data-cancel-mat="${p.materialId}" data-cancel-qty="${p.qty}">${icon(ic.x,12,'#B87070')}</button>
+      </div>
+    </div>`;
+  }).join('');
 
-window.openMatModal = (id) => {
-  const m = materials.find(x=>x.id===id)||{};
   openModal(`
-    <div class="modal-header">
-      <div class="modal-title">${id?'Редагувати':'Новий матеріал'}</div>
-      <button class="modal-close" onclick="closeModal()">${icon(ic.x,20)}</button>
+    <div class="modal-header"><div class="modal-title">Історія операцій</div><button class="modal-close" id="mClose">${icon(ic.x,20)}</button></div>
+    ${recent.length===0?'<div class="empty">Операцій немає</div>':rows}
+    <div style="height:10px"></div>`);
+  document.getElementById('mClose').onclick = closeModal;
+  document.querySelectorAll('[data-cancel-op]').forEach(b=>{
+    b.addEventListener('click', async () => {
+      const pid=b.dataset.cancelOp, type=b.dataset.cancelType, mid=b.dataset.cancelMat, qty=+b.dataset.cancelQty;
+      if(!confirm('Скасувати цю операцію?')) return;
+      const m = materials.find(x=>x.id===mid);
+      if(m) {
+        const newQty = type==='receive' ? Math.max(0,m.qty-qty) : m.qty+qty;
+        await updateDoc(doc(db,'materials',mid),{qty:newQty});
+      }
+      await deleteDoc(doc(db,'purchases',pid));
+      closeModal();
+    });
+  });
+}
+
+function calcMatGrams(qty, volPerUnit) { return (qty||0)*(volPerUnit||0); }
+function calcPricePerG(price, volPerUnit) { return volPerUnit>0 ? price/volPerUnit : 0; }
+
+function openMatModal(id) {
+  const m = id?materials.find(x=>x.id===id):{};
+  const hasPkg = m?.volPerUnit>0;
+  openModal(`
+    <div class="modal-header"><div class="modal-title">${id?'Редагувати':'Новий матеріал'}</div><button class="modal-close" id="mClose">${icon(ic.x,20)}</button></div>
+    <div class="field"><label>Назва</label><input id="mn" value="${m?.name||''}" placeholder="Фарба Wella 8/0"/></div>
+    <div class="field"><label>Категорія</label><select id="mc">${MAT_CATS.map(c=>`<option ${m?.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="grid-2">
+      <div class="field"><label>К-сть (шт)</label><input type="number" id="mq" value="${m?.qty||0}" step="0.5"/></div>
+      <div class="field"><label>Мін. запас (шт)</label><input type="number" id="mm" value="${m?.minQty||1}"/></div>
     </div>
-    <div class="field"><label>Назва</label><input id="mn" value="${m.name||''}" placeholder="Фарба Wella 8/0"/></div>
-    <div class="field"><label>Категорія</label>
-      <select id="mc">${MAT_CATS.map(c=>`<option ${m.category===c?'selected':''}>${c}</option>`).join('')}</select>
+    <div class="field">
+      <label>Одиниця виміру</label>
+      <select id="munit">
+        <option value="шт" ${(!m?.spendUnit||m?.spendUnit==='шт')?'selected':''}>шт (списувати штуками)</option>
+        <option value="г" ${m?.spendUnit==='г'?'selected':''}>г (списувати в грамах)</option>
+        <option value="мл" ${m?.spendUnit==='мл'?'selected':''}>мл (списувати в мілілітрах)</option>
+      </select>
     </div>
-    <div class="grid-3">
-      <div class="field"><label>К-сть</label><input type="number" id="mq" value="${m.qty||0}"/></div>
-      <div class="field"><label>Од.</label><input id="mu" value="${m.unit||'шт'}" placeholder="шт"/></div>
-      <div class="field"><label>Мін.</label><input type="number" id="mm" value="${m.minQty||1}"/></div>
+    <div id="pkgBlock" style="${m?.spendUnit==='г'||m?.spendUnit==='мл'?'':'display:none'}">
+      <div class="field"><label id="volLabel">Об'єм упаковки (г в 1 шт)</label><input type="number" id="mvol" value="${m?.volPerUnit||0}" placeholder="напр. 60"/></div>
+      <div class="card" id="matCalcCard" style="background:#18191C;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:#848A96">Залишок:</span><span id="mRemain" style="font-weight:700;color:#C4BAD8">—</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#848A96">Ціна за г/мл:</span><span id="mPriceG" style="font-weight:700;color:#C8CDD6">—</span></div>
+      </div>
     </div>
-    <div class="field"><label>Ціна (грн/од.)</label><input type="number" id="mp" value="${m.price||0}"/></div>
+    <div class="field"><label>Ціна за упаковку (грн/шт)</label><input type="number" id="mp" value="${m?.price||0}"/></div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal()">Скасувати</button>
-      <button class="btn btn-primary" onclick="saveMat('${id||''}')">Зберегти</button>
+      <button class="btn btn-ghost" id="mCancel">Скасувати</button>
+      <button class="btn btn-primary" id="mSave">Зберегти</button>
     </div>`);
-};
+  document.getElementById('mClose').onclick = closeModal;
+  document.getElementById('mCancel').onclick = closeModal;
 
-window.saveMat = async (id) => {
-  const data = {
-    name:document.getElementById('mn').value,
-    category:document.getElementById('mc').value,
-    qty:+document.getElementById('mq').value,
-    unit:document.getElementById('mu').value,
-    minQty:+document.getElementById('mm').value,
-    price:+document.getElementById('mp').value,
-    avgPrice:+document.getElementById('mp').value,
+  const updateCalc = () => {
+    const qty=+document.getElementById('mq').value||0;
+    const vol=+document.getElementById('mvol').value||0;
+    const price=+document.getElementById('mp').value||0;
+    const unit=document.getElementById('munit').value;
+    if(vol>0){
+      document.getElementById('mRemain').textContent = fmt(qty*vol)+' '+unit;
+      document.getElementById('mPriceG').textContent = fmt(price/vol)+' грн/'+unit;
+    }
   };
-  if(!data.name){alert('Введіть назву');return;}
-  if(id) await updateDoc(doc(db,'materials',id),data);
-  else await addDoc(collection(db,'materials'),data);
-  closeModal();
-};
+  const togglePkg = () => {
+    const unit=document.getElementById('munit').value;
+    const show = unit==='г'||unit==='мл';
+    document.getElementById('pkgBlock').style.display=show?'':'none';
+    if(show){ document.getElementById('volLabel').textContent='Об'єм упаковки ('+unit+' в 1 шт)'; updateCalc(); }
+  };
+  document.getElementById('munit').addEventListener('change', togglePkg);
+  document.getElementById('mq').addEventListener('input', updateCalc);
+  document.getElementById('mvol').addEventListener('input', updateCalc);
+  document.getElementById('mp').addEventListener('input', updateCalc);
+  togglePkg();
 
-window.deleteMat = async (id) => {
-  if(confirm('Видалити матеріал?')) await deleteDoc(doc(db,'materials',id));
-};
+  document.getElementById('mSave').onclick = async () => {
+    const name=document.getElementById('mn').value;
+    const spendUnit=document.getElementById('munit').value;
+    const volPerUnit=+document.getElementById('mvol').value||0;
+    const price=+document.getElementById('mp').value||0;
+    const qty=+document.getElementById('mq').value||0;
+    const pricePerUnit = spendUnit!=='шт'&&volPerUnit>0 ? price/volPerUnit : price;
+    const totalGrams = spendUnit!=='шт' ? qty*volPerUnit : qty;
+    const data={name,category:document.getElementById('mc').value,qty,minQty:+document.getElementById('mm').value,
+      unit:'шт', spendUnit, volPerUnit, price, avgPrice:price, pricePerUnit,
+      totalGrams, remainGrams: totalGrams};
+    if(!name){alert('Введіть назву');return;}
+    if(!id) {
+      const dup=materials.find(m=>m.name.toLowerCase()===name.toLowerCase());
+      if(dup){alert('Товар "'+name+'" вже існує!');return;}
+    }
+    if(id) await updateDoc(doc(db,'materials',id),data);
+    else await addDoc(collection(db,'materials'),data);
+    closeModal();
+  };
+}
 
-// Spend (витрата)
-window.openSpendModal = (id) => {
+function openSpendModal(id) {
   const m = materials.find(x=>x.id===id);
   openModal(`
-    <div class="modal-header">
-      <div class="modal-title">Витрата: ${m.name}</div>
-      <button class="modal-close" onclick="closeModal()">${icon(ic.x,20)}</button>
-    </div>
+    <div class="modal-header"><div class="modal-title">Витрата: ${m.name}</div><button class="modal-close" id="mClose">${icon(ic.x,20)}</button></div>
     <div class="field"><label>Кількість (${m.unit})</label><input type="number" id="sq" placeholder="0" step="0.1"/></div>
     <div class="field"><label>Дата</label><input type="date" id="sd" value="${today()}"/></div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal()">Скасувати</button>
-      <button class="btn btn-primary" onclick="saveSpend('${id}',${m.qty},${m.avgPrice||m.price||0})">Списати</button>
+      <button class="btn btn-ghost" id="mCancel">Скасувати</button>
+      <button class="btn btn-primary" id="mSave">Списати</button>
     </div>`);
-};
-
-window.saveSpend = async (id, curQty, avgPrice) => {
-  const qty = +document.getElementById('sq').value;
-  const date = document.getElementById('sd').value;
-  if(!qty){alert('Введіть кількість');return;}
-  const newQty = Math.max(0, curQty-qty);
-  await updateDoc(doc(db,'materials',id),{qty:newQty});
-  await addDoc(collection(db,'purchases'),{
-    materialId:id, type:'spend', qty, date, price:avgPrice, total:qty*avgPrice
-  });
-  closeModal();
-};
-
-// Receive (прихід з можливістю знижки)
-window.openReceiveModal = () => {
-  const matOptions = materials.map(m=>`<option value="${m.id}">${m.name} (${m.unit})</option>`).join('');
-  openModal(`
-    <div class="modal-header">
-      <div class="modal-title">${icon(ic.pkg,16)} Прихід товару</div>
-      <button class="modal-close" onclick="closeModal()">${icon(ic.x,20)}</button>
-    </div>
-    <div class="field"><label>Матеріал</label>
-      <select id="rm" onchange="updateReceivePrice()">${matOptions}</select>
-    </div>
-    <div class="field"><label>Дата</label><input type="date" id="rd" value="${today()}"/></div>
-    <div class="grid-2">
-      <div class="field"><label>Кількість</label><input type="number" id="rq" value="1" step="0.1" oninput="calcReceive()"/></div>
-      <div class="field"><label>Ціна за од. (грн)</label><input type="number" id="rp" oninput="calcReceive()"/></div>
-    </div>
-    <div class="field">
-      <label>Знижка (%)</label>
-      <input type="number" id="rdisc" value="0" min="0" max="100" oninput="calcReceive()"/>
-    </div>
-    <div class="card" id="receiveCalc" style="margin-bottom:14px;background:#18191C;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-        <span style="color:#848A96;font-size:13px">Ціна зі знижкою:</span>
-        <span id="rPriceDisc" style="font-weight:700;color:#C4BAD8">—</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;">
-        <span style="color:#848A96;font-size:13px">Загальна сума:</span>
-        <span id="rTotal" style="font-weight:700;color:#C8CDD6">—</span>
-      </div>
-    </div>
-    <div class="field"><label>Примітка</label><input id="rn" placeholder="Постачальник, накладна..."/></div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal()">Скасувати</button>
-      <button class="btn btn-primary" onclick="saveReceive()">Оприбуткувати</button>
-    </div>`);
-  updateReceivePrice();
-};
-
-window.updateReceivePrice = () => {
-  const mid = document.getElementById('rm').value;
-  const m = materials.find(x=>x.id===mid);
-  if(m) document.getElementById('rp').value = m.price||0;
-  calcReceive();
-};
-
-window.calcReceive = () => {
-  const qty = +document.getElementById('rq').value||0;
-  const price = +document.getElementById('rp').value||0;
-  const disc = +document.getElementById('rdisc').value||0;
-  const discPrice = price*(1-disc/100);
-  const total = qty*discPrice;
-  document.getElementById('rPriceDisc').textContent = fmt(discPrice)+' грн';
-  document.getElementById('rTotal').textContent = fmt(total)+' грн';
-};
-
-window.saveReceive = async () => {
-  const mid = document.getElementById('rm').value;
-  const m = materials.find(x=>x.id===mid);
-  const qty = +document.getElementById('rq').value;
-  const price = +document.getElementById('rp').value;
-  const disc = +document.getElementById('rdisc').value||0;
-  const date = document.getElementById('rd').value;
-  const note = document.getElementById('rn').value;
-  if(!qty||!price){alert('Заповніть кількість та ціну');return;}
-
-  const discPrice = price*(1-disc/100);
-  // Calculate new average price
-  const oldQty = m.qty||0;
-  const oldAvg = m.avgPrice||m.price||discPrice;
-  const newQty = oldQty+qty;
-  const newAvg = (oldQty*oldAvg + qty*discPrice)/newQty;
-
-  await updateDoc(doc(db,'materials',mid),{qty:newQty, avgPrice:newAvg});
-  await addDoc(collection(db,'purchases'),{
-    materialId:mid, materialName:m.name, type:'receive',
-    qty, price:discPrice, originalPrice:price, discount:disc,
-    total:qty*discPrice, date, note
-  });
-  closeModal();
-};
-
-// ════════════════════════════════════════════════════════════════
-// SERVICES
-// ════════════════════════════════════════════════════════════════
-function renderServices() {
-  const el = document.getElementById('tab-services');
-  let items = services.length===0
-    ? `<div class="empty">Послуг немає — додайте першу!</div>`
-    : services.map(s=>`
-      <div class="row-item">
-        <div class="row-item-left">
-          <div class="row-item-name">${s.name}</div>
-          <div class="row-item-sub">⏱ ${s.duration} хв</div>
-        </div>
-        <div class="row-item-right">
-          <div class="row-item-val">${fmt(s.price)} грн</div>
-        </div>
-        <div class="row-item-actions">
-          <button class="btn-icon btn-sm" onclick="openSvcModal('${s.id}')">${icon(ic.edit,14)}</button>
-          <button class="btn-icon btn-sm" onclick="deleteSvc('${s.id}')">${icon(ic.trash,14,'#B87070')}</button>
-        </div>
-      </div>`).join('');
-
-  el.innerHTML = `
-    <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
-      <button class="btn btn-primary" onclick="openSvcModal(null)">${icon(ic.plus,14)} Додати послугу</button>
-    </div>
-    ${items}`;
+  document.getElementById('mClose').onclick = closeModal;
+  document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('mSave').onclick = async () => {
+    const qty=+document.getElementById('sq').value;
+    if(!qty){alert('Введіть кількість');return;}
+    await updateDoc(doc(db,'materials',id),{qty:Math.max(0,m.qty-qty)});
+    await addDoc(collection(db,'purchases'),{materialId:id,materialName:m.name,type:'spend',qty,date:document.getElementById('sd').value,price:m.avgPrice||m.price||0,total:qty*(m.avgPrice||m.price||0)});
+    closeModal();
+  };
 }
 
-window.openSvcModal = (id) => {
-  const s = services.find(x=>x.id===id)||{};
+function openReceiveModal() {
+  const matOptions = materials.map(m=>`<option value="${m.id}">${m.name} (${m.unit})</option>`).join('');
   openModal(`
-    <div class="modal-header">
-      <div class="modal-title">${id?'Редагувати':'Нова послуга'}</div>
-      <button class="modal-close" onclick="closeModal()">${icon(ic.x,20)}</button>
-    </div>
-    <div class="field"><label>Назва</label><input id="sn" value="${s.name||''}" placeholder="Стрижка, Фарбування..."/></div>
+    <div class="modal-header"><div class="modal-title">Прихід товару</div><button class="modal-close" id="mClose">${icon(ic.x,20)}</button></div>
+    <div class="field"><label>Матеріал</label><select id="rm">${matOptions}</select></div>
+    <div class="field"><label>Дата</label><input type="date" id="rd" value="${today()}"/></div>
     <div class="grid-2">
-      <div class="field"><label>Ціна (грн)</label><input type="number" id="sp" value="${s.price||0}"/></div>
-      <div class="field"><label>Тривалість (хв)</label><input type="number" id="sd" value="${s.duration||60}"/></div>
+      <div class="field"><label>Кількість</label><input type="number" id="rq" value="1" step="0.1"/></div>
+      <div class="field"><label>Ціна за од. (грн)</label><input type="number" id="rp" value="0"/></div>
+    </div>
+    <div class="field"><label>Знижка (%)</label><input type="number" id="rdisc" value="0" min="0" max="100"/></div>
+    <div class="card" style="background:#18191C;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px"><span style="color:#848A96">Ціна зі знижкою:</span><span id="rPD" style="font-weight:700;color:#C4BAD8">—</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:#848A96">Загальна сума:</span><span id="rTot" style="font-weight:700;color:#C8CDD6">—</span></div>
+    </div>
+    <div class="field"><label>Примітка</label><input id="rn" placeholder="Постачальник..."/></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" id="mCancel">Скасувати</button>
+      <button class="btn btn-primary" id="mSave">Оприбуткувати</button>
+    </div>`);
+  document.getElementById('mClose').onclick = closeModal;
+  document.getElementById('mCancel').onclick = closeModal;
+  const calc = () => {
+    const p=+document.getElementById('rp').value||0, d=+document.getElementById('rdisc').value||0, q=+document.getElementById('rq').value||0;
+    const dp=p*(1-d/100); document.getElementById('rPD').textContent=fmt(dp)+' грн'; document.getElementById('rTot').textContent=fmt(q*dp)+' грн';
+  };
+  document.getElementById('rq').oninput=calc; document.getElementById('rp').oninput=calc; document.getElementById('rdisc').oninput=calc;
+  const mid = document.getElementById('rm');
+  mid.onchange = () => { const m=materials.find(x=>x.id===mid.value); if(m)document.getElementById('rp').value=m.price||0; calc(); };
+  if(materials.length){const m=materials[0];document.getElementById('rp').value=m.price||0;calc();}
+  document.getElementById('mSave').onclick = async () => {
+    const m=materials.find(x=>x.id===mid.value);
+    const qty=+document.getElementById('rq').value, price=+document.getElementById('rp').value, disc=+document.getElementById('rdisc').value||0;
+    if(!qty||!price){alert('Заповніть кількість та ціну');return;}
+    const dp=price*(1-disc/100), oldQty=m.qty||0, oldAvg=m.avgPrice||m.price||dp, newQty=oldQty+qty, newAvg=(oldQty*oldAvg+qty*dp)/newQty;
+    await updateDoc(doc(db,'materials',mid.value),{qty:newQty,avgPrice:newAvg});
+    await addDoc(collection(db,'purchases'),{materialId:mid.value,materialName:m.name,type:'receive',qty,price:dp,originalPrice:price,discount:disc,total:qty*dp,date:document.getElementById('rd').value,note:document.getElementById('rn').value});
+    closeModal();
+  };
+}
+
+// ═══════════════════════════════════════════
+// SERVICES
+// ═══════════════════════════════════════════
+function renderServices() {
+  const el = document.getElementById('tab-services');
+  el.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+      <button class="btn btn-primary" id="btnNewSvc">${icon(ic.plus,14)} Додати послугу</button>
+    </div>
+    ${services.length===0?'<div class="empty">Послуг немає</div>':
+      services.map(s=>`<div class="row-item">
+        <div class="row-item-left"><div class="row-item-name">${s.name}</div><div class="row-item-sub">⏱ ${s.duration} хв</div></div>
+        <div class="row-item-right"><div class="row-item-val">${fmt(s.price)} грн</div></div>
+        <div class="row-item-actions">
+          <button class="btn-icon btn-sm" data-edit-svc="${s.id}">${icon(ic.edit,14)}</button>
+          <button class="btn-icon btn-sm" data-del-svc="${s.id}">${icon(ic.trash,14,'#B87070')}</button>
+        </div>
+      </div>`).join('')}`;
+  document.getElementById('btnNewSvc').onclick = () => openSvcModal(null);
+  el.querySelectorAll('[data-edit-svc]').forEach(b=>b.addEventListener('click',()=>openSvcModal(b.dataset.editSvc)));
+  el.querySelectorAll('[data-del-svc]').forEach(b=>b.addEventListener('click',async()=>{if(confirm('Видалити послугу?'))await deleteDoc(doc(db,'services',b.dataset.delSvc));}));
+}
+
+function openSvcModal(id) {
+  const s = id?services.find(x=>x.id===id):{};
+  openModal(`
+    <div class="modal-header"><div class="modal-title">${id?'Редагувати':'Нова послуга'}</div><button class="modal-close" id="mClose">${icon(ic.x,20)}</button></div>
+    <div class="field"><label>Назва</label><input id="sn" value="${s?.name||''}" placeholder="Стрижка, Фарбування..."/></div>
+    <div class="grid-2">
+      <div class="field"><label>Ціна (грн)</label><input type="number" id="sp" value="${s?.price||0}"/></div>
+      <div class="field"><label>Тривалість (хв)</label><input type="number" id="sd" value="${s?.duration||60}"/></div>
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeModal()">Скасувати</button>
-      <button class="btn btn-primary" onclick="saveSvc('${id||''}')">Зберегти</button>
+      <button class="btn btn-ghost" id="mCancel">Скасувати</button>
+      <button class="btn btn-primary" id="mSave">Зберегти</button>
     </div>`);
-};
+  document.getElementById('mClose').onclick = closeModal;
+  document.getElementById('mCancel').onclick = closeModal;
+  document.getElementById('mSave').onclick = async () => {
+    const data={name:document.getElementById('sn').value,price:+document.getElementById('sp').value,duration:+document.getElementById('sd').value};
+    if(!data.name||!data.price){alert('Заповніть поля');return;}
+    if(id) await updateDoc(doc(db,'services',id),data);
+    else await addDoc(collection(db,'services'),data);
+    closeModal();
+  };
+}
 
-window.saveSvc = async (id) => {
-  const data = {name:document.getElementById('sn').value, price:+document.getElementById('sp').value, duration:+document.getElementById('sd').value};
-  if(!data.name||!data.price){alert('Заповніть поля');return;}
-  if(id) await updateDoc(doc(db,'services',id),data);
-  else await addDoc(collection(db,'services'),data);
-  closeModal();
-};
-
-window.deleteSvc = async (id) => {
-  if(confirm('Видалити послугу?')) await deleteDoc(doc(db,'services',id));
-};
-
-// ════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════
 // ANALYTICS
-// ════════════════════════════════════════════════════════════════
-let analyticsPeriod = 'month';
-
+// ═══════════════════════════════════════════
 function renderAnalytics() {
   const el = document.getElementById('tab-analytics');
   const now = new Date();
-
   const done = appointments.filter(a=>{
     if(a.status!=='done') return false;
-    const d = new Date(a.date+'T00:00:00');
+    const d=new Date(a.date+'T00:00:00');
     if(analyticsPeriod==='week'){const w=new Date(now);w.setDate(now.getDate()-7);return d>=w;}
     if(analyticsPeriod==='month') return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
     return d.getFullYear()===now.getFullYear();
   });
-
   const periodPurchases = purchases.filter(p=>{
     if(p.type!=='receive') return false;
-    const d = new Date(p.date+'T00:00:00');
+    const d=new Date(p.date+'T00:00:00');
     if(analyticsPeriod==='week'){const w=new Date(now);w.setDate(now.getDate()-7);return d>=w;}
     if(analyticsPeriod==='month') return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
     return d.getFullYear()===now.getFullYear();
   });
-
-  const revenue = done.reduce((s,a)=>s+(a.paid||services.find(sv=>sv.id===a.serviceId)?.price||0),0);
-  const expenses = periodPurchases.reduce((s,p)=>s+(p.total||0),0);
-  const profit = revenue - expenses;
-  const avg = done.length ? revenue/done.length : 0;
-
-  // By service
-  const byService = services.map(sv=>{
-    const count = done.filter(a=>a.serviceId===sv.id).length;
-    return {...sv,count,rev:count*sv.price};
-  }).filter(s=>s.count>0).sort((a,b)=>b.rev-a.rev);
-  const maxSvc = Math.max(...byService.map(s=>s.rev),1);
-
-  // By day of week
-  const days = ["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
-  const byDay = days.map((label,i)=>{
-    const dn=(i+1)%7;
-    const rev=done.filter(a=>new Date(a.date+'T00:00:00').getDay()===dn).reduce((s,a)=>s+(services.find(sv=>sv.id===a.serviceId)?.price||0),0);
-    return{label,rev};
-  });
-  const maxDay = Math.max(...byDay.map(d=>d.rev),1);
-
-  // Top materials by spend
-  const spendByMat = {};
-  purchases.filter(p=>p.type==='spend').forEach(p=>{
-    spendByMat[p.materialId]=(spendByMat[p.materialId]||0)+p.total;
-  });
-
-  const periods = [['week','Тиждень'],['month','Місяць'],['year','Рік']];
+  const revenue=done.reduce((s,a)=>s+(a.paid||services.find(sv=>sv.id===a.serviceId)?.price||0),0);
+  const expenses=periodPurchases.reduce((s,p)=>s+(p.total||0),0);
+  const profit=revenue-expenses;
+  const avg=done.length?revenue/done.length:0;
+  const byService=services.map(sv=>{const count=done.filter(a=>a.serviceId===sv.id).length;return{...sv,count,rev:count*sv.price};}).filter(s=>s.count>0).sort((a,b)=>b.rev-a.rev);
+  const maxSvc=Math.max(...byService.map(s=>s.rev),1);
+  const days=["Пн","Вт","Ср","Чт","Пт","Сб","Нд"];
+  const byDay=days.map((label,i)=>{const dn=(i+1)%7;const rev=done.filter(a=>new Date(a.date+'T00:00:00').getDay()===dn).reduce((s,a)=>s+(services.find(sv=>sv.id===a.serviceId)?.price||0),0);return{label,rev};});
+  const maxDay=Math.max(...byDay.map(d=>d.rev),1);
 
   el.innerHTML = `
-    <div class="chips">
-      ${periods.map(([k,l])=>`<button class="chip ${analyticsPeriod===k?'active':''}" onclick="setPeriod('${k}')">${l}</button>`).join('')}
+    <div class="chips" id="periodChips">
+      ${[['week','Тиждень'],['month','Місяць'],['year','Рік']].map(([k,l])=>`<button class="chip ${analyticsPeriod===k?'active':''}" data-period="${k}">${l}</button>`).join('')}
     </div>
-
     <div class="stats-grid">
       <div class="stat-card"><div class="stat-val" style="color:#C8CDD6">${fmt(revenue)} грн</div><div class="stat-label">Виручка</div><div class="stat-sub">${done.length} послуг</div></div>
       <div class="stat-card"><div class="stat-val" style="color:#B87070">${fmt(expenses)} грн</div><div class="stat-label">Витрати</div><div class="stat-sub">закупівлі</div></div>
       <div class="stat-card"><div class="stat-val" style="color:${profit>=0?'#7BAF8A':'#B87070'}">${fmt(profit)} грн</div><div class="stat-label">Прибуток</div></div>
       <div class="stat-card"><div class="stat-val" style="color:#C4BAD8">${fmt(avg)} грн</div><div class="stat-label">Сер. чек</div></div>
     </div>
-
-    <div class="card" style="margin-bottom:12px">
+    <div class="card">
       <div class="section-title" style="margin-top:0">По днях тижня</div>
       <div style="display:flex;align-items:flex-end;gap:5px;height:80px">
-        ${byDay.map(({label,rev})=>`
-          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
-            <div style="font-size:9px;color:#4E5460">${rev>0?fmt(rev/1000)+'к':''}</div>
-            <div style="width:100%;background:${rev>0?'linear-gradient(to top,#6B6380,#A89BC2)':'#2C2F35'};border-radius:3px 3px 0 0;height:${Math.max((rev/maxDay)*65,rev>0?3:2)}px"></div>
-            <div style="font-size:10px;color:#848A96">${label}</div>
-          </div>`).join('')}
+        ${byDay.map(({label,rev})=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="font-size:9px;color:#4E5460">${rev>0?fmt(rev/1000)+'к':''}</div>
+          <div style="width:100%;background:${rev>0?'linear-gradient(to top,#6B6380,#A89BC2)':'#2C2F35'};border-radius:3px 3px 0 0;height:${Math.max((rev/maxDay)*65,rev>0?3:2)}px"></div>
+          <div style="font-size:10px;color:#848A96">${label}</div>
+        </div>`).join('')}
       </div>
     </div>
-
-    <div class="card" style="margin-bottom:12px">
+    <div class="card">
       <div class="section-title" style="margin-top:0">Послуги</div>
-      ${byService.length===0?`<div style="color:#4E5460;text-align:center;padding:20px 0">Немає даних</div>`
-        :byService.map(s=>`
-          <div style="margin-bottom:12px">
-            <div style="display:flex;justify-content:space-between;margin-bottom:5px">
-              <span style="font-size:13px;color:#ECEEF2">${s.name} <span style="color:#4E5460">×${s.count}</span></span>
-              <span style="font-weight:700;color:#C8CDD6">${fmt(s.rev)} грн</span>
-            </div>
-            <div class="progress"><div class="progress-fill" style="width:${(s.rev/maxSvc)*100}%"></div></div>
-          </div>`).join('')}
+      ${byService.length===0?'<div style="color:#4E5460;text-align:center;padding:20px 0">Немає даних</div>':
+        byService.map(s=>`<div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+            <span style="font-size:13px;color:#ECEEF2">${s.name} <span style="color:#4E5460">×${s.count}</span></span>
+            <span style="font-weight:700;color:#C8CDD6">${fmt(s.rev)} грн</span>
+          </div>
+          <div class="progress"><div class="progress-fill" style="width:${(s.rev/maxSvc)*100}%"></div></div>
+        </div>`).join('')}
     </div>
-
     <div class="card">
       <div class="section-title" style="margin-top:0">Останні закупівлі</div>
-      ${periodPurchases.length===0?`<div style="color:#4E5460;text-align:center;padding:20px 0">Немає закупівель за період</div>`
-        :periodPurchases.slice(-10).reverse().map(p=>`
-          <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2C2F3530">
-            <div>
-              <div style="font-size:13px;color:#ECEEF2">${p.materialName||'?'}</div>
-              <div style="font-size:11px;color:#848A96">${fmtDate(p.date)} · ${p.qty} од. ${p.discount?`· знижка ${p.discount}%`:''}</div>
-            </div>
-            <div style="font-weight:700;color:#C8CDD6;white-space:nowrap">${fmt(p.total)} грн</div>
-          </div>`).join('')}
+      ${periodPurchases.length===0?'<div style="color:#4E5460;text-align:center;padding:20px 0">Немає закупівель</div>':
+        periodPurchases.slice(-8).reverse().map(p=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2C2F3530">
+          <div><div style="font-size:13px;color:#ECEEF2">${p.materialName||'?'}</div>
+          <div style="font-size:11px;color:#848A96">${fmtDateShort(p.date)} · ${p.qty} од.${p.discount?` · знижка ${p.discount}%`:''}</div></div>
+          <div style="font-weight:700;color:#C8CDD6;white-space:nowrap">${fmt(p.total)} грн</div>
+        </div>`).join('')}
     </div>`;
+
+  el.querySelectorAll('[data-period]').forEach(b=>b.addEventListener('click',()=>{analyticsPeriod=b.dataset.period;renderAnalytics();}));
 }
 
-window.setPeriod = (p) => { analyticsPeriod=p; renderAnalytics(); };
-
-// ── Render all ─────────────────────────────────────────────────
-function renderAll() {
-  const activeTab = document.querySelector('.tab.active')?.id?.replace('tab-','');
-  if(activeTab==='calendar') renderCalendar();
-  if(activeTab==='stock') renderStock();
-  if(activeTab==='services') renderServices();
-  if(activeTab==='analytics') renderAnalytics();
+// ═══════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════
+function render() {
+  if(currentTab==='calendar') renderCalendar();
+  else if(currentTab==='stock') renderStock();
+  else if(currentTab==='services') renderServices();
+  else if(currentTab==='analytics') renderAnalytics();
 }
 
-renderAll();
+render();
 </script>
 </body>
 </html>
