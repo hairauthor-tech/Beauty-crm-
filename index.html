@@ -388,7 +388,10 @@ function renderStock() {
           return `<div class="row-item" style="border-left:3px solid ${isLow?'#B87070':'#2C2F35'}">
             <div class="row-item-left">
               <div class="row-item-name">${m.name} ${isLow?'<span class="badge badge-low">Мало</span>':''}</div>
-              <div class="row-item-sub">Сер. ціна: ${fmt(m.avgPrice||m.price||0)} грн/од.</div>
+              <div class="row-item-sub">
+                ${m.packSize?`${fmt(m.qty*(m.packSize||0))} ${m.unit} залишок · `:''} 
+                ${fmt(m.avgPricePerUnit||m.pricePerUnit||0)} грн/${m.unit||'од.'}
+              </div>
             </div>
             <div class="row-item-right">
               <div class="row-item-val" style="color:${isLow?'#B87070':'#C4BAD8'}">${m.qty} ${m.unit}</div>
@@ -533,21 +536,73 @@ function openMatModal(id) {
 
 function openSpendModal(id) {
   const m = materials.find(x=>x.id===id);
+  const hasGrams = m.packSize>0;
+  const totalGrams = hasGrams ? m.qty*m.packSize : null;
+  const pricePerG = m.avgPricePerUnit||m.pricePerUnit||0;
+  
   openModal(`
     <div class="modal-header"><div class="modal-title">Витрата: ${m.name}</div><button class="modal-close" id="mClose">${icon(ic.x,20)}</button></div>
-    <div class="field"><label>Кількість (${m.unit})</label><input type="number" id="sq" placeholder="0" step="0.1"/></div>
+    ${hasGrams?`<div class="card" style="background:#18191C;margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <span style="color:#848A96">В наявності:</span>
+        <span style="color:#C4BAD8;font-weight:700">${m.qty} шт = ${fmt(totalGrams)} ${m.unit}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:4px">
+        <span style="color:#848A96">Ціна за ${m.unit}:</span>
+        <span style="color:#C4BAD8;font-weight:700">${fmt(pricePerG)} грн</span>
+      </div>
+    </div>`:''}
+    <div class="field"><label>Списати (${m.unit})</label><input type="number" id="sq" placeholder="0" step="0.1"/></div>
+    <div class="card" id="spendCalc" style="background:#18191C;margin-bottom:14px;display:none;">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
+        <span style="color:#848A96">Вартість:</span><span id="spendCost" style="color:#B87070;font-weight:700">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <span style="color:#848A96">Залишок:</span><span id="spendRem" style="color:#C4BAD8;font-weight:700">—</span>
+      </div>
+    </div>
     <div class="field"><label>Дата</label><input type="date" id="sd" value="${today()}"/></div>
+    <div class="field"><label>Примітка (клієнт, послуга...)</label><input id="snote" placeholder="Фарбування Олени Ків."/></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" id="mCancel">Скасувати</button>
       <button class="btn btn-primary" id="mSave">Списати</button>
     </div>`);
   document.getElementById('mClose').onclick = closeModal;
   document.getElementById('mCancel').onclick = closeModal;
+  
+  document.getElementById('sq').addEventListener('input', e => {
+    const grams = +e.target.value||0;
+    if(grams>0 && hasGrams) {
+      const cost = grams*pricePerG;
+      const remGrams = Math.max(0,(totalGrams||0)-grams);
+      const remPacks = remGrams/m.packSize;
+      document.getElementById('spendCalc').style.display='block';
+      document.getElementById('spendCost').textContent = fmt(cost)+' грн';
+      document.getElementById('spendRem').textContent = fmt(remGrams)+' '+m.unit+' ('+remPacks.toFixed(2)+' шт)';
+    }
+  });
+  
   document.getElementById('mSave').onclick = async () => {
-    const qty=+document.getElementById('sq').value;
-    if(!qty){alert('Введіть кількість');return;}
-    await updateDoc(doc(db,'materials',id),{qty:Math.max(0,m.qty-qty)});
-    await addDoc(collection(db,'purchases'),{materialId:id,materialName:m.name,type:'spend',qty,date:document.getElementById('sd').value,price:m.avgPrice||m.price||0,total:qty*(m.avgPrice||m.price||0)});
+    const grams=+document.getElementById('sq').value;
+    const note=document.getElementById('snote').value;
+    if(!grams){alert('Введіть кількість');return;}
+    
+    let newQty, total;
+    if(hasGrams) {
+      const remGrams = Math.max(0,(totalGrams||0)-grams);
+      newQty = remGrams/m.packSize;
+      total = grams*pricePerG;
+    } else {
+      newQty = Math.max(0,m.qty-grams);
+      total = grams*(m.avgPrice||m.price||0);
+    }
+    
+    await updateDoc(doc(db,'materials',id),{qty:+newQty.toFixed(4)});
+    await addDoc(collection(db,'purchases'),{
+      materialId:id, materialName:m.name, type:'spend',
+      qty:grams, unit:m.unit, date:document.getElementById('sd').value,
+      price:pricePerG, total, note
+    });
     closeModal();
   };
 }
