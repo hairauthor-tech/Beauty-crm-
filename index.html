@@ -141,7 +141,8 @@ const db = getFirestore(initializeApp({
 
 // ── State ─────────────────────────────────
 let svcs=[], mats=[], appts=[], ops=[];
-let tab='cal', calDate=new Date().toISOString().slice(0,10), calView=1;
+const _now=new Date(); const _localDate=_now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0')+'-'+String(_now.getDate()).padStart(2,'0');
+let tab='cal', calDate=_localDate, calView=1;
 let stockCat='Всі', stockQ='', period='month';
 
 // ── Utils ─────────────────────────────────
@@ -235,16 +236,17 @@ function drawCal() {
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px">
       <button class="bi" id="cprev">${svg(ic.l,18)}</button>
-      <div style="flex:1;text-align:center">
-        <div style="font-weight:700;font-size:15px">${lbl}</div>
+      <div style="flex:1;text-align:center;position:relative">
+        <div style="font-weight:700;font-size:15px;cursor:pointer" id="cdatelbl">${lbl}</div>
         <div style="font-size:11px;color:#4E5460">${appts.filter(a=>a.date===calDate&&a.status==='pending').length} очікує</div>
+        <input type="date" id="cdatepick" style="position:absolute;opacity:0;width:100%;height:100%;top:0;left:0;cursor:pointer" value="${calDate}"/>
       </div>
       <button class="bi" id="cnext">${svg(ic.r,18)}</button>
       <button class="btn bp bs" id="cadd">${svg(ic.plus,14)} Запис</button>
     </div>
     <div class="vc">
       <button class="vb ${calView===1?'on':''}" data-cv="1">День</button>
-      <button class="vb ${calView===3?'on':''}" data-cv="3">3 дні</button>
+      <button class="vb ${calView===3?'on':''}" data-cv="2">2 дні</button>
       <button class="vb ${calView===7?'on':''}" data-cv="7">Тиждень</button>
     </div>
     <div class="cal-wrap">
@@ -257,6 +259,7 @@ function drawCal() {
   $('cprev').onclick = () => { calDate=addDays(calDate,-calView); drawCal(); };
   $('cnext').onclick = () => { calDate=addDays(calDate,calView); drawCal(); };
   $('cadd').onclick = () => apptModal(null, calDate, '10:00');
+  const dp = $('cdatepick'); if(dp) dp.addEventListener('change', e=>{ calDate=e.target.value; drawCal(); });
   el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{ calView=+b.dataset.cv; drawCal(); }));
   el.querySelectorAll('.tc').forEach(c=>c.addEventListener('click',e=>{ if(!e.target.closest('.ab')) apptModal(null,c.dataset.d,c.dataset.h); }));
   el.querySelectorAll('.ab').forEach(b=>b.addEventListener('click',e=>{ e.stopPropagation(); const a=appts.find(x=>x.id===b.dataset.aid); if(a) apptModal(a,a.date,a.time); }));
