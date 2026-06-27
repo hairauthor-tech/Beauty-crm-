@@ -171,7 +171,7 @@ const svg = (d,s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBo
 onSnapshot(collection(db,'services'), s => { svcs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name)); draw(); });
 onSnapshot(collection(db,'materials'), s => { mats=s.docs.map(d=>({id:d.id,...d.data()})); draw(); });
 onSnapshot(query(collection(db,'appointments'),orderBy('date'),orderBy('time')), s => { appts=s.docs.map(d=>({id:d.id,...d.data()})); draw(); });
-onSnapshot(query(collection(db,'operations'),orderBy('date')), s => { ops=s.docs.map(d=>({id:d.id,...d.data()})); draw(); });
+onSnapshot(query(collection(db,'purchases'),orderBy('date')), s => { ops=s.docs.map(d=>({id:d.id,...d.data()})); draw(); });
 
 // ── Header ────────────────────────────────
 $('hdate').textContent = fmtL(today());
@@ -461,7 +461,7 @@ function spendModal(id) {
     else { newQty=Math.max(0,m.qty-q); }
     const total=byG?q*ppu:q*(m.avgPrice||m.price||0);
     await updateDoc(doc(db,'materials',id),{qty:+newQty.toFixed(4)});
-    await addDoc(collection(db,'operations'),{matId:id,matName:m.name,type:'spend',qty:q,unit,total,date:$('sdate').value,note:$('snote').value});
+    await addDoc(collection(db,'purchases'),{matId:id,matName:m.name,type:'spend',qty:q,unit,total,date:$('sdate').value,note:$('snote').value});
     hide();
   };
 }
@@ -509,7 +509,7 @@ function receiveModal() {
     const newQ=oldQ+qty, newAvg=(oldQ*oldAvg+qty*dp)/newQ;
     const newPPU = m.volPerUnit>0 ? newAvg/m.volPerUnit : 0;
     await updateDoc(doc(db,'materials',mid),{qty:newQ,avgPrice:newAvg,avgPricePerUnit:newPPU});
-    await addDoc(collection(db,'operations'),{matId:mid,matName:m.name,type:'receive',qty,unit:'шт',price:dp,origPrice:price,disc,total:qty*dp,date:$('rdate').value,note:$('rnote').value});
+    await addDoc(collection(db,'purchases'),{matId:mid,matName:m.name,type:'receive',qty,unit:'шт',price:dp,origPrice:price,disc,total:qty*dp,date:$('rdate').value,note:$('rnote').value});
     hide();
   };
 }
@@ -543,7 +543,7 @@ function historyModal() {
         const nq = b.dataset.otype==='receive' ? Math.max(0,m.qty-q) : m.qty+q;
         await updateDoc(doc(db,'materials',b.dataset.omid),{qty:+nq.toFixed(4)});
       }
-      await deleteDoc(doc(db,'operations',b.dataset.oid));
+      await deleteDoc(doc(db,'purchases',b.dataset.oid));
       hide();
     });
   });
