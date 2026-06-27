@@ -577,9 +577,20 @@ function svcModal(id) {
   show(`
     <div class="mh"><div class="mt">${id?'Редагувати':'Нова послуга'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
     <div class="field"><label>Назва</label><input id="sn" value="${s?.name||''}" placeholder="Стрижка, Фарбування..."/></div>
-    <div class="g2">
-      <div class="field"><label>Ціна (грн)</label><input type="number" id="sp" value="${s?.price||0}"/></div>
-      <div class="field"><label>Тривалість (хв)</label><input type="number" id="sd" value="${s?.duration||60}"/></div>
+    <div class="field"><label>Ціна (грн)</label><input type="number" id="sp" value="${s?.price||0}"/></div>
+    <div class="field"><label>Тривалість</label>
+      <div class="g2">
+        <div style="position:relative">
+          <select id="sdh" style="width:100%;background:#18191C;border:1px solid #2C2F35;border-radius:8px;padding:9px 12px;color:#ECEEF2;font-size:14px;outline:none;">
+            ${Array.from({length:9},(_,i)=>`<option value="${i}" ${Math.floor((s?.duration||60)/60)===i?'selected':''}>${i} год</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <select id="sdm" style="width:100%;background:#18191C;border:1px solid #2C2F35;border-radius:8px;padding:9px 12px;color:#ECEEF2;font-size:14px;outline:none;">
+            ${[0,15,30,45].map(m=>`<option value="${m}" ${(s?.duration||60)%60===m?'selected':''}>${m} хв</option>`).join('')}
+          </select>
+        </div>
+      </div>
     </div>
     <div class="mf">
       <button class="btn bg" id="scancel">Скасувати</button>
@@ -587,7 +598,7 @@ function svcModal(id) {
     </div>`);
   $('mx').onclick=hide; $('scancel').onclick=hide;
   $('ssave').onclick=async()=>{
-    const d={name:$('sn').value,price:+$('sp').value,duration:+$('sd').value};
+    const d={name:$('sn').value,price:+$('sp').value,duration:+$('sdh').value*60 + +$('sdm').value};
     if(!d.name||!d.price){alert('Заповніть поля');return;}
     if(id)await updateDoc(doc(db,'services',id),d);
     else await addDoc(collection(db,'services'),d);
