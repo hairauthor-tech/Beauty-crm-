@@ -224,10 +224,14 @@ function dayColor(date) {
 function dayRing(date) {
   const total=getWorkMins(date); if(!total) return '';
   const pct=Math.min(getBookedMins(date)/total,1);
-  const r=9,circ=2*Math.PI*r,dash=pct*circ,color=dayColor(date);
+  const r=9,circ=2*Math.PI*r,color=dayColor(date);
+  // For full circle (pct=1): dash=circ, gap=0, no offset needed
+  const dash=pct>=1?circ:pct*circ;
+  const gap=pct>=1?0:circ-dash;
+  const offset=pct>=1?0:circ/4;
   return `<svg width="26" height="26" style="position:absolute;top:-2px;left:50%;transform:translateX(-50%)" viewBox="0 0 26 26">
     <circle cx="13" cy="13" r="${r}" fill="none" stroke="rgba(128,128,128,.2)" stroke-width="2"/>
-    ${pct>0?`<circle cx="13" cy="13" r="${r}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
+    ${pct>0?`<circle cx="13" cy="13" r="${r}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" stroke-linecap="${pct>=1?'butt':'round'}"/>`:''}
   </svg>`;
 }
 
@@ -289,7 +293,7 @@ function drawCal(){
       const da=appts.filter(a=>a.date===d&&a.time&&+a.time.split(':')[0]===h);
       const blocks=da.map(a=>{
         const svc=svcs.find(s=>s.id===a.serviceId);
-        const dur=svc?.duration||60;
+        const dur=a.customDuration||svc?.duration||60;
         const min=+(a.time.split(':')[1]||0);
         const cls=a.status==='done'?'adn':a.status==='cancelled'?'ac':'ap';
         const topPx=(min/60)*60;
@@ -309,20 +313,25 @@ function drawCal(){
   }).join('');
 
   el.innerHTML=`
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-      <button class="bi" id="cprev">${svg(ic.l,18)}</button>
-      <div style="flex:1;text-align:center;cursor:pointer" id="cdatelbl">
-        <div style="font-weight:700;font-size:15px">${lbl}</div>
-        <div style="font-size:11px;color:var(--dim)">${pending} очікує</div>
+    <div style="cursor:pointer;margin-bottom:10px" id="cdatelbl">
+      <div style="font-size:11px;color:var(--mut);text-align:center;margin-bottom:4px">Натисни щоб відкрити календар</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px">
+        <button class="bi" id="cprev" style="flex-shrink:0">${svg(ic.l,18)}</button>
+        <div style="text-align:center">
+          <div style="font-weight:700;font-size:15px">${lbl}</div>
+          <div style="font-size:11px;color:var(--dim)">${pending} очікує</div>
+        </div>
+        <button class="bi" id="cnext" style="flex-shrink:0">${svg(ic.r,18)}</button>
       </div>
-      <button class="bi" id="cnext">${svg(ic.r,18)}</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">
+      <div class="vc" style="flex:1;margin-bottom:0">
+        <button class="vb ${calView===1?'on':''}" data-cv="1">День</button>
+        <button class="vb ${calView===2?'on':''}" data-cv="2">2 дні</button>
+        <button class="vb ${calView===7?'on':''}" data-cv="7">Тиждень</button>
+      </div>
       <button class="btn bp bs" id="cadd">${svg(ic.plus,14)} Запис</button>
       <button class="bi" id="csched">⚙️</button>
-    </div>
-    <div class="vc">
-      <button class="vb ${calView===1?'on':''}" data-cv="1">День</button>
-      <button class="vb ${calView===2?'on':''}" data-cv="2">2 дні</button>
-      <button class="vb ${calView===7?'on':''}" data-cv="7">Тиждень</button>
     </div>
     <div class="cal-wrap">
       <div class="cal-grid">
@@ -334,7 +343,9 @@ function drawCal(){
   $('cprev').onclick=()=>{calDate=addDays(calDate,-calView);drawCal();};
   $('cnext').onclick=()=>{calDate=addDays(calDate,calView);drawCal();};
   $('cadd').onclick=()=>apptModal(null,calDate,'10:00');
-  $('cdatelbl').onclick=()=>miniCalModal();
+  $('cdatelbl').addEventListener('click',e=>{
+    if(!e.target.closest('#cprev')&&!e.target.closest('#cnext'))miniCalModal();
+  });
   $('csched').onclick=()=>schedModal();
   el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{calView=+b.dataset.cv;drawCal();}));
   el.querySelectorAll('.tc').forEach(c=>c.addEventListener('click',e=>{
@@ -364,16 +375,36 @@ function drawCal(){
       clearTimeout(pressTimer);
       if(dragging){block.style.opacity='';block.style.transform='';dragging=false;dragA=null;}
     });
+    let lastUpdate=0;
     block.addEventListener('touchmove',async e=>{
       clearTimeout(pressTimer);
       if(!dragging||!dragA)return;
       e.preventDefault();
+      const now3=Date.now();
+      if(now3-lastUpdate<300)return; // throttle
       const touch=e.touches[0];
-      const el2=document.elementFromPoint(touch.clientX,touch.clientY);
-      const cell=el2?.closest('.tc');
-      if(cell&&cell.dataset.h&&(cell.dataset.d!==dragA.date||cell.dataset.h!==dragA.time)){
-        const newTime=cell.dataset.h;
-        const newDate=cell.dataset.d;
+      // Calculate time from Y position
+      const calWrap=document.querySelector('.cal-wrap');
+      if(!calWrap)return;
+      const rect=calWrap.getBoundingClientRect();
+      const colsEl=document.querySelector('.cal-cols');
+      const timesW=44;
+      // Find which day column
+      const relX=touch.clientX-rect.left-timesW;
+      const colW=colsEl?.offsetWidth/calView||80;
+      const colIdx=Math.max(0,Math.min(calView-1,Math.floor(relX/colW)));
+      const dates2=Array.from({length:calView},(_,i)=>addDays(calDate,i));
+      const newDate=dates2[colIdx]||dragA.date;
+      // Find time from Y
+      const hdrH=document.querySelector('.col-hdr')?.offsetHeight||32;
+      const relY=touch.clientY-rect.top-hdrH+calWrap.scrollTop;
+      const totalMins=Math.max(0,Math.floor(relY/60*60));
+      const h=Math.floor(totalMins/60)+8;
+      const m=Math.round((totalMins%60)/5)*5;
+      const hh=Math.min(20,Math.max(8,h));
+      const newTime=String(hh).padStart(2,'0')+':'+String(Math.min(55,m)).padStart(2,'0');
+      if(newDate!==dragA.date||newTime!==dragA.time){
+        lastUpdate=now3;
         await updateDoc(doc(db,'appointments',dragA.id),{date:newDate,time:newTime});
         dragA={...dragA,date:newDate,time:newTime};
       }
@@ -382,26 +413,40 @@ function drawCal(){
 
   // ── Resize (stretch) ──────────────────
   el.querySelectorAll('[data-resize]').forEach(handle=>{
-    let startY=0,origDur=0,resizeA=null;
+    let startY=0,origDur=0,resizeAid=null,origH=0;
     handle.addEventListener('touchstart',e=>{
       e.stopPropagation();
-      const aid=handle.dataset.resize;
-      resizeA=appts.find(x=>x.id===aid);
-      const svc=svcs.find(s=>s.id===resizeA?.serviceId);
+      resizeAid=handle.dataset.resize;
+      const ra=appts.find(x=>x.id===resizeAid);
+      const svc=svcs.find(s=>s.id===ra?.serviceId);
       origDur=svc?.duration||60;
+      origH=handle.closest('.ab')?.offsetHeight||origDur;
       startY=e.touches[0].clientY;
+      // Visually resize just this block
+      handle.closest('.ab').style.transition='none';
     },{passive:true});
     handle.addEventListener('touchmove',async e=>{
-      if(!resizeA)return;
+      if(!resizeAid)return;
       e.preventDefault();
       const dy=e.touches[0].clientY-startY;
       const newDur=Math.max(15,Math.round((origDur+dy/60*60)/15)*15);
-      const svc=svcs.find(s=>s.id===resizeA.serviceId);
-      if(svc&&newDur!==svc.duration){
-        await updateDoc(doc(db,'services',svc.id),{duration:newDur});
-      }
+      // Update visual size immediately
+      const newH=Math.max(24,(newDur/60)*60);
+      handle.closest('.ab').style.height=newH+'px';
     },{passive:false});
-    handle.addEventListener('touchend',()=>{resizeA=null;});
+    handle.addEventListener('touchend',async e=>{
+      if(!resizeAid)return;
+      const ab=handle.closest('.ab');
+      const newH=parseInt(ab.style.height)||origDur;
+      const newDur=Math.max(15,Math.round((newH/60)*60/15)*15);
+      const ra=appts.find(x=>x.id===resizeAid);
+      if(ra){
+        // Store custom duration per appointment, not service
+        await updateDoc(doc(db,'appointments',resizeAid),{customDuration:newDur});
+      }
+      ab.style.transition='';
+      resizeAid=null;
+    });
   });
 }
 
@@ -706,51 +751,101 @@ function spendModal(id){
   };
 }
 
+// Receive modal - multi-item with search
+let receiveItems = []; // [{matId, qty, price, disc}]
+let receiveSearch = '';
+
 function receiveModal(){
-  const opts=mats.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
-  show(`
-    <div class="mh"><div class="mt">Прихід товару</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-    <div class="field"><label>Матеріал</label><select id="rmat">${opts}</select></div>
+  receiveItems = [];
+  receiveSearch = '';
+  renderReceiveModal();
+}
+
+function renderReceiveModal(){
+  const fil = mats.filter(m=>!receiveSearch||m.name.toLowerCase().includes(receiveSearch.toLowerCase()));
+  const itemsHtml = receiveItems.map((it,idx)=>{
+    const m=mats.find(x=>x.id===it.matId);
+    const dp=(it.price||0)*(1-(it.disc||0)/100);
+    return `<div style="padding:10px;background:var(--surf);border:1px solid var(--brd);border-radius:8px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:13px;font-weight:600;color:var(--txt)">${m?.name||'?'}</span>
+        <button class="bi bs" data-rem="${idx}">${svg(ic.x,12,'var(--err)')}</button>
+      </div>
+      <div class="g3">
+        <div><label style="font-size:10px;color:var(--mut);display:block;margin-bottom:3px">К-сть</label>
+          <input type="number" step="0.5" value="${it.qty}" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--txt);font-size:13px;outline:none" data-qty="${idx}"/></div>
+        <div><label style="font-size:10px;color:var(--mut);display:block;margin-bottom:3px">Ціна (грн)</label>
+          <input type="number" value="${it.price}" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--txt);font-size:13px;outline:none" data-price="${idx}"/></div>
+        <div><label style="font-size:10px;color:var(--mut);display:block;margin-bottom:3px">Знижка %</label>
+          <input type="number" value="${it.disc||0}" min="0" max="100" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--txt);font-size:13px;outline:none" data-disc="${idx}"/></div>
+      </div>
+      <div style="font-size:11px;color:var(--mut);margin-top:6px">Сума: <b style="color:var(--acs)">${fmt(it.qty*dp)} грн</b> · Ціна зі знижкою: ${fmt(dp)} грн/шт</div>
+    </div>`;
+  }).join('');
+
+  const total=receiveItems.reduce((s,it)=>s+it.qty*(it.price||0)*(1-(it.disc||0)/100),0);
+
+  $('modal').innerHTML=`
+    <div class="mh"><div class="mt">📦 Прихід товару</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
     <div class="field"><label>Дата</label><input type="date" id="rdate" value="${today()}"/></div>
-    <div class="g2">
-      <div class="field"><label>Кількість (шт)</label><input type="number" id="rqty" value="1" step="0.5"/></div>
-      <div class="field"><label>Ціна за шт (грн)</label><input type="number" id="rprice" value="0"/></div>
+    <div class="field"><label>Примітка</label><input id="rnote" placeholder="Постачальник, накладна..."/></div>
+    ${receiveItems.length>0?`<div style="margin-bottom:10px">${itemsHtml}
+      <div style="text-align:right;font-size:14px;font-weight:700;color:var(--sil);padding:8px 0">Загальна сума: ${fmt(total)} грн</div>
+    </div>`:''}
+    <div style="font-size:12px;color:var(--mut);margin-bottom:8px">Додайте товари зі складу:</div>
+    <input id="rsearch" style="width:100%;background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;color:var(--txt);font-size:14px;outline:none;margin-bottom:10px" placeholder="🔍 Пошук товару..." value="${receiveSearch}"/>
+    <div style="max-height:200px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px;margin-bottom:14px">
+      ${fil.map(m=>`<div style="padding:10px 14px;border-bottom:1px solid var(--brd);cursor:pointer;display:flex;justify-content:space-between;align-items:center" data-add="${m.id}">
+        <span style="font-size:13px;color:var(--txt)">${m.name}</span>
+        <span style="font-size:12px;color:var(--mut)">${m.qty} шт · ${fmt(m.price||0)} грн</span>
+      </div>`).join('')}
     </div>
-    <div class="field"><label>Знижка (%)</label><input type="number" id="rdisc" value="0" min="0" max="100"/></div>
-    <div class="card" style="background:var(--surf);margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
-        <span style="color:var(--mut)">Ціна зі знижкою:</span><span id="rpd" style="font-weight:700;color:var(--acs)">—</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:13px">
-        <span style="color:var(--mut)">Загальна сума:</span><span id="rtot" style="font-weight:700;color:var(--sil)">—</span>
-      </div>
-    </div>
-    <div class="field"><label>Примітка</label><input id="rnote" placeholder="Постачальник..."/></div>
     <div class="mf">
       <button class="btn bg" id="rcancel">Скасувати</button>
-      <button class="btn bp" id="rsave">Оприбуткувати</button>
-    </div>`);
-  const calc=()=>{
-    const p=+$('rprice').value||0,d=+$('rdisc').value||0,q=+$('rqty').value||0;
-    const dp=p*(1-d/100);
-    $('rpd').textContent=fmt(dp)+' грн';
-    $('rtot').textContent=fmt(q*dp)+' грн';
-  };
-  const setP=()=>{const m=mats.find(x=>x.id===$('rmat').value);if(m)$('rprice').value=m.price||0;calc();};
-  $('rmat').onchange=setP; $('rprice').oninput=calc; $('rdisc').oninput=calc; $('rqty').oninput=calc;
-  setP();
+      <button class="btn bp" id="rsave" ${receiveItems.length===0?'disabled style="opacity:.5"':''}>Оприбуткувати (${receiveItems.length})</button>
+    </div>`;
+
   $('mx').onclick=hide; $('rcancel').onclick=hide;
-  $('rsave').onclick=async()=>{
-    const mid=$('rmat').value,qty=+$('rqty').value,price=+$('rprice').value,disc=+$('rdisc').value||0;
-    if(!qty||!price){alert('Заповніть кількість та ціну');return;}
-    const m=mats.find(x=>x.id===mid);
-    const dp=price*(1-disc/100),oldQ=m.qty||0,oldAvg=m.avgPrice||m.price||dp;
-    const newQ=oldQ+qty,newAvg=(oldQ*oldAvg+qty*dp)/newQ;
-    const newPPU=m.volPerUnit>0?newAvg/m.volPerUnit:0;
-    await updateDoc(doc(db,'materials',mid),{qty:newQ,avgPrice:newAvg,avgPricePerUnit:newPPU});
-    await addDoc(collection(db,'purchases'),{matId:mid,matName:m.name,type:'receive',qty,unit:'шт',price:dp,origPrice:price,disc,total:qty*dp,date:$('rdate').value,note:$('rnote').value});
-    hide();
-  };
+  $('rsearch').addEventListener('input',e=>{receiveSearch=e.target.value;renderReceiveModal();});
+  $('rsearch').focus();
+
+  $('modal').querySelectorAll('[data-add]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const m=mats.find(x=>x.id===el.dataset.add);
+      receiveItems.push({matId:el.dataset.add,qty:1,price:m?.price||0,disc:0});
+      receiveSearch='';
+      renderReceiveModal();
+    });
+  });
+  $('modal').querySelectorAll('[data-rem]').forEach(b=>{
+    b.addEventListener('click',()=>{receiveItems.splice(+b.dataset.rem,1);renderReceiveModal();});
+  });
+  $('modal').querySelectorAll('[data-qty]').forEach(inp=>{
+    inp.addEventListener('change',()=>{receiveItems[+inp.dataset.qty].qty=+inp.value||1;renderReceiveModal();});
+  });
+  $('modal').querySelectorAll('[data-price]').forEach(inp=>{
+    inp.addEventListener('change',()=>{receiveItems[+inp.dataset.price].price=+inp.value||0;renderReceiveModal();});
+  });
+  $('modal').querySelectorAll('[data-disc]').forEach(inp=>{
+    inp.addEventListener('change',()=>{receiveItems[+inp.dataset.disc].disc=+inp.value||0;renderReceiveModal();});
+  });
+
+  if(receiveItems.length>0){
+    $('rsave').onclick=async()=>{
+      const date=$('rdate').value, note=$('rnote').value;
+      for(const it of receiveItems){
+        const m=mats.find(x=>x.id===it.matId);
+        if(!m)continue;
+        const dp=(it.price||0)*(1-(it.disc||0)/100);
+        const oldQ=m.qty||0,oldAvg=m.avgPrice||m.price||dp;
+        const newQ=oldQ+it.qty,newAvg=(oldQ*oldAvg+it.qty*dp)/newQ;
+        const newPPU=m.volPerUnit>0?newAvg/m.volPerUnit:0;
+        await updateDoc(doc(db,'materials',it.matId),{qty:newQ,avgPrice:newAvg,avgPricePerUnit:newPPU});
+        await addDoc(collection(db,'purchases'),{matId:it.matId,matName:m.name,type:'receive',qty:it.qty,unit:'шт',price:dp,origPrice:it.price,disc:it.disc||0,total:it.qty*dp,date,note});
+      }
+      hide();
+    };
+  }
 }
 
 function historyModal(){
