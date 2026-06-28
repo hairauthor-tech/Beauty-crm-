@@ -149,6 +149,9 @@ let tab='cal', calDate=_localDate, calView=1;
 // Default schedule: Mon-Sat, 9:00-19:00
 let schedule = JSON.parse(localStorage.getItem('schedule')||'{"days":[1,2,3,4,5,6],"start":9,"end":19}');
 const saveSchedule = () => localStorage.setItem('schedule', JSON.stringify(schedule));
+// Day exceptions: {date: true/false} — override default schedule
+let exceptions = JSON.parse(localStorage.getItem('exceptions')||'{}');
+const saveExceptions = () => localStorage.setItem('exceptions', JSON.stringify(exceptions));
 let stockCat='Всі', stockQ='', period='month';
 
 // ── Utils ─────────────────────────────────
@@ -203,6 +206,113 @@ function hide() { $('overlay').classList.remove('show'); }
 $('overlay').addEventListener('click', e => { if(e.target===$('overlay')) hide(); });
 
 // ── DRAW ──────────────────────────────────
+// ── Mini Calendar Modal ───────────────────────────
+function miniCalModal() {
+  let viewMonth = new Date(calDate+'T12:00:00');
+  viewMonth.setDate(1);
+
+  function renderMiniCal() {
+    const year = viewMonth.getFullYear();
+    const month = viewMonth.getMonth();
+    const monthLabel = viewMonth.toLocaleDateString('uk-UA',{month:'long',year:'numeric'});
+
+    // First day of month (0=Sun)
+    const firstDay = new Date(year,month,1).getDay();
+    // Days in month
+    const daysInMonth = new Date(year,month+1,0).getDate();
+    // Offset for Mon-first grid
+    const offset = firstDay===0?6:firstDay-1;
+
+    let cells = '';
+    // Empty cells
+    for(let i=0;i<offset;i++) cells += '<div></div>';
+
+    for(let d=1;d<=daysInMonth;d++){
+      const dateStr = year+'-'+String(month+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      const isToday = dateStr===today();
+      const isSelected = dateStr===calDate;
+      const isWork = isWorkDay(dateStr);
+      const color = getDayColor(dateStr);
+      const booked = getBookedMinutes(dateStr);
+      const total = getWorkMinutes(dateStr);
+      const pct = total>0?Math.min(booked/total,1):0;
+      const r=9, circ=2*Math.PI*r;
+      const dash=pct*circ;
+
+      let ring = '';
+      if(isWork&&pct>0){
+        ring = `<svg width="100%" height="100%" viewBox="0 0 26 26" style="position:absolute;top:0;left:0">
+          <circle cx="13" cy="13" r="${r}" fill="none" stroke="#2C2F3540" stroke-width="2"/>
+          <circle cx="13" cy="13" r="${r}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>
+        </svg>`;
+      } else if(isWork&&pct===0&&total>0){
+        ring = `<svg width="100%" height="100%" viewBox="0 0 26 26" style="position:absolute;top:0;left:0">
+          <circle cx="13" cy="13" r="${r}" fill="none" stroke="#2C2F3540" stroke-width="2"/>
+        </svg>`;
+      }
+
+      const hasException = exceptions[dateStr]!==undefined;
+      const defaultWork = schedule.days.includes(new Date(dateStr+'T12:00:00').getDay());
+      cells += `<div style="position:relative;width:36px;height:36px;margin:2px auto;cursor:pointer" data-date="${dateStr}">
+        ${ring}
+        ${hasException?`<div data-toggle style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:${isWork?'#7BAF8A':'#4E5460'};border:1px solid #111214;z-index:3;cursor:pointer"></div>`:''}
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:${isSelected||isToday?'800':'500'};color:${isSelected?'#A89BC2':isToday?'#C4BAD8':isWork?'#ECEEF2':'#4E5460'};${isSelected?'text-decoration:underline;':''}">
+          ${d}
+        </div>
+        ${!hasException?`<div data-toggle title="${isWork?'Зробити вихідним':'Зробити робочим'}" style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:${isWork?'#2C2F35':'#2C2F35'};border:1px solid #4E5460;display:flex;align-items:center;justify-content:center;font-size:7px;color:#848A96;cursor:pointer;z-index:3">${isWork?'–':'+'}</div>`:''}
+      </div>`;
+    }
+
+    $('modal').innerHTML = `
+      <div class="mh">
+        <button class="bi" id="mprev">${svg(ic.l,18)}</button>
+        <div style="font-size:15px;font-weight:700;text-transform:capitalize">${monthLabel}</div>
+        <button class="bi" id="mnext">${svg(ic.r,18)}</button>
+        <button class="bi" id="mx">${svg(ic.x,18)}</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:10px;text-align:center">
+        ${['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map(d=>`<div style="font-size:10px;font-weight:700;color:#4E5460;padding:4px 0">${d}</div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">
+        ${cells}
+      </div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-top:14px;flex-wrap:wrap">
+        <span style="font-size:11px;color:#848A96"><span style="color:#7BAF8A">●</span> Вільно</span>
+        <span style="font-size:11px;color:#848A96"><span style="color:#D4A853">●</span> 50%+</span>
+        <span style="font-size:11px;color:#848A96"><span style="color:#E07B39">●</span> 75%+</span>
+        <span style="font-size:11px;color:#B87070">●</span><span style="font-size:11px;color:#848A96"> Заповнено</span>
+      </div>`;
+
+    $('mx').onclick = hide;
+    $('mprev').onclick = () => { viewMonth.setMonth(viewMonth.getMonth()-1); renderMiniCal(); };
+    $('mnext').onclick = () => { viewMonth.setMonth(viewMonth.getMonth()+1); renderMiniCal(); };
+    $('modal').querySelectorAll('[data-date]').forEach(el=>{
+      const d = el.dataset.date;
+      const work = isWorkDay(d);
+      el.addEventListener('click', e => {
+        if(e.target.closest('[data-toggle]')) return;
+        if(work){ calDate=d; hide(); drawCal(); }
+      });
+      // Toggle button on non-work days (and work days that are exceptions)
+      const toggleBtn = el.querySelector('[data-toggle]');
+      if(toggleBtn){
+        toggleBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          if(exceptions[d]===true){ delete exceptions[d]; }
+          else if(exceptions[d]===false){ delete exceptions[d]; }
+          else if(work){ exceptions[d]=false; }
+          else { exceptions[d]=true; }
+          saveExceptions();
+          renderMiniCal();
+        });
+      }
+    });
+  }
+
+  show('');
+  renderMiniCal();
+}
+
 // ── Schedule Modal ────────────────────────────────
 function scheduleModal() {
   const dayNames = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
@@ -259,8 +369,18 @@ function scheduleModal() {
 // ── Schedule helpers ──────────────────────────────
 function getWorkMinutes(date) {
   const d = new Date(date+'T12:00:00');
+  // Check exceptions first
+  if(exceptions[date] === true) return (schedule.end - schedule.start) * 60;
+  if(exceptions[date] === false) return 0;
+  // Default schedule
   if(!schedule.days.includes(d.getDay())) return 0;
   return (schedule.end - schedule.start) * 60;
+}
+
+function isWorkDay(date) {
+  if(exceptions[date] === true) return true;
+  if(exceptions[date] === false) return false;
+  return schedule.days.includes(new Date(date+'T12:00:00').getDay());
 }
 
 function getBookedMinutes(date) {
@@ -339,11 +459,9 @@ function drawCal() {
   el.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px">
       <button class="bi" id="cprev">${svg(ic.l,18)}</button>
-      <div style="flex:1;text-align:center;position:relative">
+      <div style="flex:1;text-align:center">
         <div style="font-weight:700;font-size:15px;cursor:pointer" id="cdatelbl">${lbl}</div>
         <div style="font-size:11px;color:#4E5460">${appts.filter(a=>a.date===calDate&&a.status==='pending').length} очікує</div>
-        <input type="date" id="cdatepick" style="position:absolute;opacity:0;width:100%;height:100%;top:0;left:0;cursor:pointer" value="${calDate}"/>
-        <div id="caldot" style="width:8px;height:8px;border-radius:50%;background:${getDayColor(calDate)};margin:2px auto 0;"></div>
       </div>
       <button class="bi" id="cnext">${svg(ic.r,18)}</button>
       <button class="btn bp bs" id="cadd">${svg(ic.plus,14)} Запис</button>
@@ -365,6 +483,7 @@ function drawCal() {
   $('cnext').onclick = () => { calDate=addDays(calDate,calView); drawCal(); };
   $('cadd').onclick = () => apptModal(null, calDate, '10:00');
   $('csched') && ($('csched').onclick = () => scheduleModal());
+  $('cdatelbl') && ($('cdatelbl').onclick = () => miniCalModal());
   const dp = $('cdatepick'); if(dp) dp.addEventListener('change', e=>{ calDate=e.target.value; drawCal(); });
   el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{ calView=+b.dataset.cv; drawCal(); }));
   el.querySelectorAll('.tc').forEach(c=>c.addEventListener('click',e=>{ if(!e.target.closest('.ab')) apptModal(null,c.dataset.d,c.dataset.h); }));
