@@ -694,5 +694,14 @@ function drawStats() {
 
 draw();
 </script>
+<script>
+// Force fresh version every time
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+}
+// Add random version to all future fetches
+const _v = Date.now();
+window.__v = _v;
+</script>
 </body>
 </html>
