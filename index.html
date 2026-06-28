@@ -2,6 +2,9 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
 <title>Beauty CRM</title>
 <style>
@@ -170,7 +173,10 @@ const svg = (d,s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBo
 // ── Firebase ──────────────────────────────
 onSnapshot(collection(db,'services'), s => { svcs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name)); draw(); });
 onSnapshot(collection(db,'materials'), s => { mats=s.docs.map(d=>({id:d.id,...d.data()})); draw(); });
-onSnapshot(query(collection(db,'appointments'),orderBy('date'),orderBy('time')), s => { appts=s.docs.map(d=>({id:d.id,...d.data()})); draw(); });
+onSnapshot(collection(db,'appointments'), s => { 
+  appts=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.date===b.date?a.time.localeCompare(b.time):a.date.localeCompare(b.date)); 
+  draw(); 
+});
 onSnapshot(query(collection(db,'purchases'),orderBy('date')), s => { ops=s.docs.map(d=>({id:d.id,...d.data()})); draw(); });
 
 // ── Header ────────────────────────────────
