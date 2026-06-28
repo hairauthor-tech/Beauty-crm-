@@ -2,106 +2,114 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8"/>
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
-<meta http-equiv="Pragma" content="no-cache"/>
-<meta http-equiv="Expires" content="0"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
 <title>Beauty CRM</title>
 <style>
+:root{
+  --bg:#111214;--surf:#18191C;--card:#1E2024;--brd:#2C2F35;
+  --txt:#ECEEF2;--mut:#848A96;--dim:#4E5460;
+  --acc:#A89BC2;--acs:#C4BAD8;--sil:#C8CDD6;
+  --ok:#7BAF8A;--err:#B87070;--wrn:#C4A46A;
+}
+.light{
+  --bg:#F2F2F7;--surf:#FFFFFF;--card:#FFFFFF;--brd:#E0E0E5;
+  --txt:#1A1A1E;--mut:#6B6B70;--dim:#AEAEB2;
+  --acc:#7B6FA0;--acs:#9B8FC0;--sil:#3A3A3C;
+  --ok:#3A8A50;--err:#C0392B;--wrn:#B8860B;
+}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-body{background:var(--bg,#111214);color:var(--text,#ECEEF2);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;overflow-x:hidden;}
-:root{--bg:#111214;--surface:#18191C;--card:#1E2024;--border:#2C2F35;--text:#ECEEF2;--textMuted:#848A96;--textDim:#4E5460;--accent:#A89BC2;--accentSoft:#C4BAD8;--silver:#C8CDD6;}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;overflow-x:hidden;transition:background .2s,color .2s;}
 button,input,select,textarea{font-family:inherit;}
 ::-webkit-scrollbar{display:none;}
-.header{background:var(--surface);border-bottom:1px solid #2C2F35;padding:12px 16px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:50;}
+.hdr{background:var(--surf);border-bottom:1px solid var(--brd);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
+.hdr-l{display:flex;align-items:center;gap:10px;}
 .logo{background:linear-gradient(135deg,#6B6380,#A89BC2);border-radius:9px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .content{padding:16px;padding-bottom:80px;min-height:100vh;}
-.bnav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:50;}
-.nb{flex:1;background:none;border:none;cursor:pointer;padding:10px 4px 14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--textDim);font-size:10px;font-weight:500;}
-.nb.on{color:var(--accentSoft);}
+.bnav{position:fixed;bottom:0;left:0;right:0;background:var(--surf);border-top:1px solid var(--brd);display:flex;z-index:50;}
+.nb{flex:1;background:none;border:none;cursor:pointer;padding:10px 4px 14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--dim);font-size:10px;font-weight:500;}
+.nb.on{color:var(--acs);}
 .nb svg{width:20px;height:20px;}
-.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
+.card{background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:14px 16px;margin-bottom:10px;}
 .btn{padding:9px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;border:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;}
-.bp{background:#A89BC2;color:#fff;}
-.bg{background:transparent;border:1px solid var(--border);color:var(--textMuted);}
-.bd{background:#B87070;color:#fff;}
+.bp{background:var(--acc);color:#fff;}
+.bg{background:transparent;border:1px solid var(--brd);color:var(--mut);}
+.bd{background:var(--err);color:#fff;}
 .bs{padding:6px 11px;font-size:12px;}
-.bi{padding:6px 8px;background:transparent;border:1px solid var(--border);border-radius:7px;cursor:pointer;color:var(--textMuted);display:inline-flex;align-items:center;}
+.bi{padding:6px 8px;background:transparent;border:1px solid var(--brd);border-radius:7px;cursor:pointer;color:var(--mut);display:inline-flex;align-items:center;}
 .field{margin-bottom:13px;}
-.field label{display:block;color:#848A96;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;}
-.field input,.field select,.field textarea{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:14px;outline:none;}
+.field label{display:block;color:var(--mut);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;}
+.field input,.field select,.field textarea{width:100%;background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;color:var(--txt);font-size:14px;outline:none;}
 .field textarea{resize:vertical;min-height:58px;}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:200;display:none;align-items:flex-end;}
 .overlay.show{display:flex;}
-.modal{background:var(--card);border:1px solid var(--border);border-radius:16px 16px 0 0;width:100%;max-height:92vh;overflow-y:auto;padding:20px 16px 30px;}
+.modal{background:var(--card);border:1px solid var(--brd);border-radius:16px 16px 0 0;width:100%;max-height:92vh;overflow-y:auto;padding:20px 16px 30px;}
 .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
 .mt{font-size:16px;font-weight:700;}
 .mf{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;}
-.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;}
-.bd2{background:#B8707022;color:#B87070;}
-.bg2{background:#7BAF8A22;color:#7BAF8A;}
-.bo{background:#C4A46A22;color:#C4A46A;}
 .chips{display:flex;gap:5px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px;}
-.chip{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--textMuted);white-space:nowrap;}
-.chip.on{background:#A89BC2;color:#fff;border-color:#A89BC2;}
-.sec{color:#848A96;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:16px 0 8px;}
-.ri{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;}
+.chip{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--brd);background:transparent;color:var(--mut);white-space:nowrap;}
+.chip.on{background:var(--acc);color:#fff;border-color:var(--acc);}
+.sec{color:var(--mut);font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:16px 0 8px;}
+.ri{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border:1px solid var(--brd);border-radius:10px;margin-bottom:8px;}
 .rl{flex:1;min-width:0;}
-.rn{font-weight:600;font-size:14px;color:#ECEEF2;}
-.rs{font-size:12px;color:#848A96;margin-top:2px;}
+.rn{font-weight:600;font-size:14px;color:var(--txt);}
+.rs{font-size:12px;color:var(--mut);margin-top:2px;}
 .rr{text-align:right;flex-shrink:0;}
-.rv{font-weight:700;font-size:15px;color:#C8CDD6;}
-.ra{font-size:11px;color:#4E5460;}
+.rv{font-weight:700;font-size:15px;color:var(--sil);}
+.ra{font-size:11px;color:var(--dim);}
 .rac{display:flex;gap:5px;flex-shrink:0;}
 .alert{border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;font-size:13px;}
-.ad{background:#B8707012;border:1px solid #B8707044;color:#B87070;}
+.ad{background:rgba(184,112,112,.1);border:1px solid rgba(184,112,112,.4);color:var(--err);}
 .sg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
-.sc{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;text-align:center;}
+.sc{background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:14px;text-align:center;}
 .sv{font-weight:800;font-size:20px;margin-bottom:3px;}
-.sl{color:#ECEEF2;font-size:12px;font-weight:600;}
-.ss{color:#848A96;font-size:11px;margin-top:2px;}
-.pb{background:var(--border);border-radius:4px;height:5px;overflow:hidden;margin-top:5px;}
+.sl{color:var(--txt);font-size:12px;font-weight:600;}
+.ss{color:var(--mut);font-size:11px;margin-top:2px;}
+.pb{background:var(--brd);border-radius:4px;height:5px;overflow:hidden;margin-top:5px;}
 .pf{height:100%;border-radius:4px;background:linear-gradient(to right,#6B6380,#C4BAD8);}
-.empty{text-align:center;color:#4E5460;padding:50px 0;font-size:14px;}
+.empty{text-align:center;color:var(--dim);padding:50px 0;font-size:14px;}
 .tab{display:none;}
 .tab.on{display:block;}
 input[type=date],input[type=time]{color-scheme:dark;}
+.light input[type=date],.light input[type=time]{color-scheme:light;}
+/* Calendar */
 .cal-wrap{overflow-x:auto;}
-.cal-grid{display:flex;min-width:100%;}
+.cal-grid{display:flex;}
 .cal-times{width:44px;flex-shrink:0;}
-.tl{height:60px;min-height:60px;max-height:60px;display:flex;align-items:flex-start;justify-content:flex-end;padding:4px 6px 0 0;color:var(--textDim);font-size:10px;border-bottom:1px solid var(--border);}
+.tl{height:60px;min-height:60px;display:flex;align-items:flex-start;justify-content:flex-end;padding:4px 6px 0 0;color:var(--dim);font-size:10px;border-bottom:1px solid var(--brd);}
 .cal-cols{display:flex;flex:1;}
-.cal-col{flex:1;min-width:75px;border-left:1px solid var(--border);}
-.col-hdr{text-align:center;padding:6px 2px;font-size:10px;font-weight:700;color:var(--textMuted);border-bottom:1px solid var(--border);background:var(--surface);}
-.col-hdr.tod{color:#A89BC2;}
-.tc{height:60px;min-height:60px;max-height:60px;border-bottom:1px solid var(--border);position:relative;cursor:pointer;}
-.tc:active{background:#A89BC210;}
-.ab{position:absolute;left:2px;right:2px;border-radius:6px;padding:3px 5px;overflow:hidden;z-index:2;cursor:grab;touch-action:none;user-select:none;}
-.ab.dragging{opacity:0.5;cursor:grabbing;z-index:10;}
-.ab .resize-handle{position:absolute;bottom:0;left:0;right:0;height:8px;cursor:ns-resize;background:linear-gradient(transparent,rgba(255,255,255,0.15));border-radius:0 0 6px 6px;}
-.tc.drag-over{background:#A89BC220;}
-.ap{background:#A89BC233;border-left:3px solid #A89BC2;}
-.ad2{background:#7BAF8A22;border-left:3px solid #7BAF8A;}
-.ac{background:#B8707022;border-left:3px solid #B87070;}
-.an{font-size:11px;font-weight:700;color:#ECEEF2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.at{font-size:9px;color:#848A96;}
+.cal-col{flex:1;min-width:80px;border-left:1px solid var(--brd);}
+.col-hdr{text-align:center;padding:6px 2px 8px;font-size:10px;font-weight:700;color:var(--mut);border-bottom:1px solid var(--brd);background:var(--surf);position:relative;}
+.col-hdr.tod{color:var(--acc);}
+.tc{height:60px;min-height:60px;border-bottom:1px solid rgba(128,128,128,.1);position:relative;cursor:pointer;}
+.ab{position:absolute;left:2px;right:2px;border-radius:6px;padding:3px 5px;overflow:hidden;z-index:2;cursor:pointer;touch-action:none;}
+.ap{background:rgba(168,155,194,.2);border-left:3px solid var(--acc);}
+.adn{background:rgba(123,175,138,.15);border-left:3px solid var(--ok);}
+.ac{background:rgba(184,112,112,.15);border-left:3px solid var(--err);}
+.an{font-size:11px;font-weight:700;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.at{font-size:9px;color:var(--mut);}
+.ab-resize{position:absolute;bottom:0;left:0;right:0;height:10px;display:flex;align-items:center;justify-content:center;cursor:ns-resize;}
+.ab-resize-bar{width:20px;height:2px;background:rgba(255,255,255,.3);border-radius:2px;}
 .vc{display:flex;gap:4px;margin-bottom:10px;}
-.vb{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--textMuted);}
-.vb.on{background:#A89BC2;color:#fff;border-color:#A89BC2;}
+.vb{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--brd);background:transparent;color:var(--mut);}
+.vb.on{background:var(--acc);color:#fff;border-color:var(--acc);}
 </style>
 </head>
 <body>
-<div class="header">
-  <div class="logo">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3a3 3 0 110 6 3 3 0 010-6zM18 3a3 3 0 110 6 3 3 0 010-6zM8.22 8.22l7.56 7.56M16.73 14.27l1.5 1.5a3 3 0 11-4.24 4.24l-1.5-1.5M7.27 9.73L5.77 8.23A3 3 0 111.53 4"/></svg>
+<div class="hdr">
+  <div class="hdr-l">
+    <div class="logo">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3a3 3 0 110 6 3 3 0 010-6zM18 3a3 3 0 110 6 3 3 0 010-6zM8.22 8.22l7.56 7.56M16.73 14.27l1.5 1.5a3 3 0 11-4.24 4.24l-1.5-1.5M7.27 9.73L5.77 8.23A3 3 0 111.53 4"/></svg>
+    </div>
+    <div>
+      <div style="font-weight:800;font-size:14px">Beauty CRM</div>
+      <div style="font-size:10px;color:var(--dim)" id="hdate"></div>
+    </div>
   </div>
-  <div>
-    <div style="font-weight:800;font-size:14px">Beauty CRM</div>
-    <div style="font-size:10px;color:#4E5460" id="hdate"></div>
-  </div>
-  <button id="themeBtn" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:18px;padding:4px" title="Змінити тему">🌙</button>
+  <button class="bi" id="themeBtn" style="font-size:18px;border:none;background:transparent">🌙</button>
 </div>
 
 <div class="content">
@@ -147,98 +155,98 @@ const db = getFirestore(initializeApp({
   appId:"1:1011794290495:web:d5dac454ea696e4924158a"
 }));
 
-// ── Theme ─────────────────────────────────
-let isDark = localStorage.getItem('theme')!=='light';
-const DARK = {bg:'#111214',surface:'#18191C',card:'#1E2024',border:'#2C2F35',text:'#ECEEF2',textMuted:'#848A96',textDim:'#4E5460',input:'#18191C'};
-const LIGHT = {bg:'#F5F5F7',surface:'#FFFFFF',card:'#FFFFFF',border:'#E0E0E5',text:'#1A1A2E',textMuted:'#6B7280',textDim:'#9CA3AF',input:'#F9F9FB'};
-
-!important;border-color:${t.border}!important;}
-    .card,.modal,.sc{background:${t.card}!important;border-color:${t.border}!important;}
-    .nb{color:${t.textDim}!important;} .nb.on{color:#A89BC2!important;}
-    .field input,.field select,.field textarea{background:${t.input}!important;border-color:${t.border}!important;color:${t.text}!important;}
-    .ri{background:${t.card}!important;border-color:${t.border}!important;}
-    .chip{border-color:${t.border}!important;color:${t.textMuted}!important;}
-    .tc{border-color:${t.border}44!important;}
-    .tl{color:${t.textDim}!important;border-color:${t.border}22!important;}
-    .col-hdr{background:${t.surface}!important;color:${t.textMuted}!important;border-color:${t.border}!important;}
-    .sec{color:${t.textMuted}!important;}
-    .rn{color:${t.text}!important;} .rs,.ra{color:${t.textMuted}!important;}
-    .sl{color:${t.text}!important;} .ss{color:${t.textMuted}!important;}
-  `;
-  if(!document.getElementById('themeStyle')) document.head.appendChild(style);
-  else document.head.replaceChild(style,document.getElementById('themeStyle'));
-  const btn=document.getElementById('themeBtn');
-  if(btn) btn.textContent=isDark?'🌙':'☀️';
-}
-
 // ── State ─────────────────────────────────
 let svcs=[], mats=[], appts=[], ops=[];
-const _now=new Date(); const _localDate=_now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0')+'-'+String(_now.getDate()).padStart(2,'0');
-let tab='cal', calDate=_localDate, calView=1;
-// Default schedule: Mon-Sat, 9:00-19:00
-let theme = localStorage.getItem('theme')||'dark';
-const applyTheme = () => {
-  const t = theme==='dark';
-  document.documentElement.style.setProperty('--bg', t?'#111214':'#F5F5F7');
-  document.documentElement.style.setProperty('--surface', t?'#18191C':'#FFFFFF');
-  document.documentElement.style.setProperty('--card', t?'#1E2024':'#FFFFFF');
-  document.documentElement.style.setProperty('--border', t?'#2C2F35':'#E0E0E5');
-  document.documentElement.style.setProperty('--text', t?'#ECEEF2':'#1A1A1E');
-  document.documentElement.style.setProperty('--textMuted', t?'#848A96':'#6B6B70');
-  document.documentElement.style.setProperty('--textDim', t?'#4E5460':'#AEAEB2');
-  document.documentElement.style.setProperty('--accent', t?'#A89BC2':'#7B6FA0');
-  document.documentElement.style.setProperty('--accentSoft', t?'#C4BAD8':'#9B8FC0');
-  document.documentElement.style.setProperty('--silver', t?'#C8CDD6':'#3A3A3C');
-  document.body.style.background = t?'#111214':'#F5F5F7';
-  document.body.style.color = t?'#ECEEF2':'#1A1A1E';
-};
-applyTheme();
-let schedule = JSON.parse(localStorage.getItem('schedule')||'{"days":[1,2,3,4,5,6],"start":9,"end":19}');
-const saveSchedule = () => localStorage.setItem('schedule', JSON.stringify(schedule));
-// Day exceptions: {date: true/false} — override default schedule
-let exceptions = JSON.parse(localStorage.getItem('exceptions')||'{}');
-const saveExceptions = () => localStorage.setItem('exceptions', JSON.stringify(exceptions));
+let tab='cal', calView=1;
 let stockCat='Всі', stockQ='', period='month';
+
+const now = new Date();
+let calDate = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+
+let theme = localStorage.getItem('theme')||'dark';
+let schedule = JSON.parse(localStorage.getItem('sched')||'{"days":[1,2,3,4,5,6],"start":9,"end":19}');
+let exceptions = JSON.parse(localStorage.getItem('exc')||'{}');
+
+// ── Theme ─────────────────────────────────
+function applyTheme() {
+  if(theme==='light') document.body.classList.add('light');
+  else document.body.classList.remove('light');
+  document.getElementById('themeBtn').textContent = theme==='dark'?'☀️':'🌙';
+}
+applyTheme();
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  theme = theme==='dark'?'light':'dark';
+  localStorage.setItem('theme',theme);
+  applyTheme();
+});
 
 // ── Utils ─────────────────────────────────
 const $ = id => document.getElementById(id);
 const fmt = n => new Intl.NumberFormat('uk-UA').format(Math.round(n||0));
-const today = () => new Date().toISOString().slice(0,10);
-const addDays = (d,n) => { const x=new Date(d+'T12:00:00'); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
+const today = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
+const addDays = (d,n) => { const x=new Date(d+'T12:00:00'); x.setDate(x.getDate()+n); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); };
 const fmtL = d => new Date(d+'T12:00:00').toLocaleDateString('uk-UA',{day:'numeric',month:'long'});
 const fmtS = d => new Date(d+'T12:00:00').toLocaleDateString('uk-UA',{day:'numeric',month:'short'});
 const DN = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
-const HOURS = Array.from({length:14},(_,i)=>i+8);
+const HOURS = Array.from({length:13},(_,i)=>i+8); // 8-20
 const CATS = ['Фарби','Окислювачі','Порошки','Шампуні','Маски','Кондиціонери','Стайлінг','Інше'];
 const ic = {
   plus:'M12 5v14M5 12h14',
   edit:'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z',
   del:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6',
   x:'M18 6L6 18M6 6l12 12',
-  l:'M15 18l-6-6 6-6',
-  r:'M9 18l6-6-6-6',
+  l:'M15 18l-6-6 6-6', r:'M9 18l6-6-6-6',
   w:'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01',
   h:'M16 16l-4 4-4-4M12 12v8M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3'
 };
 const svg = (d,s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
 
+// ── Schedule helpers ──────────────────────
+function isWorkDay(date) {
+  if(exceptions[date]===true) return true;
+  if(exceptions[date]===false) return false;
+  return schedule.days.includes(new Date(date+'T12:00:00').getDay());
+}
+function getWorkMins(date) { return isWorkDay(date)?(schedule.end-schedule.start)*60:0; }
+function getBookedMins(date) {
+  return appts.filter(a=>a.date===date&&a.status!=='cancelled')
+    .reduce((s,a)=>s+(svcs.find(sv=>sv.id===a.serviceId)?.duration||60),0);
+}
+function dayColor(date) {
+  const total=getWorkMins(date); if(!total) return '#4E5460';
+  const pct=getBookedMins(date)/total;
+  if(pct<=0) return '#4E5460';
+  if(pct<0.5) return '#7BAF8A';
+  if(pct<0.75) return '#D4A853';
+  if(pct<1) return '#E07B39';
+  return '#B87070';
+}
+function dayRing(date) {
+  const total=getWorkMins(date); if(!total) return '';
+  const pct=Math.min(getBookedMins(date)/total,1);
+  const r=9,circ=2*Math.PI*r,dash=pct*circ,color=dayColor(date);
+  return `<svg width="26" height="26" style="position:absolute;top:-2px;left:50%;transform:translateX(-50%)" viewBox="0 0 26 26">
+    <circle cx="13" cy="13" r="${r}" fill="none" stroke="rgba(128,128,128,.2)" stroke-width="2"/>
+    ${pct>0?`<circle cx="13" cy="13" r="${r}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
+  </svg>`;
+}
+
 // ── Firebase ──────────────────────────────
-onSnapshot(collection(db,'services'), s => { svcs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name)); draw(); });
-onSnapshot(collection(db,'materials'), s => { mats=s.docs.map(d=>({id:d.id,...d.data()})); draw(); });
-onSnapshot(collection(db,'appointments'), s => { 
-  appts=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.date===b.date?a.time.localeCompare(b.time):a.date.localeCompare(b.date)); 
-  draw(); 
+onSnapshot(collection(db,'services'), s=>{svcs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name));draw();});
+onSnapshot(collection(db,'materials'), s=>{mats=s.docs.map(d=>({id:d.id,...d.data()}));draw();});
+onSnapshot(collection(db,'appointments'), s=>{
+  appts=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.date===b.date?a.time?.localeCompare(b.time):a.date?.localeCompare(b.date));
+  draw();
 });
-onSnapshot(query(collection(db,'purchases'),orderBy('date')), s => { ops=s.docs.map(d=>({id:d.id,...d.data()})); draw(); });
+onSnapshot(collection(db,'purchases'), s=>{ops=s.docs.map(d=>({id:d.id,...d.data()}));draw();});
 
 // ── Header ────────────────────────────────
 $('hdate').textContent = fmtL(today());
-applyTheme();
 
 // ── Tabs ──────────────────────────────────
-document.querySelectorAll('.nb').forEach(b => {
-  b.addEventListener('click', () => {
-    tab = b.dataset.tab;
+document.querySelectorAll('.nb').forEach(b=>{
+  b.addEventListener('click',()=>{
+    tab=b.dataset.tab;
     document.querySelectorAll('.nb').forEach(x=>x.classList.remove('on'));
     document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
     b.classList.add('on');
@@ -248,233 +256,12 @@ document.querySelectorAll('.nb').forEach(b => {
 });
 
 // ── Modal ─────────────────────────────────
-function show(html) { $('modal').innerHTML=html; $('overlay').classList.add('show'); }
-function hide() { $('overlay').classList.remove('show'); }
-$('overlay').addEventListener('click', e => { if(e.target===$('overlay')) hide(); });
+function show(html){$('modal').innerHTML=html;$('overlay').classList.add('show');}
+function hide(){$('overlay').classList.remove('show');}
+$('overlay').addEventListener('click',e=>{if(e.target===$('overlay'))hide();});
 
 // ── DRAW ──────────────────────────────────
-// ── Mini Calendar Modal ───────────────────────────
-function miniCalModal() {
-  let viewMonth = new Date(calDate+'T12:00:00');
-  viewMonth.setDate(1);
-
-  function renderMiniCal() {
-    const year = viewMonth.getFullYear();
-    const month = viewMonth.getMonth();
-    const monthLabel = viewMonth.toLocaleDateString('uk-UA',{month:'long',year:'numeric'});
-
-    // First day of month (0=Sun)
-    const firstDay = new Date(year,month,1).getDay();
-    // Days in month
-    const daysInMonth = new Date(year,month+1,0).getDate();
-    // Offset for Mon-first grid
-    const offset = firstDay===0?6:firstDay-1;
-
-    let cells = '';
-    // Empty cells
-    for(let i=0;i<offset;i++) cells += '<div></div>';
-
-    for(let d=1;d<=daysInMonth;d++){
-      const dateStr = year+'-'+String(month+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-      const isToday = dateStr===today();
-      const isSelected = dateStr===calDate;
-      const isWork = isWorkDay(dateStr);
-      const color = getDayColor(dateStr);
-      const booked = getBookedMinutes(dateStr);
-      const total = getWorkMinutes(dateStr);
-      const pct = total>0?Math.min(booked/total,1):0;
-      const r=9, circ=2*Math.PI*r;
-      const dash=pct*circ;
-
-      let ring = '';
-      if(isWork&&pct>0){
-        ring = `<svg width="100%" height="100%" viewBox="0 0 26 26" style="position:absolute;top:0;left:0">
-          <circle cx="13" cy="13" r="${r}" fill="none" stroke="#2C2F3540" stroke-width="2"/>
-          <circle cx="13" cy="13" r="${r}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>
-        </svg>`;
-      } else if(isWork&&pct===0&&total>0){
-        ring = `<svg width="100%" height="100%" viewBox="0 0 26 26" style="position:absolute;top:0;left:0">
-          <circle cx="13" cy="13" r="${r}" fill="none" stroke="#2C2F3540" stroke-width="2"/>
-        </svg>`;
-      }
-
-      const hasException = exceptions[dateStr]!==undefined;
-      const defaultWork = schedule.days.includes(new Date(dateStr+'T12:00:00').getDay());
-      cells += `<div style="position:relative;width:36px;height:36px;margin:2px auto;cursor:pointer" data-date="${dateStr}">
-        ${ring}
-        ${hasException?`<div data-toggle style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:${isWork?'#7BAF8A':'#4E5460'};border:1px solid #111214;z-index:3;cursor:pointer"></div>`:''}
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:${isSelected||isToday?'800':'500'};color:${isSelected?'#A89BC2':isToday?'#C4BAD8':isWork?'#ECEEF2':'#4E5460'};${isSelected?'text-decoration:underline;':''}">
-          ${d}
-        </div>
-        ${!hasException?`<div data-toggle title="${isWork?'Зробити вихідним':'Зробити робочим'}" style="position:absolute;bottom:-1px;right:-1px;width:10px;height:10px;border-radius:50%;background:${isWork?'#2C2F35':'#2C2F35'};border:1px solid #4E5460;display:flex;align-items:center;justify-content:center;font-size:7px;color:#848A96;cursor:pointer;z-index:3">${isWork?'–':'+'}</div>`:''}
-      </div>`;
-    }
-
-    $('modal').innerHTML = `
-      <div class="mh">
-        <button class="bi" id="mprev">${svg(ic.l,18)}</button>
-        <div style="font-size:15px;font-weight:700;text-transform:capitalize">${monthLabel}</div>
-        <button class="bi" id="mnext">${svg(ic.r,18)}</button>
-        <button class="bi" id="mx">${svg(ic.x,18)}</button>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:10px;text-align:center">
-        ${['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map(d=>`<div style="font-size:10px;font-weight:700;color:#4E5460;padding:4px 0">${d}</div>`).join('')}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">
-        ${cells}
-      </div>
-      <div style="display:flex;gap:12px;justify-content:center;margin-top:14px;flex-wrap:wrap">
-        <span style="font-size:11px;color:#848A96"><span style="color:#7BAF8A">●</span> Вільно</span>
-        <span style="font-size:11px;color:#848A96"><span style="color:#D4A853">●</span> 50%+</span>
-        <span style="font-size:11px;color:#848A96"><span style="color:#E07B39">●</span> 75%+</span>
-        <span style="font-size:11px;color:#B87070">●</span><span style="font-size:11px;color:#848A96"> Заповнено</span>
-      </div>`;
-
-    $('mx').onclick = hide;
-    $('mprev').onclick = () => { viewMonth.setMonth(viewMonth.getMonth()-1); renderMiniCal(); };
-    $('mnext').onclick = () => { viewMonth.setMonth(viewMonth.getMonth()+1); renderMiniCal(); };
-    $('modal').querySelectorAll('[data-date]').forEach(el=>{
-      const d = el.dataset.date;
-      const work = isWorkDay(d);
-      el.addEventListener('click', e => {
-        if(e.target.closest('[data-toggle]')) return;
-        if(work){ calDate=d; hide(); drawCal(); }
-      });
-      // Toggle button on non-work days (and work days that are exceptions)
-      const toggleBtn = el.querySelector('[data-toggle]');
-      if(toggleBtn){
-        toggleBtn.addEventListener('click', e => {
-          e.stopPropagation();
-          if(exceptions[d]===true){ delete exceptions[d]; }
-          else if(exceptions[d]===false){ delete exceptions[d]; }
-          else if(work){ exceptions[d]=false; }
-          else { exceptions[d]=true; }
-          saveExceptions();
-          renderMiniCal();
-        });
-      }
-    });
-  }
-
-  show('');
-  renderMiniCal();
-}
-
-// ── Schedule Modal ────────────────────────────────
-function scheduleModal() {
-  const dayNames = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
-  const dayBtns = [1,2,3,4,5,6,0].map(d=>`
-    <button class="chip ${schedule.days.includes(d)?'on':''}" data-day="${d}" style="min-width:40px">${dayNames[d]}</button>
-  `).join('');
-
-  const hourOpts = (sel) => Array.from({length:24},(_,i)=>`<option value="${i}" ${sel===i?'selected':''}>${i}:00</option>`).join('');
-
-  show(`
-    <div class="mh"><div class="mt">⚙️ Мій графік</div>
-      <div style="display:flex;gap:6px;align-items:center">
-        <button class="bi" id="mtheme" title="Тема">${theme==='dark'?'☀️':'🌙'}</button>
-        <button class="bi" id="mx">${svg(ic.x,18)}</button>
-      </div>
-    </div>
-    <div class="field">
-      <label>Робочі дні</label>
-      <div class="chips" id="daychips">${dayBtns}</div>
-    </div>
-    <div class="g2">
-      <div class="field"><label>Початок роботи</label>
-        <select id="wstart">${hourOpts(schedule.start)}</select>
-      </div>
-      <div class="field"><label>Кінець роботи</label>
-        <select id="wend">${hourOpts(schedule.end)}</select>
-      </div>
-    </div>
-    <div class="card" style="background:#18191C;margin-bottom:14px;font-size:13px;color:#848A96">
-      Кольори кільця на даті:<br>
-      <span style="color:#7BAF8A">●</span> Вільно &nbsp;
-      <span style="color:#D4A853">●</span> 50%+ &nbsp;
-      <span style="color:#E07B39">●</span> 75%+ &nbsp;
-      <span style="color:#B87070">●</span> Повністю зайнятий
-    </div>
-    <div class="mf">
-      <button class="btn bg" id="mcancel">Скасувати</button>
-      <button class="btn bp" id="msave">Зберегти</button>
-    </div>`);
-
-  $('mx').onclick=hide; $('mcancel').onclick=hide;
-  $('mtheme') && ($('mtheme').onclick = () => {
-    theme = theme==='dark'?'light':'dark';
-    localStorage.setItem('theme',theme);
-    applyTheme();
-    scheduleModal();
-  });
-
-  $('modal').querySelectorAll('[data-day]').forEach(b=>{
-    b.addEventListener('click',()=>{
-      const d=+b.dataset.day;
-      b.classList.toggle('on');
-    });
-  });
-
-  $('msave').onclick = () => {
-    const selectedDays = [...$('modal').querySelectorAll('[data-day].on')].map(b=>+b.dataset.day);
-    schedule = { days:selectedDays, start:+$('wstart').value, end:+$('wend').value };
-    saveSchedule();
-    hide();
-    drawCal();
-  };
-}
-
-// ── Schedule helpers ──────────────────────────────
-function getWorkMinutes(date) {
-  const d = new Date(date+'T12:00:00');
-  // Check exceptions first
-  if(exceptions[date] === true) return (schedule.end - schedule.start) * 60;
-  if(exceptions[date] === false) return 0;
-  // Default schedule
-  if(!schedule.days.includes(d.getDay())) return 0;
-  return (schedule.end - schedule.start) * 60;
-}
-
-function isWorkDay(date) {
-  if(exceptions[date] === true) return true;
-  if(exceptions[date] === false) return false;
-  return schedule.days.includes(new Date(date+'T12:00:00').getDay());
-}
-
-function getBookedMinutes(date) {
-  return appts
-    .filter(a=>a.date===date&&a.status!=='cancelled')
-    .reduce((s,a)=>{ const svc=svcs.find(sv=>sv.id===a.serviceId); return s+(svc?.duration||60); },0);
-}
-
-function getDayColor(date) {
-  const total = getWorkMinutes(date);
-  if(total===0) return '#2C2F35'; // вихідний
-  const booked = getBookedMinutes(date);
-  const pct = booked/total;
-  if(pct===0) return '#2C2F35';
-  if(pct<0.5) return '#7BAF8A'; // зелений
-  if(pct<0.75) return '#D4A853'; // жовтий
-  if(pct<1) return '#E07B39'; // помаранчевий
-  return '#B87070'; // червоний — заповнений
-}
-
-function getDayRing(date) {
-  const total = getWorkMinutes(date);
-  if(total===0) return '';
-  const booked = getBookedMinutes(date);
-  const pct = Math.min(booked/total, 1);
-  if(pct===0) return '';
-  const color = getDayColor(date);
-  const r = 10, circ = 2*Math.PI*r;
-  const dash = pct*circ;
-  return `<svg width="26" height="26" style="position:absolute;top:-3px;left:50%;transform:translateX(-50%)" viewBox="0 0 26 26">
-    <circle cx="13" cy="13" r="${r}" fill="none" stroke="#2C2F35" stroke-width="2.5"/>
-    <circle cx="13" cy="13" r="${r}" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="${dash} ${circ}" stroke-dashoffset="${circ/4}" stroke-linecap="round"/>
-  </svg>`;
-}
-
-function draw() {
+function draw(){
   if(tab==='cal') drawCal();
   else if(tab==='stock') drawStock();
   else if(tab==='svc') drawSvc();
@@ -484,54 +271,57 @@ function draw() {
 // ════════════════════════════════════════
 // CALENDAR
 // ════════════════════════════════════════
-function drawCal() {
-  const el = $('t-cal');
-  const dates = Array.from({length:calView},(_,i)=>addDays(calDate,i));
-  const lbl = calView===1 ? fmtL(calDate) : fmtS(calDate)+' – '+fmtS(dates[dates.length-1]);
-  const todayStr = today();
+function drawCal(){
+  const el=$('t-cal');
+  const dates=Array.from({length:calView},(_,i)=>addDays(calDate,i));
+  const lbl=calView===1?fmtL(calDate):fmtS(calDate)+' – '+fmtS(dates[dates.length-1]);
+  const todayStr=today();
+  const pending=appts.filter(a=>a.date===calDate&&a.status==='pending').length;
 
-  let timesHtml = HOURS.map(h=>`<div class="tl">${h}:00</div>`).join('');
+  const timesHtml=HOURS.map(h=>`<div class="tl">${h}:00</div>`).join('');
 
-  let colsHtml = dates.map(d => {
-    const isT = d===todayStr;
-    const dn = DN[new Date(d+'T12:00:00').getDay()];
-    const day = new Date(d+'T12:00:00').getDate();
-    const ring = getDayRing(d);
-    let cells = HOURS.map(h => {
-      const da = appts.filter(a=>a.date===d&&a.time&&+a.time.split(':')[0]===h);
-      let blocks = da.map(a => {
-        const svc = svcs.find(s=>s.id===a.serviceId);
-        const dur = svc?.duration||60;
-        const min = +a.time.split(':')[1]||0;
-        const cls = a.status==='done'?'ad2':a.status==='cancelled'?'ac':'ap';
-        // Height: 60px per hour, cap at reasonable size
-        const heightPx = Math.max((dur/60)*60, 28);
-        const topPx = (min/60)*60;
-        return `<div class="ab ${cls}" style="top:${topPx}px;height:${heightPx}px" data-aid="${a.id}">
+  const colsHtml=dates.map(d=>{
+    const isT=d===todayStr;
+    const dn=DN[new Date(d+'T12:00:00').getDay()];
+    const day=new Date(d+'T12:00:00').getDate();
+    const ring=dayRing(d);
+    const cells=HOURS.map(h=>{
+      const da=appts.filter(a=>a.date===d&&a.time&&+a.time.split(':')[0]===h);
+      const blocks=da.map(a=>{
+        const svc=svcs.find(s=>s.id===a.serviceId);
+        const dur=svc?.duration||60;
+        const min=+(a.time.split(':')[1]||0);
+        const cls=a.status==='done'?'adn':a.status==='cancelled'?'ac':'ap';
+        const topPx=(min/60)*60;
+        const hPx=Math.max((dur/60)*60,24);
+        return `<div class="ab ${cls}" style="top:${topPx}px;height:${hPx}px" data-aid="${a.id}">
           <div class="an">${a.client}</div>
           <div class="at">${a.time}${svc?' · '+svc.name:''}</div>
-          <div class="resize-handle"></div>
+          <div class="ab-resize" data-resize="${a.id}"><div class="ab-resize-bar"></div></div>
         </div>`;
       }).join('');
-      return `<div class="tc" data-d="${d}" data-h="${h.toString().padStart(2,'0')}:00">${blocks}</div>`;
+      return `<div class="tc" data-d="${d}" data-h="${String(h).padStart(2,'0')}:00">${blocks}</div>`;
     }).join('');
-    return `<div class="cal-col"><div class="col-hdr ${isT?'tod':''}" style="position:relative;padding-bottom:10px">${ring}${dn}<br><b>${day}</b></div>${cells}</div>`;
+    return `<div class="cal-col">
+      <div class="col-hdr ${isT?'tod':''}" style="padding-bottom:12px">${ring}${dn}<br><b>${day}</b></div>
+      ${cells}
+    </div>`;
   }).join('');
 
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px">
+  el.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
       <button class="bi" id="cprev">${svg(ic.l,18)}</button>
-      <div style="flex:1;text-align:center">
-        <div style="font-weight:700;font-size:15px;cursor:pointer" id="cdatelbl">${lbl}</div>
-        <div style="font-size:11px;color:#4E5460">${appts.filter(a=>a.date===calDate&&a.status==='pending').length} очікує</div>
+      <div style="flex:1;text-align:center;cursor:pointer" id="cdatelbl">
+        <div style="font-weight:700;font-size:15px">${lbl}</div>
+        <div style="font-size:11px;color:var(--dim)">${pending} очікує</div>
       </div>
       <button class="bi" id="cnext">${svg(ic.r,18)}</button>
       <button class="btn bp bs" id="cadd">${svg(ic.plus,14)} Запис</button>
-      <button class="bi" id="csched" title="Графік">⚙️</button>
+      <button class="bi" id="csched">⚙️</button>
     </div>
     <div class="vc">
       <button class="vb ${calView===1?'on':''}" data-cv="1">День</button>
-      <button class="vb ${calView===3?'on':''}" data-cv="2">2 дні</button>
+      <button class="vb ${calView===2?'on':''}" data-cv="2">2 дні</button>
       <button class="vb ${calView===7?'on':''}" data-cv="7">Тиждень</button>
     </div>
     <div class="cal-wrap">
@@ -541,210 +331,191 @@ function drawCal() {
       </div>
     </div>`;
 
-  $('cprev').onclick = () => { calDate=addDays(calDate,-calView); drawCal(); };
-  $('cnext').onclick = () => { calDate=addDays(calDate,calView); drawCal(); };
-  $('cadd').onclick = () => apptModal(null, calDate, '10:00');
-  $('csched') && ($('csched').onclick = () => scheduleModal());
-  $('cdatelbl') && ($('cdatelbl').onclick = () => miniCalModal());
-  const dp = $('cdatepick'); if(dp) dp.addEventListener('change', e=>{ calDate=e.target.value; drawCal(); });
-  el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{ calView=+b.dataset.cv; drawCal(); }));
-  el.querySelectorAll('.tc').forEach(c=>c.addEventListener('click',e=>{ if(!e.target.closest('.ab')) apptModal(null,c.dataset.d,c.dataset.h); }));
+  $('cprev').onclick=()=>{calDate=addDays(calDate,-calView);drawCal();};
+  $('cnext').onclick=()=>{calDate=addDays(calDate,calView);drawCal();};
+  $('cadd').onclick=()=>apptModal(null,calDate,'10:00');
+  $('cdatelbl').onclick=()=>miniCalModal();
+  $('csched').onclick=()=>schedModal();
+  el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{calView=+b.dataset.cv;drawCal();}));
+  el.querySelectorAll('.tc').forEach(c=>c.addEventListener('click',e=>{
+    if(!e.target.closest('.ab'))apptModal(null,c.dataset.d,c.dataset.h);
+  }));
+  el.querySelectorAll('.ab').forEach(b=>b.addEventListener('click',e=>{
+    if(e.target.closest('[data-resize]'))return;
+    e.stopPropagation();
+    const a=appts.find(x=>x.id===b.dataset.aid);
+    if(a)apptModal(a,a.date,a.time);
+  }));
 
-  // ── Drag & drop touch ──────────────────────────────
-  let dragAppt=null, dragStartY=0, dragEl=null, dragOrigH=0, dragMode='move';
-
-  el.querySelectorAll('.ab').forEach(block => {
-    // Long press to drag
-    let pressTimer=null;
-    block.addEventListener('touchstart', e=>{
-      const aid = block.dataset.aid;
-      dragStartY = e.touches[0].clientY;
-      pressTimer = setTimeout(()=>{
-        dragMode='move';
-        dragAppt = appts.find(a=>a.id===aid);
-        dragEl = block;
-        block.style.opacity='0.6';
-        block.style.zIndex='100';
-        block.style.boxShadow='0 4px 20px rgba(0,0,0,0.5)';
-      },400);
+  // ── Drag to move ──────────────────────
+  el.querySelectorAll('.ab').forEach(block=>{
+    let pressTimer=null,dragging=false,startY=0,dragA=null;
+    block.addEventListener('touchstart',e=>{
+      if(e.target.closest('[data-resize]'))return;
+      startY=e.touches[0].clientY;
+      pressTimer=setTimeout(()=>{
+        dragging=true;
+        dragA=appts.find(x=>x.id===block.dataset.aid);
+        block.style.opacity='0.5';
+        block.style.transform='scale(1.02)';
+      },500);
     },{passive:true});
-
-    block.addEventListener('touchend', ()=>{
+    block.addEventListener('touchend',()=>{
       clearTimeout(pressTimer);
-      if(dragAppt){
-        dragEl.style.opacity='';
-        dragEl.style.zIndex='';
-        dragEl.style.boxShadow='';
-        dragAppt=null; dragEl=null;
-      }
+      if(dragging){block.style.opacity='';block.style.transform='';dragging=false;dragA=null;}
     });
-
-    block.addEventListener('touchmove', async e=>{
+    block.addEventListener('touchmove',async e=>{
       clearTimeout(pressTimer);
-      if(!dragAppt||dragMode!=='move') return;
+      if(!dragging||!dragA)return;
       e.preventDefault();
-      const touch = e.touches[0];
-      const dy = touch.clientY - dragStartY;
-      const minutesDelta = Math.round(dy/60*60/15)*15; // snap to 15min
-
-      // Find what cell we're over
-      const el2 = document.elementFromPoint(touch.clientX, touch.clientY);
-      const cell = el2?.closest('.tc');
-      if(cell){
-        const newH = cell.dataset.h;
-        const newD = cell.dataset.d;
-        if(newH && newD && (newD!==dragAppt.date||newH!==dragAppt.time.slice(0,5))){
-          const mins = +newH.split(':')[1]||0;
-          const newTime = newH.slice(0,2)+':'+String(mins).padStart(2,'0');
-          await updateDoc(doc(db,'appointments',dragAppt.id),{date:newD,time:newTime});
-          dragAppt={...dragAppt,date:newD,time:newTime};
-          dragStartY = touch.clientY;
-        }
+      const touch=e.touches[0];
+      const el2=document.elementFromPoint(touch.clientX,touch.clientY);
+      const cell=el2?.closest('.tc');
+      if(cell&&cell.dataset.h&&(cell.dataset.d!==dragA.date||cell.dataset.h!==dragA.time)){
+        const newTime=cell.dataset.h;
+        const newDate=cell.dataset.d;
+        await updateDoc(doc(db,'appointments',dragA.id),{date:newDate,time:newTime});
+        dragA={...dragA,date:newDate,time:newTime};
       }
     },{passive:false});
+  });
 
-    // Resize handle at bottom
-    const resizeHandle = document.createElement('div');
-    resizeHandle.style.cssText='position:absolute;bottom:0;left:0;right:0;height:10px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;';
-    resizeHandle.innerHTML='<div style="width:20px;height:2px;background:rgba(255,255,255,0.3);border-radius:2px"></div>';
-    block.appendChild(resizeHandle);
-
-    let resizeStartY=0, resizeOrigDur=0;
-    resizeHandle.addEventListener('touchstart', e=>{
+  // ── Resize (stretch) ──────────────────
+  el.querySelectorAll('[data-resize]').forEach(handle=>{
+    let startY=0,origDur=0,resizeA=null;
+    handle.addEventListener('touchstart',e=>{
       e.stopPropagation();
-      dragMode='resize';
-      const aid=block.dataset.aid;
-      dragAppt=appts.find(a=>a.id===aid);
-      const svc=svcs.find(s=>s.id===dragAppt?.serviceId);
-      resizeOrigDur=svc?.duration||60;
-      resizeStartY=e.touches[0].clientY;
+      const aid=handle.dataset.resize;
+      resizeA=appts.find(x=>x.id===aid);
+      const svc=svcs.find(s=>s.id===resizeA?.serviceId);
+      origDur=svc?.duration||60;
+      startY=e.touches[0].clientY;
     },{passive:true});
-
-    resizeHandle.addEventListener('touchmove', async e=>{
-      if(dragMode!=='resize'||!dragAppt) return;
+    handle.addEventListener('touchmove',async e=>{
+      if(!resizeA)return;
       e.preventDefault();
-      const dy=e.touches[0].clientY-resizeStartY;
-      const addMins=Math.round(dy/60*60/15)*15;
-      const newDur=Math.max(15,resizeOrigDur+addMins);
-      const svc=svcs.find(s=>s.id===dragAppt.serviceId);
+      const dy=e.touches[0].clientY-startY;
+      const newDur=Math.max(15,Math.round((origDur+dy/60*60)/15)*15);
+      const svc=svcs.find(s=>s.id===resizeA.serviceId);
       if(svc&&newDur!==svc.duration){
         await updateDoc(doc(db,'services',svc.id),{duration:newDur});
       }
     },{passive:false});
-
-    resizeHandle.addEventListener('touchend',()=>{
-      dragMode='move'; dragAppt=null;
-    });
-  });
-  el.querySelectorAll('.ab').forEach(b=>{
-    b.addEventListener('click',e=>{
-      if(b.dataset.dragged==='1') { b.dataset.dragged='0'; return; }
-      e.stopPropagation();
-      const a=appts.find(x=>x.id===b.dataset.aid);
-      if(a) apptModal(a,a.date,a.time);
-    });
-
-    // ── Drag to move ──────────────────────────
-    let dragStartY=0, dragStartX=0, origTop=0, origDate='', origTime='', isDragging=false;
-
-    const onDragStart = (clientX, clientY) => {
-      const a=appts.find(x=>x.id===b.dataset.aid);
-      if(!a) return;
-      origDate=a.date; origTime=a.time;
-      dragStartY=clientY; dragStartX=clientX;
-      origTop=b.offsetTop;
-      isDragging=false;
-      b.dataset.dragged='0';
-    };
-
-    const onDragMove = (clientX, clientY) => {
-      const dy=clientY-dragStartY;
-      if(Math.abs(dy)>5||Math.abs(clientX-dragStartX)>5) {
-        isDragging=true;
-        b.dataset.dragged='1';
-        b.classList.add('dragging');
-      }
-      if(!isDragging) return;
-      // Move visually
-      b.style.top=(origTop+dy)+'px';
-    };
-
-    const onDragEnd = async (clientX, clientY) => {
-      if(!isDragging) { b.classList.remove('dragging'); return; }
-      b.classList.remove('dragging');
-      b.style.top='';
-      const a=appts.find(x=>x.id===b.dataset.aid);
-      if(!a) return;
-
-      // Find target cell
-      const el2=document.elementFromPoint(clientX, clientY);
-      const cell=el2?.closest('.tc');
-      if(cell&&cell.dataset.d&&cell.dataset.h) {
-        const newDate=cell.dataset.d;
-        const newHour=cell.dataset.h.split(':')[0];
-        const newMin=a.time.split(':')[1]||'00';
-        const newTime=newHour+':'+newMin;
-        await updateDoc(doc(db,'appointments',a.id),{date:newDate,time:newTime});
-      }
-    };
-
-    // Touch events
-    b.addEventListener('touchstart',e=>{
-      const t=e.touches[0];
-      onDragStart(t.clientX,t.clientY);
-    },{passive:true});
-
-    b.addEventListener('touchmove',e=>{
-      e.preventDefault();
-      const t=e.touches[0];
-      onDragMove(t.clientX,t.clientY);
-    },{passive:false});
-
-    b.addEventListener('touchend',e=>{
-      const t=e.changedTouches[0];
-      onDragEnd(t.clientX,t.clientY);
-    });
-
-    // Mouse events
-    b.addEventListener('mousedown',e=>{
-      onDragStart(e.clientX,e.clientY);
-      const mm=ev=>onDragMove(ev.clientX,ev.clientY);
-      const mu=ev=>{ onDragEnd(ev.clientX,ev.clientY); window.removeEventListener('mousemove',mm); window.removeEventListener('mouseup',mu); };
-      window.addEventListener('mousemove',mm);
-      window.addEventListener('mouseup',mu);
-    });
-
-    // ── Resize handle ──────────────────────────
-    const handle=b.querySelector('.resize-handle');
-    if(handle){
-      let resizeStartY=0, origDur=0;
-      const onResizeStart=(cy)=>{ resizeStartY=cy; const a=appts.find(x=>x.id===b.dataset.aid); origDur=svcs.find(s=>s.id===a?.serviceId)?.duration||60; };
-      const onResizeMove=(cy)=>{ const dy=cy-resizeStartY; const newDur=Math.max(15,Math.round((origDur+dy)/15)*15); b.style.height=Math.max((newDur/60)*60,20)+'px'; };
-      const onResizeEnd=async(cy)=>{
-        const dy=cy-resizeStartY;
-        const newDur=Math.max(15,Math.round((origDur+dy)/15)*15);
-        const a=appts.find(x=>x.id===b.dataset.aid);
-        if(!a) return;
-        const svc=svcs.find(s=>s.id===a.serviceId);
-        if(svc) await updateDoc(doc(db,'services',svc.id),{duration:newDur});
-        b.style.height='';
-      };
-      handle.addEventListener('touchstart',e=>{ e.stopPropagation(); onResizeStart(e.touches[0].clientY); },{passive:true});
-      handle.addEventListener('touchmove',e=>{ e.stopPropagation(); e.preventDefault(); onResizeMove(e.touches[0].clientY); },{passive:false});
-      handle.addEventListener('touchend',e=>{ onResizeEnd(e.changedTouches[0].clientY); });
-      handle.addEventListener('mousedown',e=>{
-        e.stopPropagation(); onResizeStart(e.clientY);
-        const mm=ev=>onResizeMove(ev.clientY);
-        const mu=ev=>{ onResizeEnd(ev.clientY); window.removeEventListener('mousemove',mm); window.removeEventListener('mouseup',mu); };
-        window.addEventListener('mousemove',mm);
-        window.addEventListener('mouseup',mu);
-      });
-    }
+    handle.addEventListener('touchend',()=>{resizeA=null;});
   });
 }
 
-function apptModal(a, date, time) {
-  const opts = svcs.map(s=>`<option value="${s.id}" ${a?.serviceId===s.id?'selected':''}>${s.name} — ${fmt(s.price)} грн</option>`).join('');
+// ── Mini Calendar ─────────────────────────
+function miniCalModal(){
+  let vm=new Date(calDate+'T12:00:00'); vm.setDate(1);
+  function render(){
+    const y=vm.getFullYear(),m=vm.getMonth();
+    const lbl=vm.toLocaleDateString('uk-UA',{month:'long',year:'numeric'});
+    const first=new Date(y,m,1).getDay();
+    const dim=new Date(y,m+1,0).getDate();
+    const off=first===0?6:first-1;
+    const todayStr=today();
+    let cells='';
+    for(let i=0;i<off;i++)cells+='<div></div>';
+    for(let d=1;d<=dim;d++){
+      const ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      const isSel=ds===calDate,isT=ds===todayStr;
+      const isW=isWorkDay(ds);
+      const pct=getWorkMins(ds)>0?Math.min(getBookedMins(ds)/getWorkMins(ds),1):0;
+      const color=dayColor(ds);
+      const r=9,circ=2*Math.PI*r,dash=pct*circ;
+      const ring=`<svg width="100%" height="100%" viewBox="0 0 26 26" style="position:absolute;top:0;left:0">
+        ${isW?`<circle cx="13" cy="13" r="${r}" fill="none" stroke="rgba(128,128,128,.2)" stroke-width="2"/>`:'' }
+        ${isW&&pct>0?`<circle cx="13" cy="13" r="${r}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
+      </svg>`;
+      const hasExc=exceptions[ds]!==undefined;
+      cells+=`<div style="position:relative;width:36px;height:36px;margin:2px auto;cursor:pointer" data-date="${ds}">
+        ${ring}
+        ${hasExc?`<div style="position:absolute;top:-1px;right:-1px;width:7px;height:7px;border-radius:50%;background:${isW?'#7BAF8A':'#4E5460'};border:1px solid var(--bg);z-index:3"></div>`:''}
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:${isSel||isT?700:400};color:${isSel?'var(--acc)':isT?'var(--acs)':isW?'var(--txt)':'var(--dim)'}">
+          ${d}
+        </div>
+      </div>`;
+    }
+    $('modal').innerHTML=`
+      <div class="mh">
+        <button class="bi" id="mprev">${svg(ic.l,18)}</button>
+        <div style="font-size:15px;font-weight:700;text-transform:capitalize">${lbl}</div>
+        <button class="bi" id="mnext">${svg(ic.r,18)}</button>
+        <button class="bi" id="mx">${svg(ic.x,18)}</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:8px;text-align:center">
+        ${['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map(d=>`<div style="font-size:10px;font-weight:700;color:var(--dim);padding:4px 0">${d}</div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">${cells}</div>
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap;font-size:11px">
+        <span style="color:var(--mut)"><span style="color:#7BAF8A">●</span> Вільно</span>
+        <span style="color:var(--mut)"><span style="color:#D4A853">●</span> 50%+</span>
+        <span style="color:var(--mut)"><span style="color:#E07B39">●</span> 75%+</span>
+        <span style="color:var(--mut)"><span style="color:#B87070">●</span> Заповнено</span>
+      </div>
+      <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--dim)">Утримуй дату щоб змінити робочий/вихідний</div>`;
+    $('mx').onclick=hide;
+    $('mprev').onclick=()=>{vm.setMonth(vm.getMonth()-1);render();};
+    $('mnext').onclick=()=>{vm.setMonth(vm.getMonth()+1);render();};
+    $('modal').querySelectorAll('[data-date]').forEach(el=>{
+      const d=el.dataset.date;
+      let pressT=null;
+      el.addEventListener('touchstart',()=>{
+        pressT=setTimeout(()=>{
+          // Toggle work/off day
+          if(exceptions[d]===true)delete exceptions[d];
+          else if(exceptions[d]===false)delete exceptions[d];
+          else if(isWorkDay(d))exceptions[d]=false;
+          else exceptions[d]=true;
+          localStorage.setItem('exc',JSON.stringify(exceptions));
+          render();
+        },600);
+      },{passive:true});
+      el.addEventListener('touchend',()=>{
+        clearTimeout(pressT);
+      });
+      el.addEventListener('click',()=>{
+        if(isWorkDay(d)){calDate=d;hide();drawCal();}
+      });
+    });
+  }
+  show('');render();
+}
+
+// ── Schedule Modal ────────────────────────
+function schedModal(){
+  const ho=Array.from({length:24},(_,i)=>`<option value="${i}" ${schedule.start===i?'selected':''}>${i}:00</option>`).join('');
+  const he=Array.from({length:24},(_,i)=>`<option value="${i}" ${schedule.end===i?'selected':''}>${i}:00</option>`).join('');
+  show(`
+    <div class="mh"><div class="mt">⚙️ Графік роботи</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    <div class="field"><label>Робочі дні</label>
+      <div class="chips" id="daychips">
+        ${[1,2,3,4,5,6,0].map(d=>`<button class="chip ${schedule.days.includes(d)?'on':''}" data-day="${d}">${DN[d]}</button>`).join('')}
+      </div>
+    </div>
+    <div class="g2">
+      <div class="field"><label>Початок</label><select id="wstart">${ho}</select></div>
+      <div class="field"><label>Кінець</label><select id="wend">${he}</select></div>
+    </div>
+    <div style="font-size:12px;color:var(--mut);margin-bottom:14px">💡 В пікері календаря утримуй дату щоб змінити вихідний/робочий день</div>
+    <div class="mf">
+      <button class="btn bg" id="mcancel">Скасувати</button>
+      <button class="btn bp" id="msave">Зберегти</button>
+    </div>`);
+  $('mx').onclick=hide; $('mcancel').onclick=hide;
+  $('modal').querySelectorAll('[data-day]').forEach(b=>b.addEventListener('click',()=>b.classList.toggle('on')));
+  $('msave').onclick=()=>{
+    const days=[...$('modal').querySelectorAll('[data-day].on')].map(b=>+b.dataset.day);
+    schedule={days,start:+$('wstart').value,end:+$('wend').value};
+    localStorage.setItem('sched',JSON.stringify(schedule));
+    hide(); drawCal();
+  };
+}
+
+// ── Appointment Modal ─────────────────────
+function apptModal(a,date,time){
+  const opts=svcs.map(s=>`<option value="${s.id}" ${a?.serviceId===s.id?'selected':''}>${s.name} — ${fmt(s.price)} грн</option>`).join('');
   show(`
     <div class="mh"><div class="mt">${a?'Редагувати запис':'Новий запис'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
     <div class="field"><label>Клієнтка</label><input id="fc" value="${a?.client||''}" placeholder="Ім'я Прізвище"/></div>
@@ -766,71 +537,71 @@ function apptModal(a, date, time) {
       <button class="btn bg" id="fcancel">Скасувати</button>
       <button class="btn bp" id="fsave">Зберегти</button>
     </div>`);
-  $('mx').onclick = hide;
-  $('fcancel').onclick = hide;
-  $('fsave').onclick = async () => {
+  $('mx').onclick=hide; $('fcancel').onclick=hide;
+  $('fsave').onclick=async()=>{
     const d={client:$('fc').value,phone:$('fp').value,serviceId:$('fs').value,date:$('fd').value,time:$('ft').value,status:$('fst').value,paid:+$('fm').value,note:$('fn').value};
     if(!d.client||!d.serviceId){alert("Заповніть ім'я та послугу");return;}
-    if(a) await updateDoc(doc(db,'appointments',a.id),d);
+    if(a)await updateDoc(doc(db,'appointments',a.id),d);
     else await addDoc(collection(db,'appointments'),d);
     hide();
   };
-  if(a) $('fdel').onclick = async()=>{ if(confirm('Видалити?')){await deleteDoc(doc(db,'appointments',a.id));hide();} };
+  if(a)$('fdel').onclick=async()=>{if(confirm('Видалити?')){await deleteDoc(doc(db,'appointments',a.id));hide();}};
 }
 
 // ════════════════════════════════════════
 // STOCK
 // ════════════════════════════════════════
-function drawStock() {
-  const el = $('t-stock');
-  const low = mats.filter(m=>m.qty<=m.minQty);
-  const fil = mats.filter(m=>(stockCat==='Всі'||m.category===stockCat)&&(!stockQ||m.name.toLowerCase().includes(stockQ.toLowerCase())));
-  const grp = CATS.map(c=>({c,items:fil.filter(m=>m.category===c)})).filter(g=>g.items.length>0);
+function drawStock(){
+  const el=$('t-stock');
+  const low=mats.filter(m=>m.qty<=m.minQty);
+  const fil=mats.filter(m=>(stockCat==='Всі'||m.category===stockCat)&&(!stockQ||m.name.toLowerCase().includes(stockQ.toLowerCase())));
+  const grp=CATS.map(c=>({c,items:fil.filter(m=>m.category===c)})).filter(g=>g.items.length>0);
 
-  el.innerHTML = `
+  el.innerHTML=`
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <button class="btn bp bs" id="breceive">${svg(ic.h,14)} Прихід</button>
       <button class="btn bg bs" id="bnewmat">${svg(ic.plus,14)} Новий</button>
       <button class="btn bg bs" id="bhistory">📋 Історія</button>
     </div>
-    <input id="sq" style="width:100%;background:#18191C;border:1px solid #2C2F35;border-radius:8px;padding:9px 12px;color:#ECEEF2;font-size:14px;outline:none;margin-bottom:10px" placeholder="🔍 Пошук..." value="${stockQ}"/>
-    ${low.length?`<div class="alert ad">${svg(ic.w,15,'#B87070')} Закінчується: ${low.map(m=>m.name).join(', ')}</div>`:''}
+    <input id="sq" style="width:100%;background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;color:var(--txt);font-size:14px;outline:none;margin-bottom:10px" placeholder="🔍 Пошук..." value="${stockQ}"/>
+    ${low.length?`<div class="alert ad">${svg(ic.w,15,'var(--err)')} Закінчується: ${low.map(m=>m.name).join(', ')}</div>`:''}
     <div class="chips">${['Всі',...CATS].map(c=>`<button class="chip ${stockCat===c?'on':''}" data-c="${c}">${c}</button>`).join('')}</div>
     ${fil.length===0?'<div class="empty">Нічого не знайдено</div>':grp.map(({c,items})=>`
       <div class="sec">${c}</div>
       ${items.map(m=>{
         const isLow=m.qty<=m.minQty;
-        const totalU = m.spendUnit&&m.spendUnit!=='шт'&&m.volPerUnit>0 ? fmt(m.qty*m.volPerUnit)+' '+m.spendUnit : '';
-        const ppu = m.pricePerUnit>0 ? fmt(m.pricePerUnit)+' грн/'+m.spendUnit : fmt(m.avgPrice||m.price||0)+' грн/шт';
-        return `<div class="ri" style="border-left:3px solid ${isLow?'#B87070':'#2C2F35'}">
+        const byG=m.spendUnit&&m.spendUnit!=='шт'&&m.volPerUnit>0;
+        const totalU=byG?fmt(m.qty*m.volPerUnit)+' '+m.spendUnit:'';
+        const ppu=byG?fmt(m.avgPricePerUnit||m.pricePerUnit||0)+' грн/'+m.spendUnit:fmt(m.avgPrice||m.price||0)+' грн/шт';
+        return `<div class="ri" style="border-left:3px solid ${isLow?'var(--err)':'var(--brd)'}">
           <div class="rl">
-            <div class="rn">${m.name} ${isLow?'<span class="badge bd2">Мало</span>':''}</div>
+            <div class="rn">${m.name} ${isLow?'<span style="background:rgba(184,112,112,.15);color:var(--err);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">Мало</span>':''}</div>
             <div class="rs">${totalU?totalU+' · ':''}${ppu}</div>
           </div>
           <div class="rr">
-            <div class="rv" style="color:${isLow?'#B87070':'#C4BAD8'}">${m.qty} шт</div>
+            <div class="rv" style="color:${isLow?'var(--err)':'var(--acs)'}">${m.qty} шт</div>
             <div class="ra">мін. ${m.minQty}</div>
           </div>
           <div class="rac">
             <button class="bi bs" data-sp="${m.id}">${svg('M5 12h14',13)}</button>
             <button class="bi bs" data-em="${m.id}">${svg(ic.edit,13)}</button>
-            <button class="bi bs" data-dm="${m.id}">${svg(ic.del,13,'#B87070')}</button>
+            <button class="bi bs" data-dm="${m.id}">${svg(ic.del,13,'var(--err)')}</button>
           </div>
         </div>`;
       }).join('')}`).join('')}`;
 
-  $('breceive').onclick = () => receiveModal();
-  $('bnewmat').onclick = () => matModal(null);
-  $('bhistory').onclick = () => historyModal();
-  $('sq').addEventListener('input', e=>{ stockQ=e.target.value; drawStock(); });
-  el.querySelectorAll('[data-c]').forEach(b=>b.addEventListener('click',()=>{ stockCat=b.dataset.c; drawStock(); }));
+  $('breceive').onclick=()=>receiveModal();
+  $('bnewmat').onclick=()=>matModal(null);
+  $('bhistory').onclick=()=>historyModal();
+  $('sq').addEventListener('input',e=>{stockQ=e.target.value;drawStock();});
+  el.querySelectorAll('[data-c]').forEach(b=>b.addEventListener('click',()=>{stockCat=b.dataset.c;drawStock();}));
   el.querySelectorAll('[data-sp]').forEach(b=>b.addEventListener('click',()=>spendModal(b.dataset.sp)));
   el.querySelectorAll('[data-em]').forEach(b=>b.addEventListener('click',()=>matModal(b.dataset.em)));
-  el.querySelectorAll('[data-dm]').forEach(b=>b.addEventListener('click',async()=>{ if(confirm('Видалити?'))await deleteDoc(doc(db,'materials',b.dataset.dm)); }));
+  el.querySelectorAll('[data-dm]').forEach(b=>b.addEventListener('click',async()=>{if(confirm('Видалити?'))await deleteDoc(doc(db,'materials',b.dataset.dm));}));
 }
 
-function matModal(id) {
-  const m = id ? mats.find(x=>x.id===id) : {};
+function matModal(id){
+  const m=id?mats.find(x=>x.id===id):{};
   show(`
     <div class="mh"><div class="mt">${id?'Редагувати':'Новий матеріал'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
     <div class="field"><label>Назва</label><input id="mn" value="${m?.name||''}" placeholder="Фарба Wella 8/0"/></div>
@@ -839,77 +610,71 @@ function matModal(id) {
       <div class="field"><label>К-сть (шт)</label><input type="number" id="mq" value="${m?.qty||0}" step="0.5"/></div>
       <div class="field"><label>Мін. запас (шт)</label><input type="number" id="mm" value="${m?.minQty||1}"/></div>
     </div>
-    <div class="field">
-      <label>Одиниця списання</label>
-      <select id="msu">
-        <option value="шт" ${(!m?.spendUnit||m?.spendUnit==='шт')?'selected':''}>шт — списувати штуками</option>
-        <option value="г" ${m?.spendUnit==='г'?'selected':''}>г — списувати в грамах</option>
-        <option value="мл" ${m?.spendUnit==='мл'?'selected':''}>мл — списувати в мл</option>
-      </select>
-    </div>
+    <div class="field"><label>Одиниця списання</label><select id="msu">
+      <option value="шт" ${(!m?.spendUnit||m?.spendUnit==='шт')?'selected':''}>шт</option>
+      <option value="г" ${m?.spendUnit==='г'?'selected':''}>г (грами)</option>
+      <option value="мл" ${m?.spendUnit==='мл'?'selected':''}>мл (мілілітри)</option>
+    </select></div>
     <div id="vpkg" style="${m?.spendUnit&&m?.spendUnit!=='шт'?'':'display:none'}">
       <div class="field"><label id="vlbl">Об'єм упаковки (г в 1 шт)</label><input type="number" id="mvol" value="${m?.volPerUnit||0}" placeholder="60"/></div>
     </div>
     <div class="field"><label>Ціна за упаковку (грн/шт)</label><input type="number" id="mp" value="${m?.price||0}"/></div>
-    <div class="card" id="mcalc" style="background:#18191C;${m?.spendUnit&&m?.spendUnit!=='шт'&&m?.volPerUnit>0?'':'display:none'}">
+    <div class="card" id="mcalc" style="background:var(--surf);${m?.spendUnit&&m?.spendUnit!=='шт'&&m?.volPerUnit>0?'':'display:none'}">
       <div style="display:flex;justify-content:space-between;font-size:13px">
-        <span style="color:#848A96">Ціна за г/мл:</span>
-        <span id="mpg" style="font-weight:700;color:#C4BAD8">${m?.pricePerUnit?fmt(m.pricePerUnit)+' грн':'—'}</span>
+        <span style="color:var(--mut)">Ціна за г/мл:</span>
+        <span id="mpg" style="font-weight:700;color:var(--acs)">${m?.pricePerUnit?fmt(m.pricePerUnit)+' грн':'—'}</span>
       </div>
     </div>
     <div class="mf">
       <button class="btn bg" id="mcancel">Скасувати</button>
       <button class="btn bp" id="msave">Зберегти</button>
     </div>`);
-
-  const upd = () => {
-    const su=$('msu').value, vol=+$('mvol')?.value||0, p=+$('mp').value||0, q=+$('mq').value||0;
-    const show2 = su!=='шт';
-    $('vpkg').style.display = show2?'':'none';
-    if(show2) $('vlbl').textContent='Об\'єм упаковки ('+su+' в 1 шт)';
-    if(show2&&vol>0&&p>0){ $('mcalc').style.display=''; $('mpg').textContent=fmt(p/vol)+' грн/'+su; }
+  const upd=()=>{
+    const su=$('msu').value,vol=+($('mvol')?.value||0),p=+$('mp').value;
+    $('vpkg').style.display=su!=='шт'?'':'none';
+    if(su!=='шт')$('vlbl').textContent='Об\'єм упаковки ('+su+' в 1 шт)';
+    if(su!=='шт'&&vol>0&&p>0){$('mcalc').style.display='';$('mpg').textContent=fmt(p/vol)+' грн/'+su;}
     else $('mcalc').style.display='none';
   };
-  $('msu').onchange=upd; $('mvol')&&$('mvol').addEventListener('input',upd); $('mp').addEventListener('input',upd); $('mq').addEventListener('input',upd);
+  $('msu').onchange=upd; $('mvol')&&$('mvol').addEventListener('input',upd); $('mp').addEventListener('input',upd);
   $('mx').onclick=hide; $('mcancel').onclick=hide;
-  $('msave').onclick = async () => {
-    const name=$('mn').value, su=$('msu').value, vol=+($('mvol')?.value||0), price=+$('mp').value, qty=+$('mq').value;
+  $('msave').onclick=async()=>{
+    const name=$('mn').value,su=$('msu').value,vol=+($('mvol')?.value||0),price=+$('mp').value,qty=+$('mq').value;
     if(!name){alert('Введіть назву');return;}
     if(!id){const dup=mats.find(m=>m.name.toLowerCase()===name.toLowerCase());if(dup){alert('Товар "'+name+'" вже існує!');return;}}
-    const ppu = su!=='шт'&&vol>0 ? price/vol : 0;
+    const ppu=su!=='шт'&&vol>0?price/vol:0;
     const data={name,category:$('mcat').value,qty,minQty:+$('mm').value,price,avgPrice:price,spendUnit:su,volPerUnit:vol,pricePerUnit:ppu,avgPricePerUnit:ppu};
-    if(id) await updateDoc(doc(db,'materials',id),data);
+    if(id)await updateDoc(doc(db,'materials',id),data);
     else await addDoc(collection(db,'materials'),data);
     hide();
   };
 }
 
-function spendModal(id) {
-  const m = mats.find(x=>x.id===id);
-  const byG = m.spendUnit&&m.spendUnit!=='шт'&&m.volPerUnit>0;
-  const totalU = byG ? m.qty*m.volPerUnit : m.qty;
-  const ppu = m.avgPricePerUnit||m.pricePerUnit||0;
-  const unit = byG ? m.spendUnit : 'шт';
-
+function spendModal(id){
+  const m=mats.find(x=>x.id===id);
+  const byG=m.spendUnit&&m.spendUnit!=='шт'&&m.volPerUnit>0;
+  const totalU=byG?m.qty*m.volPerUnit:m.qty;
+  const ppu=m.avgPricePerUnit||m.pricePerUnit||0;
+  const unit=byG?m.spendUnit:'шт';
   show(`
     <div class="mh"><div class="mt">Списати: ${m.name}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-    <div class="card" style="background:#18191C;margin-bottom:14px">
+    <div class="card" style="background:var(--surf);margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
-        <span style="color:#848A96">В наявності:</span>
-        <span style="font-weight:700;color:#C4BAD8">${fmt(totalU)} ${unit} (${m.qty} шт)</span>
+        <span style="color:var(--mut)">В наявності:</span>
+        <span style="font-weight:700;color:var(--acs)">${fmt(totalU)} ${unit} (${m.qty} шт)</span>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:13px">
-        <span style="color:#848A96">Ціна за ${unit}:</span>
-        <span style="font-weight:700;color:#C8CDD6">${fmt(byG?ppu:m.avgPrice||m.price||0)} грн</span>
+        <span style="color:var(--mut)">Ціна за ${unit}:</span>
+        <span style="font-weight:700;color:var(--sil)">${fmt(byG?ppu:m.avgPrice||m.price||0)} грн</span>
       </div>
     </div>
     <div class="field"><label>Кількість (${unit})</label><input type="number" id="sqa" step="0.1" placeholder="0"/></div>
-    <div class="card" id="scalc" style="background:#18191C;margin-bottom:14px;display:none">
+    <div class="card" id="scalc" style="background:var(--surf);margin-bottom:14px;display:none">
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
-        <span style="color:#848A96">Вартість:</span><span id="scost" style="font-weight:700;color:#B87070"></span>
+        <span style="color:var(--mut)">Вартість:</span><span id="scost" style="font-weight:700;color:var(--err)"></span>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:13px">
-        <span style="color:#848A96">Залишок:</span><span id="srem" style="font-weight:700;color:#C4BAD8"></span>
+        <span style="color:var(--mut)">Залишок:</span><span id="srem" style="font-weight:700;color:var(--acs)"></span>
       </div>
     </div>
     <div class="field"><label>Дата</label><input type="date" id="sdate" value="${today()}"/></div>
@@ -918,25 +683,22 @@ function spendModal(id) {
       <button class="btn bg" id="scancel">Скасувати</button>
       <button class="btn bp" id="ssave">Списати</button>
     </div>`);
-
   $('mx').onclick=hide; $('scancel').onclick=hide;
-  $('sqa').addEventListener('input', e=>{
+  $('sqa').addEventListener('input',e=>{
     const q=+e.target.value||0;
     if(q>0){
       const cost=byG?q*ppu:q*(m.avgPrice||m.price||0);
       const remU=Math.max(0,totalU-q);
-      const remShts=byG?remU/m.volPerUnit:remU;
+      const remS=byG?remU/m.volPerUnit:remU;
       $('scalc').style.display='';
       $('scost').textContent=fmt(cost)+' грн';
-      $('srem').textContent=fmt(remU)+' '+unit+' ('+remShts.toFixed(2)+' шт)';
-    } else $('scalc').style.display='none';
+      $('srem').textContent=fmt(remU)+' '+unit+' ('+remS.toFixed(2)+' шт)';
+    }else $('scalc').style.display='none';
   });
-  $('ssave').onclick = async () => {
+  $('ssave').onclick=async()=>{
     const q=+$('sqa').value;
     if(!q){alert('Введіть кількість');return;}
-    let newQty;
-    if(byG){ newQty=Math.max(0,(totalU-q)/m.volPerUnit); }
-    else { newQty=Math.max(0,m.qty-q); }
+    let newQty=byG?Math.max(0,(totalU-q)/m.volPerUnit):Math.max(0,m.qty-q);
     const total=byG?q*ppu:q*(m.avgPrice||m.price||0);
     await updateDoc(doc(db,'materials',id),{qty:+newQty.toFixed(4)});
     await addDoc(collection(db,'purchases'),{matId:id,matName:m.name,type:'spend',qty:q,unit,total,date:$('sdate').value,note:$('snote').value});
@@ -944,8 +706,8 @@ function spendModal(id) {
   };
 }
 
-function receiveModal() {
-  const opts = mats.map(m=>`<option value="${m.id}">${m.name} (${m.spendUnit&&m.spendUnit!=='шт'?m.spendUnit:'шт'})</option>`).join('');
+function receiveModal(){
+  const opts=mats.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
   show(`
     <div class="mh"><div class="mt">Прихід товару</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
     <div class="field"><label>Матеріал</label><select id="rmat">${opts}</select></div>
@@ -955,70 +717,68 @@ function receiveModal() {
       <div class="field"><label>Ціна за шт (грн)</label><input type="number" id="rprice" value="0"/></div>
     </div>
     <div class="field"><label>Знижка (%)</label><input type="number" id="rdisc" value="0" min="0" max="100"/></div>
-    <div class="card" style="background:#18191C;margin-bottom:14px">
+    <div class="card" style="background:var(--surf);margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
-        <span style="color:#848A96">Ціна зі знижкою:</span><span id="rpd" style="font-weight:700;color:#C4BAD8">—</span>
+        <span style="color:var(--mut)">Ціна зі знижкою:</span><span id="rpd" style="font-weight:700;color:var(--acs)">—</span>
       </div>
       <div style="display:flex;justify-content:space-between;font-size:13px">
-        <span style="color:#848A96">Загальна сума:</span><span id="rtot" style="font-weight:700;color:#C8CDD6">—</span>
+        <span style="color:var(--mut)">Загальна сума:</span><span id="rtot" style="font-weight:700;color:var(--sil)">—</span>
       </div>
     </div>
-    <div class="field"><label>Примітка</label><input id="rnote" placeholder="Постачальник, накладна..."/></div>
+    <div class="field"><label>Примітка</label><input id="rnote" placeholder="Постачальник..."/></div>
     <div class="mf">
       <button class="btn bg" id="rcancel">Скасувати</button>
       <button class="btn bp" id="rsave">Оприбуткувати</button>
     </div>`);
-
-  const calc = () => {
-    const p=+$('rprice').value||0, d=+$('rdisc').value||0, q=+$('rqty').value||0;
+  const calc=()=>{
+    const p=+$('rprice').value||0,d=+$('rdisc').value||0,q=+$('rqty').value||0;
     const dp=p*(1-d/100);
     $('rpd').textContent=fmt(dp)+' грн';
     $('rtot').textContent=fmt(q*dp)+' грн';
   };
-  const setPrice = () => { const m=mats.find(x=>x.id===$('rmat').value); if(m)$('rprice').value=m.price||0; calc(); };
-  $('rmat').onchange=setPrice; $('rprice').oninput=calc; $('rdisc').oninput=calc; $('rqty').oninput=calc;
-  setPrice();
+  const setP=()=>{const m=mats.find(x=>x.id===$('rmat').value);if(m)$('rprice').value=m.price||0;calc();};
+  $('rmat').onchange=setP; $('rprice').oninput=calc; $('rdisc').oninput=calc; $('rqty').oninput=calc;
+  setP();
   $('mx').onclick=hide; $('rcancel').onclick=hide;
-  $('rsave').onclick = async () => {
-    const mid=$('rmat').value, qty=+$('rqty').value, price=+$('rprice').value, disc=+$('rdisc').value||0;
+  $('rsave').onclick=async()=>{
+    const mid=$('rmat').value,qty=+$('rqty').value,price=+$('rprice').value,disc=+$('rdisc').value||0;
     if(!qty||!price){alert('Заповніть кількість та ціну');return;}
     const m=mats.find(x=>x.id===mid);
-    const dp=price*(1-disc/100), oldQ=m.qty||0, oldAvg=m.avgPrice||m.price||dp;
-    const newQ=oldQ+qty, newAvg=(oldQ*oldAvg+qty*dp)/newQ;
-    const newPPU = m.volPerUnit>0 ? newAvg/m.volPerUnit : 0;
+    const dp=price*(1-disc/100),oldQ=m.qty||0,oldAvg=m.avgPrice||m.price||dp;
+    const newQ=oldQ+qty,newAvg=(oldQ*oldAvg+qty*dp)/newQ;
+    const newPPU=m.volPerUnit>0?newAvg/m.volPerUnit:0;
     await updateDoc(doc(db,'materials',mid),{qty:newQ,avgPrice:newAvg,avgPricePerUnit:newPPU});
     await addDoc(collection(db,'purchases'),{matId:mid,matName:m.name,type:'receive',qty,unit:'шт',price:dp,origPrice:price,disc,total:qty*dp,date:$('rdate').value,note:$('rnote').value});
     hide();
   };
 }
 
-function historyModal() {
-  const rec = ops.slice(-40).reverse();
-  const rows = rec.map(o=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #2C2F3530">
+function historyModal(){
+  const rec=ops.slice(-40).reverse();
+  const rows=rec.map(o=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
       <div style="flex:1;min-width:0">
-        <div style="font-size:11px;font-weight:700;color:${o.type==='receive'?'#7BAF8A':'#B87070'}">${o.type==='receive'?'📦 Прихід':'📉 Витрата'}</div>
-        <div style="font-size:13px;color:#ECEEF2;margin:2px 0">${o.matName||'?'}</div>
-        <div style="font-size:11px;color:#848A96">${o.date} · ${o.qty} ${o.unit||'шт'}${o.disc?' · знижка '+o.disc+'%':''}</div>
-        ${o.note?`<div style="font-size:11px;color:#4E5460">${o.note}</div>`:''}
+        <div style="font-size:11px;font-weight:700;color:${o.type==='receive'?'var(--ok)':'var(--err)'}">${o.type==='receive'?'📦 Прихід':'📉 Витрата'}</div>
+        <div style="font-size:13px;color:var(--txt);margin:2px 0">${o.matName||'?'}</div>
+        <div style="font-size:11px;color:var(--mut)">${o.date} · ${o.qty} ${o.unit||'шт'}${o.disc?' · -'+o.disc+'%':''}</div>
+        ${o.note?`<div style="font-size:11px;color:var(--dim)">${o.note}</div>`:''}
       </div>
       <div style="text-align:right;flex-shrink:0">
-        <div style="font-weight:700;font-size:13px;color:#C8CDD6">${fmt(o.total)} грн</div>
-        <button class="bi bs" style="margin-top:4px" data-oid="${o.id}" data-omid="${o.matId}" data-otype="${o.type}" data-oqty="${o.qty}">${svg(ic.x,12,'#B87070')}</button>
+        <div style="font-weight:700;font-size:13px;color:var(--sil)">${fmt(o.total)} грн</div>
+        <button class="bi bs" style="margin-top:4px" data-oid="${o.id}" data-omid="${o.matId||o.matId}" data-otype="${o.type}" data-oqty="${o.qty}">${svg(ic.x,12,'var(--err)')}</button>
       </div>
     </div>`).join('');
-
   show(`
     <div class="mh"><div class="mt">Історія операцій</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
     ${rec.length===0?'<div class="empty">Операцій немає</div>':rows}`);
   $('mx').onclick=hide;
   $('modal').querySelectorAll('[data-oid]').forEach(b=>{
-    b.addEventListener('click', async()=>{
-      if(!confirm('Скасувати цю операцію?')) return;
+    b.addEventListener('click',async()=>{
+      if(!confirm('Скасувати цю операцію?'))return;
       const m=mats.find(x=>x.id===b.dataset.omid);
       if(m){
         const q=+b.dataset.oqty;
-        const nq = b.dataset.otype==='receive' ? Math.max(0,m.qty-q) : m.qty+q;
+        const nq=b.dataset.otype==='receive'?Math.max(0,m.qty-q):m.qty+q;
         await updateDoc(doc(db,'materials',b.dataset.omid),{qty:+nq.toFixed(4)});
       }
       await deleteDoc(doc(db,'purchases',b.dataset.oid));
@@ -1030,7 +790,7 @@ function historyModal() {
 // ════════════════════════════════════════
 // SERVICES
 // ════════════════════════════════════════
-function drawSvc() {
+function drawSvc(){
   const el=$('t-svc');
   el.innerHTML=`
     <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
@@ -1038,36 +798,34 @@ function drawSvc() {
     </div>
     ${svcs.length===0?'<div class="empty">Послуг немає</div>':svcs.map(s=>`
       <div class="ri">
-        <div class="rl"><div class="rn">${s.name}</div><div class="rs">⏱ ${s.duration} хв</div></div>
+        <div class="rl"><div class="rn">${s.name}</div><div class="rs">⏱ ${s.duration>=60?Math.floor(s.duration/60)+'г ':''} ${s.duration%60>0?s.duration%60+'хв':''}</div></div>
         <div class="rr"><div class="rv">${fmt(s.price)} грн</div></div>
         <div class="rac">
           <button class="bi bs" data-es="${s.id}">${svg(ic.edit,13)}</button>
-          <button class="bi bs" data-ds="${s.id}">${svg(ic.del,13,'#B87070')}</button>
+          <button class="bi bs" data-ds="${s.id}">${svg(ic.del,13,'var(--err)')}</button>
         </div>
       </div>`).join('')}`;
   $('bnsvc').onclick=()=>svcModal(null);
   el.querySelectorAll('[data-es]').forEach(b=>b.addEventListener('click',()=>svcModal(b.dataset.es)));
-  el.querySelectorAll('[data-ds]').forEach(b=>b.addEventListener('click',async()=>{ if(confirm('Видалити послугу?'))await deleteDoc(doc(db,'services',b.dataset.ds)); }));
+  el.querySelectorAll('[data-ds]').forEach(b=>b.addEventListener('click',async()=>{if(confirm('Видалити?'))await deleteDoc(doc(db,'services',b.dataset.ds));}));
 }
 
-function svcModal(id) {
+function svcModal(id){
   const s=id?svcs.find(x=>x.id===id):{};
+  const dur=s?.duration||60;
+  const hh=Math.floor(dur/60),mm=dur%60;
   show(`
     <div class="mh"><div class="mt">${id?'Редагувати':'Нова послуга'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
     <div class="field"><label>Назва</label><input id="sn" value="${s?.name||''}" placeholder="Стрижка, Фарбування..."/></div>
     <div class="field"><label>Ціна (грн)</label><input type="number" id="sp" value="${s?.price||0}"/></div>
     <div class="field"><label>Тривалість</label>
       <div class="g2">
-        <div style="position:relative">
-          <select id="sdh" style="width:100%;background:#18191C;border:1px solid #2C2F35;border-radius:8px;padding:9px 12px;color:#ECEEF2;font-size:14px;outline:none;">
-            ${Array.from({length:9},(_,i)=>`<option value="${i}" ${Math.floor((s?.duration||60)/60)===i?'selected':''}>${i} год</option>`).join('')}
-          </select>
-        </div>
-        <div>
-          <select id="sdm" style="width:100%;background:#18191C;border:1px solid #2C2F35;border-radius:8px;padding:9px 12px;color:#ECEEF2;font-size:14px;outline:none;">
-            ${[0,15,30,45].map(m=>`<option value="${m}" ${(s?.duration||60)%60===m?'selected':''}>${m} хв</option>`).join('')}
-          </select>
-        </div>
+        <select id="sdh" style="width:100%;background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;color:var(--txt);font-size:14px;outline:none">
+          ${Array.from({length:9},(_,i)=>`<option value="${i}" ${hh===i?'selected':''}>${i} год</option>`).join('')}
+        </select>
+        <select id="sdm" style="width:100%;background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;color:var(--txt);font-size:14px;outline:none">
+          ${[0,15,30,45].map(m=>`<option value="${m}" ${mm===m?'selected':''}>${m} хв</option>`).join('')}
+        </select>
       </div>
     </div>
     <div class="mf">
@@ -1087,93 +845,79 @@ function svcModal(id) {
 // ════════════════════════════════════════
 // ANALYTICS
 // ════════════════════════════════════════
-function drawStats() {
+function drawStats(){
   const el=$('t-stats');
-  const now=new Date();
+  const now2=new Date();
   const done=appts.filter(a=>{
-    if(a.status!=='done') return false;
+    if(a.status!=='done')return false;
     const d=new Date(a.date+'T12:00:00');
-    if(period==='week'){const w=new Date(now);w.setDate(now.getDate()-7);return d>=w;}
-    if(period==='month') return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
-    return d.getFullYear()===now.getFullYear();
+    if(period==='week'){const w=new Date(now2);w.setDate(now2.getDate()-7);return d>=w;}
+    if(period==='month')return d.getMonth()===now2.getMonth()&&d.getFullYear()===now2.getFullYear();
+    return d.getFullYear()===now2.getFullYear();
   });
   const recOps=ops.filter(o=>{
-    if(o.type!=='receive') return false;
+    if(o.type!=='receive')return false;
     const d=new Date(o.date+'T12:00:00');
-    if(period==='week'){const w=new Date(now);w.setDate(now.getDate()-7);return d>=w;}
-    if(period==='month') return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
-    return d.getFullYear()===now.getFullYear();
+    if(period==='week'){const w=new Date(now2);w.setDate(now2.getDate()-7);return d>=w;}
+    if(period==='month')return d.getMonth()===now2.getMonth()&&d.getFullYear()===now2.getFullYear();
+    return d.getFullYear()===now2.getFullYear();
   });
-
   const rev=done.reduce((s,a)=>s+(a.paid||svcs.find(sv=>sv.id===a.serviceId)?.price||0),0);
   const exp=recOps.reduce((s,o)=>s+(o.total||0),0);
   const profit=rev-exp;
   const avg=done.length?rev/done.length:0;
-
   const bySvc=svcs.map(sv=>{const cnt=done.filter(a=>a.serviceId===sv.id).length;return{...sv,cnt,rev:cnt*sv.price};}).filter(s=>s.cnt>0).sort((a,b)=>b.rev-a.rev);
   const maxS=Math.max(...bySvc.map(s=>s.rev),1);
-
   const byDay=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map((l,i)=>{
     const dn=(i+1)%7;
     const r=done.filter(a=>new Date(a.date+'T12:00:00').getDay()===dn).reduce((s,a)=>s+(svcs.find(sv=>sv.id===a.serviceId)?.price||0),0);
     return{l,r};
   });
   const maxD=Math.max(...byDay.map(d=>d.r),1);
-
   el.innerHTML=`
     <div class="chips" id="pchips">
       ${[['week','Тиждень'],['month','Місяць'],['year','Рік']].map(([k,l])=>`<button class="chip ${period===k?'on':''}" data-p="${k}">${l}</button>`).join('')}
     </div>
     <div class="sg">
-      <div class="sc"><div class="sv" style="color:#C8CDD6">${fmt(rev)} грн</div><div class="sl">Виручка</div><div class="ss">${done.length} послуг</div></div>
-      <div class="sc"><div class="sv" style="color:#B87070">${fmt(exp)} грн</div><div class="sl">Витрати</div><div class="ss">закупівлі</div></div>
-      <div class="sc"><div class="sv" style="color:${profit>=0?'#7BAF8A':'#B87070'}">${fmt(profit)} грн</div><div class="sl">Прибуток</div></div>
-      <div class="sc"><div class="sv" style="color:#C4BAD8">${fmt(avg)} грн</div><div class="sl">Сер. чек</div></div>
+      <div class="sc"><div class="sv" style="color:var(--sil)">${fmt(rev)} грн</div><div class="sl">Виручка</div><div class="ss">${done.length} послуг</div></div>
+      <div class="sc"><div class="sv" style="color:var(--err)">${fmt(exp)} грн</div><div class="sl">Витрати</div><div class="ss">закупівлі</div></div>
+      <div class="sc"><div class="sv" style="color:${profit>=0?'var(--ok)':'var(--err)'}">${fmt(profit)} грн</div><div class="sl">Прибуток</div></div>
+      <div class="sc"><div class="sv" style="color:var(--acs)">${fmt(avg)} грн</div><div class="sl">Сер. чек</div></div>
     </div>
     <div class="card">
       <div class="sec" style="margin-top:0">По днях тижня</div>
       <div style="display:flex;align-items:flex-end;gap:5px;height:80px">
         ${byDay.map(({l,r})=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
-          <div style="font-size:9px;color:#4E5460">${r>0?fmt(r/1000)+'к':''}</div>
-          <div style="width:100%;background:${r>0?'linear-gradient(to top,#6B6380,#A89BC2)':'#2C2F35'};border-radius:3px 3px 0 0;height:${Math.max(r/maxD*65,r>0?3:2)}px"></div>
-          <div style="font-size:10px;color:#848A96">${l}</div>
+          <div style="font-size:9px;color:var(--dim)">${r>0?fmt(r/1000)+'к':''}</div>
+          <div style="width:100%;background:${r>0?'linear-gradient(to top,#6B6380,#A89BC2)':'var(--brd)'};border-radius:3px 3px 0 0;height:${Math.max(r/maxD*65,r>0?3:2)}px"></div>
+          <div style="font-size:10px;color:var(--mut)">${l}</div>
         </div>`).join('')}
       </div>
     </div>
     <div class="card">
       <div class="sec" style="margin-top:0">Послуги</div>
-      ${bySvc.length===0?'<div style="color:#4E5460;text-align:center;padding:20px 0">Немає даних</div>':bySvc.map(s=>`
+      ${bySvc.length===0?'<div style="color:var(--dim);text-align:center;padding:20px 0">Немає даних</div>':bySvc.map(s=>`
         <div style="margin-bottom:12px">
           <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="font-size:13px;color:#ECEEF2">${s.name} <span style="color:#4E5460">×${s.cnt}</span></span>
-            <span style="font-weight:700;color:#C8CDD6">${fmt(s.rev)} грн</span>
+            <span style="font-size:13px;color:var(--txt)">${s.name} <span style="color:var(--dim)">×${s.cnt}</span></span>
+            <span style="font-weight:700;color:var(--sil)">${fmt(s.rev)} грн</span>
           </div>
           <div class="pb"><div class="pf" style="width:${s.rev/maxS*100}%"></div></div>
         </div>`).join('')}
     </div>
     <div class="card">
       <div class="sec" style="margin-top:0">Останні закупівлі</div>
-      ${recOps.length===0?'<div style="color:#4E5460;text-align:center;padding:20px 0">Немає закупівель</div>':recOps.slice(-8).reverse().map(o=>`
-        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #2C2F3528">
-          <div><div style="font-size:13px;color:#ECEEF2">${o.matName||'?'}</div>
-          <div style="font-size:11px;color:#848A96">${o.date} · ${o.qty} шт${o.disc?' · -'+o.disc+'%':''}</div></div>
-          <div style="font-weight:700;color:#C8CDD6;white-space:nowrap">${fmt(o.total)} грн</div>
+      ${recOps.length===0?'<div style="color:var(--dim);text-align:center;padding:20px 0">Немає закупівель</div>':recOps.slice(-8).reverse().map(o=>`
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--brd)">
+          <div><div style="font-size:13px;color:var(--txt)">${o.matName||'?'}</div>
+          <div style="font-size:11px;color:var(--mut)">${o.date} · ${o.qty} шт${o.disc?' · -'+o.disc+'%':''}</div></div>
+          <div style="font-weight:700;color:var(--sil);white-space:nowrap">${fmt(o.total)} грн</div>
         </div>`).join('')}
     </div>`;
-
-  el.querySelectorAll('[data-p]').forEach(b=>b.addEventListener('click',()=>{ period=b.dataset.p; drawStats(); }));
+  el.querySelectorAll('[data-p]').forEach(b=>b.addEventListener('click',()=>{period=b.dataset.p;drawStats();}));
 }
 
 draw();
-</script>
-<script>
-// Force fresh version every time
-if('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
-}
-// Add random version to all future fetches
-const _v = Date.now();
-window.__v = _v;
 </script>
 </body>
 </html>
