@@ -146,6 +146,9 @@ const db = getFirestore(initializeApp({
 let svcs=[], mats=[], appts=[], ops=[];
 const _now=new Date(); const _localDate=_now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0')+'-'+String(_now.getDate()).padStart(2,'0');
 let tab='cal', calDate=_localDate, calView=1;
+// Default schedule: Mon-Sat, 9:00-19:00
+let schedule = JSON.parse(localStorage.getItem('schedule')||'{"days":[1,2,3,4,5,6],"start":9,"end":19}');
+const saveSchedule = () => localStorage.setItem('schedule', JSON.stringify(schedule));
 let stockCat='Всі', stockQ='', period='month';
 
 // ── Utils ─────────────────────────────────
@@ -200,6 +203,99 @@ function hide() { $('overlay').classList.remove('show'); }
 $('overlay').addEventListener('click', e => { if(e.target===$('overlay')) hide(); });
 
 // ── DRAW ──────────────────────────────────
+// ── Schedule Modal ────────────────────────────────
+function scheduleModal() {
+  const dayNames = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
+  const dayBtns = [1,2,3,4,5,6,0].map(d=>`
+    <button class="chip ${schedule.days.includes(d)?'on':''}" data-day="${d}" style="min-width:40px">${dayNames[d]}</button>
+  `).join('');
+
+  const hourOpts = (sel) => Array.from({length:24},(_,i)=>`<option value="${i}" ${sel===i?'selected':''}>${i}:00</option>`).join('');
+
+  show(`
+    <div class="mh"><div class="mt">⚙️ Мій графік</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    <div class="field">
+      <label>Робочі дні</label>
+      <div class="chips" id="daychips">${dayBtns}</div>
+    </div>
+    <div class="g2">
+      <div class="field"><label>Початок роботи</label>
+        <select id="wstart">${hourOpts(schedule.start)}</select>
+      </div>
+      <div class="field"><label>Кінець роботи</label>
+        <select id="wend">${hourOpts(schedule.end)}</select>
+      </div>
+    </div>
+    <div class="card" style="background:#18191C;margin-bottom:14px;font-size:13px;color:#848A96">
+      Кольори кільця на даті:<br>
+      <span style="color:#7BAF8A">●</span> Вільно &nbsp;
+      <span style="color:#D4A853">●</span> 50%+ &nbsp;
+      <span style="color:#E07B39">●</span> 75%+ &nbsp;
+      <span style="color:#B87070">●</span> Повністю зайнятий
+    </div>
+    <div class="mf">
+      <button class="btn bg" id="mcancel">Скасувати</button>
+      <button class="btn bp" id="msave">Зберегти</button>
+    </div>`);
+
+  $('mx').onclick=hide; $('mcancel').onclick=hide;
+
+  $('modal').querySelectorAll('[data-day]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const d=+b.dataset.day;
+      b.classList.toggle('on');
+    });
+  });
+
+  $('msave').onclick = () => {
+    const selectedDays = [...$('modal').querySelectorAll('[data-day].on')].map(b=>+b.dataset.day);
+    schedule = { days:selectedDays, start:+$('wstart').value, end:+$('wend').value };
+    saveSchedule();
+    hide();
+    drawCal();
+  };
+}
+
+// ── Schedule helpers ──────────────────────────────
+function getWorkMinutes(date) {
+  const d = new Date(date+'T12:00:00');
+  if(!schedule.days.includes(d.getDay())) return 0;
+  return (schedule.end - schedule.start) * 60;
+}
+
+function getBookedMinutes(date) {
+  return appts
+    .filter(a=>a.date===date&&a.status!=='cancelled')
+    .reduce((s,a)=>{ const svc=svcs.find(sv=>sv.id===a.serviceId); return s+(svc?.duration||60); },0);
+}
+
+function getDayColor(date) {
+  const total = getWorkMinutes(date);
+  if(total===0) return '#2C2F35'; // вихідний
+  const booked = getBookedMinutes(date);
+  const pct = booked/total;
+  if(pct===0) return '#2C2F35';
+  if(pct<0.5) return '#7BAF8A'; // зелений
+  if(pct<0.75) return '#D4A853'; // жовтий
+  if(pct<1) return '#E07B39'; // помаранчевий
+  return '#B87070'; // червоний — заповнений
+}
+
+function getDayRing(date) {
+  const total = getWorkMinutes(date);
+  if(total===0) return '';
+  const booked = getBookedMinutes(date);
+  const pct = Math.min(booked/total, 1);
+  if(pct===0) return '';
+  const color = getDayColor(date);
+  const r = 10, circ = 2*Math.PI*r;
+  const dash = pct*circ;
+  return `<svg width="26" height="26" style="position:absolute;top:-3px;left:50%;transform:translateX(-50%)" viewBox="0 0 26 26">
+    <circle cx="13" cy="13" r="${r}" fill="none" stroke="#2C2F35" stroke-width="2.5"/>
+    <circle cx="13" cy="13" r="${r}" fill="none" stroke="${color}" stroke-width="2.5" stroke-dasharray="${dash} ${circ}" stroke-dashoffset="${circ/4}" stroke-linecap="round"/>
+  </svg>`;
+}
+
 function draw() {
   if(tab==='cal') drawCal();
   else if(tab==='stock') drawStock();
@@ -222,6 +318,7 @@ function drawCal() {
     const isT = d===todayStr;
     const dn = DN[new Date(d+'T12:00:00').getDay()];
     const day = new Date(d+'T12:00:00').getDate();
+    const ring = getDayRing(d);
     let cells = HOURS.map(h => {
       const da = appts.filter(a=>a.date===d&&+a.time.split(':')[0]===h);
       let blocks = da.map(a => {
@@ -236,7 +333,7 @@ function drawCal() {
       }).join('');
       return `<div class="tc" data-d="${d}" data-h="${h.toString().padStart(2,'0')}:00">${blocks}</div>`;
     }).join('');
-    return `<div class="cal-col"><div class="col-hdr ${isT?'tod':''}">${dn}<br><b>${day}</b></div>${cells}</div>`;
+    return `<div class="cal-col"><div class="col-hdr ${isT?'tod':''}" style="position:relative;padding-bottom:10px">${ring}${dn}<br><b>${day}</b></div>${cells}</div>`;
   }).join('');
 
   el.innerHTML = `
@@ -246,9 +343,11 @@ function drawCal() {
         <div style="font-weight:700;font-size:15px;cursor:pointer" id="cdatelbl">${lbl}</div>
         <div style="font-size:11px;color:#4E5460">${appts.filter(a=>a.date===calDate&&a.status==='pending').length} очікує</div>
         <input type="date" id="cdatepick" style="position:absolute;opacity:0;width:100%;height:100%;top:0;left:0;cursor:pointer" value="${calDate}"/>
+        <div id="caldot" style="width:8px;height:8px;border-radius:50%;background:${getDayColor(calDate)};margin:2px auto 0;"></div>
       </div>
       <button class="bi" id="cnext">${svg(ic.r,18)}</button>
       <button class="btn bp bs" id="cadd">${svg(ic.plus,14)} Запис</button>
+      <button class="bi" id="csched" title="Графік">⚙️</button>
     </div>
     <div class="vc">
       <button class="vb ${calView===1?'on':''}" data-cv="1">День</button>
@@ -265,6 +364,7 @@ function drawCal() {
   $('cprev').onclick = () => { calDate=addDays(calDate,-calView); drawCal(); };
   $('cnext').onclick = () => { calDate=addDays(calDate,calView); drawCal(); };
   $('cadd').onclick = () => apptModal(null, calDate, '10:00');
+  $('csched') && ($('csched').onclick = () => scheduleModal());
   const dp = $('cdatepick'); if(dp) dp.addEventListener('change', e=>{ calDate=e.target.value; drawCal(); });
   el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{ calView=+b.dataset.cv; drawCal(); }));
   el.querySelectorAll('.tc').forEach(c=>c.addEventListener('click',e=>{ if(!e.target.closest('.ab')) apptModal(null,c.dataset.d,c.dataset.h); }));
