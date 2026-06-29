@@ -230,7 +230,7 @@ function drawCal(){
         const hPx=Math.max((dur/60)*60,22);
         const cls=a.status==='done'?'done':a.status==='cancelled'?'cancelled':'pending';
         // For multiple services show combined name
-        const svcNames = a.services ? a.services.map(sid=>svcs.find(s=>s.id===sid)?.name||'').filter(Boolean).join('+') : (svc?.name||'');
+        const svcNames = a.services ? a.services.map(s=>{const sid=typeof s==='object'?s.serviceId:s;return svcs.find(sv=>sv.id===sid)?.name||'';}).filter(Boolean).join('+') : (svc?.name||'');
         return`<div class="AB ${cls}" style="top:${topPx}px;height:${hPx}px" data-aid="${a.id}">
           <div style="display:flex;align-items:center;gap:4px">
             <div class="AB-DRAG" style="padding:2px 4px 2px 2px;cursor:grab;color:rgba(255,255,255,.4);font-size:10px;touch-action:none">⠿</div>
@@ -441,19 +441,43 @@ function schedModal(){
 // Appointment Modal — multiple services
 function apptModal(a,date,time){
   // selectedServices: [{serviceId, price}]
-  let selSvcs = a ? [{serviceId:a.serviceId,price:svcs.find(s=>s.id===a.serviceId)?.price||0}] : [];
+  // Init services - support both old format (serviceId string) and new (array of objects)
+  let selSvcs = [];
+  if(a){
+    if(a.services && Array.isArray(a.services)){
+      selSvcs = a.services.map(s=>typeof s==='object'?s:{serviceId:s,adj:0});
+    } else if(a.serviceId){
+      selSvcs = [{serviceId:a.serviceId,adj:0}];
+    }
+  }
 
   function renderApptModal(){
     const opts=svcs.map(s=>`<option value="${s.id}">${s.name} — ${fmt(s.price)} грн</option>`).join('');
+    const fmtDur=d=>{const h=Math.floor(d/60),m=d%60;return(h>0?h+'г ':'')+( m>0?m+'хв':'');};
     const selRows=selSvcs.map((ss,i)=>{
       const svc=svcs.find(s=>s.id===ss.serviceId);
-      return`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd)">
-        <div style="flex:1"><div style="font-size:13px;font-weight:600">${svc?.name||'?'}</div>
-        <div style="font-size:11px;color:var(--mut)">${fmt(svc?.price||0)} грн · ${svc?.duration||60} хв</div></div>
-        <button class="bi bs" data-rmsvc="${i}">${svg(ic.x,12,'var(--err)')}</button>
+      const baseP=svc?.price||0;
+      const adj=ss.adj||0; // positive=markup, negative=discount
+      const finalP=Math.max(0,baseP+adj);
+      return`<div style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div><div style="font-size:13px;font-weight:600">${svc?.name||'?'}</div>
+          <div style="font-size:11px;color:var(--mut)">${fmtDur(svc?.duration||60)} · база: ${fmt(baseP)} грн</div></div>
+          <button class="bi bs" data-rmsvc="${i}">${svg(ic.x,12,'var(--err)')}</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1">
+            <div style="font-size:10px;color:var(--mut);margin-bottom:3px">Знижка(-) / Наценка(+) грн</div>
+            <input type="number" value="${adj}" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--txt);font-size:13px;outline:none" data-adj="${i}" placeholder="0"/>
+          </div>
+          <div style="text-align:right;min-width:70px">
+            <div style="font-size:10px;color:var(--mut)">Підсумок</div>
+            <div style="font-size:15px;font-weight:700;color:${adj<0?'var(--wrn)':adj>0?'var(--ok)':'var(--acs)'}">${fmt(finalP)} грн</div>
+          </div>
+        </div>
       </div>`;
     }).join('');
-    const totalPrice=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.price||0),0);
+    const totalPrice=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
     const totalDur=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.duration||60),0);
 
     $('modal').innerHTML=`
@@ -486,15 +510,30 @@ function apptModal(a,date,time){
     $('mx').onclick=hide;$('fcancel').onclick=hide;
     $('fsadd').onchange=e=>{
       if(!e.target.value)return;
-      selSvcs.push({serviceId:e.target.value});
+      selSvcs.push({serviceId:e.target.value,adj:0});
+      e.target.value='';
       renderApptModal();
     };
     $('modal').querySelectorAll('[data-rmsvc]').forEach(b=>b.onclick=()=>{selSvcs.splice(+b.dataset.rmsvc,1);renderApptModal();});
+    $('modal').querySelectorAll('[data-adj]').forEach(inp=>inp.addEventListener('input',e=>{
+      selSvcs[+inp.dataset.adj].adj=+e.target.value||0;
+      // Update total display without re-render
+      const totalPrice2=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
+      const totalDur2=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.duration||60),0);
+      const fmtDur2=d=>{const h=Math.floor(d/60),m=d%60;return(h>0?h+'г ':'')+(m>0?m+'хв':'');};
+      const lbl=$('modal').querySelector('label[for-svc-lbl]');
+      if(lbl)lbl.textContent=`Послуги ${selSvcs.length} · ${fmt(totalPrice2)} грн · ${fmtDur2(totalDur2)}`;
+    }));
     $('fsave').onclick=async()=>{
       const client=$('fc').value;
       if(!client||selSvcs.length===0){alert("Заповніть ім'я та оберіть послугу");return;}
-      // Save primary service (first) for calendar display
-      const data={client,phone:$('fp').value,serviceId:selSvcs[0].serviceId,services:selSvcs.map(s=>s.serviceId),date:$('fd').value,time:$('ft').value,status:$('fst').value,paid:+$('fm').value,note:$('fn').value};
+      // Read current adj values before saving
+      $('modal').querySelectorAll('[data-adj]').forEach(inp=>{selSvcs[+inp.dataset.adj].adj=+inp.value||0;});
+      const totalPaid=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
+      const data={client,phone:$('fp').value,serviceId:selSvcs[0].serviceId,
+        services:selSvcs.map(s=>({serviceId:s.serviceId,adj:s.adj||0})),
+        date:$('fd').value,time:$('ft').value,status:$('fst').value,
+        paid:+$('fm').value||($('fst').value==='done'?totalPaid:0),note:$('fn').value};
       if(a)await updateDoc(doc(db,'appointments',a.id),data);
       else await addDoc(collection(db,'appointments'),data);
       hide();
