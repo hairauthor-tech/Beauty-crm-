@@ -6,26 +6,15 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
 <title>Beauty CRM</title>
 <style>
-:root{
-  --bg:#111214;--surf:#18191C;--card:#1E2024;--brd:#2C2F35;
-  --txt:#ECEEF2;--mut:#848A96;--dim:#4E5460;
-  --acc:#A89BC2;--acs:#C4BAD8;--sil:#C8CDD6;
-  --ok:#7BAF8A;--err:#B87070;--wrn:#C4A46A;
-}
-.light{
-  --bg:#F2F2F7;--surf:#FFFFFF;--card:#FFFFFF;--brd:#E0E0E5;
-  --txt:#1A1A1E;--mut:#6B6B70;--dim:#AEAEB2;
-  --acc:#7B6FA0;--acs:#9B8FC0;--sil:#3A3A3C;
-  --ok:#3A8A50;--err:#C0392B;--wrn:#B8860B;
-}
+:root{--bg:#111214;--surf:#18191C;--card:#1E2024;--brd:#2C2F35;--txt:#ECEEF2;--mut:#848A96;--dim:#4E5460;--acc:#A89BC2;--acs:#C4BAD8;--sil:#C8CDD6;--ok:#7BAF8A;--err:#B87070;--wrn:#C4A46A;}
+.light{--bg:#F2F2F7;--surf:#FFFFFF;--card:#FFFFFF;--brd:#E0E0E5;--txt:#1A1A1E;--mut:#6B6B70;--dim:#AEAEB2;--acc:#7B6FA0;--acs:#9B8FC0;--sil:#3A3A3C;--ok:#3A8A50;--err:#C0392B;--wrn:#B8860B;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;overflow-x:hidden;transition:background .2s,color .2s;}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;overflow-x:hidden;}
 button,input,select,textarea{font-family:inherit;}
 ::-webkit-scrollbar{display:none;}
 .hdr{background:var(--surf);border-bottom:1px solid var(--brd);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
-.hdr-l{display:flex;align-items:center;gap:10px;}
 .logo{background:linear-gradient(135deg,#6B6380,#A89BC2);border-radius:9px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-.content{padding:16px;padding-bottom:80px;min-height:100vh;}
+.content{padding:16px;padding-bottom:80px;}
 .bnav{position:fixed;bottom:0;left:0;right:0;background:var(--surf);border-top:1px solid var(--brd);display:flex;z-index:50;}
 .nb{flex:1;background:none;border:none;cursor:pointer;padding:10px 4px 14px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--dim);font-size:10px;font-weight:500;}
 .nb.on{color:var(--acs);}
@@ -39,35 +28,32 @@ button,input,select,textarea{font-family:inherit;}
 .bi{padding:6px 8px;background:transparent;border:1px solid var(--brd);border-radius:7px;cursor:pointer;color:var(--mut);display:inline-flex;align-items:center;}
 .field{margin-bottom:13px;}
 .field label{display:block;color:var(--mut);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:5px;}
-.field input,.field select,.field textarea{width:100%;background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;color:var(--txt);font-size:14px;outline:none;}
-.field textarea{resize:vertical;min-height:58px;}
+.fi{width:100%;background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;color:var(--txt);font-size:14px;outline:none;}
+.fi::placeholder{color:var(--dim);}
+textarea.fi{resize:vertical;min-height:58px;}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:200;display:none;align-items:flex-end;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:200;display:none;align-items:flex-start;padding-top:60px;}
 .overlay.show{display:flex;}
-.modal{background:var(--card);border:1px solid var(--brd);border-radius:16px 16px 0 0;width:100%;max-height:92vh;overflow-y:auto;padding:20px 16px 30px;}
+.modal{background:var(--card);border:1px solid var(--brd);border-radius:16px;width:calc(100% - 32px);margin:0 auto;max-height:calc(100vh - 80px);overflow-y:auto;padding:20px 16px 30px;}
 .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;}
 .mt{font-size:16px;font-weight:700;}
 .mf{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;}
-.chips{display:flex;gap:5px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px;}
-.chip{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--brd);background:transparent;color:var(--mut);white-space:nowrap;}
+.chips{display:flex;gap:5px;overflow-x:auto;margin-bottom:12px;}
+.chip{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--brd);background:transparent;color:var(--mut);white-space:nowrap;flex-shrink:0;}
 .chip.on{background:var(--acc);color:#fff;border-color:var(--acc);}
 .sec{color:var(--mut);font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:16px 0 8px;}
 .ri{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border:1px solid var(--brd);border-radius:10px;margin-bottom:8px;}
 .rl{flex:1;min-width:0;}
-.rn{font-weight:600;font-size:14px;color:var(--txt);}
+.rn{font-weight:600;font-size:14px;}
 .rs{font-size:12px;color:var(--mut);margin-top:2px;}
 .rr{text-align:right;flex-shrink:0;}
 .rv{font-weight:700;font-size:15px;color:var(--sil);}
 .ra{font-size:11px;color:var(--dim);}
 .rac{display:flex;gap:5px;flex-shrink:0;}
-.alert{border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;font-size:13px;}
-.ad{background:rgba(184,112,112,.1);border:1px solid rgba(184,112,112,.4);color:var(--err);}
 .sg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
 .sc{background:var(--card);border:1px solid var(--brd);border-radius:12px;padding:14px;text-align:center;}
 .sv{font-weight:800;font-size:20px;margin-bottom:3px;}
-.sl{color:var(--txt);font-size:12px;font-weight:600;}
-.ss{color:var(--mut);font-size:11px;margin-top:2px;}
 .pb{background:var(--brd);border-radius:4px;height:5px;overflow:hidden;margin-top:5px;}
 .pf{height:100%;border-radius:4px;background:linear-gradient(to right,#6B6380,#C4BAD8);}
 .empty{text-align:center;color:var(--dim);padding:50px 0;font-size:14px;}
@@ -76,75 +62,50 @@ button,input,select,textarea{font-family:inherit;}
 input[type=date],input[type=time]{color-scheme:dark;}
 .light input[type=date],.light input[type=time]{color-scheme:light;}
 /* Calendar */
-.cal-wrap{overflow-x:auto;}
-.cal-grid{display:flex;}
-.cal-times{width:44px;flex-shrink:0;}
-.tl{height:60px;min-height:60px;display:flex;align-items:flex-start;justify-content:flex-end;padding:4px 6px 0 0;color:var(--dim);font-size:10px;border-bottom:1px solid var(--brd);}
-.cal-cols{display:flex;flex:1;}
-.cal-col{flex:1;min-width:80px;border-left:1px solid var(--brd);}
-.col-hdr{text-align:center;padding:6px 2px 8px;font-size:10px;font-weight:700;color:var(--mut);border-bottom:1px solid var(--brd);background:var(--surf);position:relative;}
-.col-hdr.tod{color:var(--acc);}
-.tc{height:60px;min-height:60px;border-bottom:1px solid rgba(128,128,128,.1);position:relative;cursor:pointer;}
-.ab{position:absolute;left:2px;right:2px;border-radius:6px;padding:3px 5px;overflow:hidden;z-index:2;cursor:pointer;touch-action:none;}
-.ap{background:rgba(168,155,194,.2);border-left:3px solid var(--acc);}
-.adn{background:rgba(123,175,138,.15);border-left:3px solid var(--ok);}
-.ac{background:rgba(184,112,112,.15);border-left:3px solid var(--err);}
-.an{font-size:11px;font-weight:700;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.at{font-size:9px;color:var(--mut);}
-.ab-resize{position:absolute;bottom:0;left:0;right:0;height:10px;display:flex;align-items:center;justify-content:center;cursor:ns-resize;}
-.ab-resize-bar{width:20px;height:2px;background:rgba(255,255,255,.3);border-radius:2px;}
-.vc{display:flex;gap:4px;margin-bottom:10px;}
+.CHR{height:28px;display:flex;align-items:center;padding-left:2px;}
+.TL{height:60px;display:flex;align-items:flex-start;justify-content:flex-end;padding:2px 6px 0 0;color:var(--dim);font-size:10px;}
+.CAL-COL{flex:1;min-width:80px;border-left:1px solid var(--brd);}
+.COL-H{height:28px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--mut);border-bottom:1px solid var(--brd);background:var(--surf);gap:4px;}
+.COL-H.tod{color:var(--acc);}
+.TC{height:60px;border-bottom:1px solid rgba(128,128,128,.08);position:relative;cursor:pointer;}
+.AB{position:absolute;left:2px;right:2px;border-radius:6px;padding:3px 5px;overflow:hidden;z-index:2;cursor:pointer;touch-action:none;transition:opacity .15s;}
+.AB.pending{background:rgba(168,155,194,.2);border-left:3px solid var(--acc);}
+.AB.done{background:rgba(123,175,138,.15);border-left:3px solid var(--ok);}
+.AB.cancelled{background:rgba(184,112,112,.15);border-left:3px solid var(--err);}
+.AB-N{font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.AB-T{font-size:9px;color:var(--mut);}
+.AB-RES{position:absolute;bottom:0;left:0;right:0;height:12px;display:flex;align-items:center;justify-content:center;cursor:ns-resize;}
 .vb{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--brd);background:transparent;color:var(--mut);}
 .vb.on{background:var(--acc);color:#fff;border-color:var(--acc);}
+.alert{border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;font-size:13px;}
+.alert-d{background:rgba(184,112,112,.1);border:1px solid rgba(184,112,112,.4);color:var(--err);}
 </style>
 </head>
 <body>
 <div class="hdr">
-  <div class="hdr-l">
-    <div class="logo">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3a3 3 0 110 6 3 3 0 010-6zM18 3a3 3 0 110 6 3 3 0 010-6zM8.22 8.22l7.56 7.56M16.73 14.27l1.5 1.5a3 3 0 11-4.24 4.24l-1.5-1.5M7.27 9.73L5.77 8.23A3 3 0 111.53 4"/></svg>
-    </div>
-    <div>
-      <div style="font-weight:800;font-size:14px">Beauty CRM</div>
-      <div style="font-size:10px;color:var(--dim)" id="hdate"></div>
-    </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    <div class="logo"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3a3 3 0 110 6 3 3 0 010-6zM18 3a3 3 0 110 6 3 3 0 010-6zM8.22 8.22l7.56 7.56M16.73 14.27l1.5 1.5a3 3 0 11-4.24 4.24l-1.5-1.5M7.27 9.73L5.77 8.23A3 3 0 111.53 4"/></svg></div>
+    <div><div style="font-weight:800;font-size:14px">Beauty CRM</div><div style="font-size:10px;color:var(--dim)" id="hdate"></div></div>
   </div>
-  <button class="bi" id="themeBtn" style="font-size:18px;border:none;background:transparent">🌙</button>
+  <button class="bi" id="themeBtn" style="font-size:18px;border:none;background:transparent;padding:4px">🌙</button>
 </div>
-
 <div class="content">
   <div class="tab on" id="t-cal"></div>
   <div class="tab" id="t-stock"></div>
   <div class="tab" id="t-svc"></div>
   <div class="tab" id="t-stats"></div>
 </div>
-
 <nav class="bnav">
-  <button class="nb on" data-tab="cal">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3M16 2v3M3 8h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>
-    Записи
-  </button>
-  <button class="nb" data-tab="stock">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16V8zM3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>
-    Склад
-  </button>
-  <button class="nb" data-tab="svc">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-    Послуги
-  </button>
-  <button class="nb" data-tab="stats">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 16l4-4 4 4 4-4"/></svg>
-    Аналітика
-  </button>
+  <button class="nb on" data-tab="cal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3M16 2v3M3 8h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>Записи</button>
+  <button class="nb" data-tab="stock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16V8zM3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>Склад</button>
+  <button class="nb" data-tab="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Послуги</button>
+  <button class="nb" data-tab="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 16l4-4 4 4 4-4"/></svg>Аналітика</button>
 </nav>
-
-<div class="overlay" id="overlay">
-  <div class="modal" id="modal"></div>
-</div>
+<div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore,collection,addDoc,updateDoc,deleteDoc,doc,onSnapshot,query,orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const db = getFirestore(initializeApp({
   apiKey:"AIzaSyBtEcQ69spy8Lp8R6ttJOX8krl1iH2j8X4",
@@ -155,126 +116,89 @@ const db = getFirestore(initializeApp({
   appId:"1:1011794290495:web:d5dac454ea696e4924158a"
 }));
 
-// ── State ─────────────────────────────────
+// ── State ──────────────────────────────────────────
 let svcs=[], mats=[], appts=[], ops=[];
 let tab='cal', calView=1;
 let stockCat='Всі', stockQ='', period='month';
+let theme=localStorage.getItem('theme')||'dark';
+let schedule=JSON.parse(localStorage.getItem('sched')||'{"days":[1,2,3,4,5,6],"start":9,"end":19}');
+let exceptions=JSON.parse(localStorage.getItem('exc')||'{}');
 
-const now = new Date();
-let calDate = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');
+const d0=new Date();
+let calDate=d0.getFullYear()+'-'+String(d0.getMonth()+1).padStart(2,'0')+'-'+String(d0.getDate()).padStart(2,'0');
 
-let theme = localStorage.getItem('theme')||'dark';
-let schedule = JSON.parse(localStorage.getItem('sched')||'{"days":[1,2,3,4,5,6],"start":9,"end":19}');
-let exceptions = JSON.parse(localStorage.getItem('exc')||'{}');
-
-// ── Theme ─────────────────────────────────
-function applyTheme() {
-  if(theme==='light') document.body.classList.add('light');
-  else document.body.classList.remove('light');
-  document.getElementById('themeBtn').textContent = theme==='dark'?'☀️':'🌙';
+// ── Theme ──────────────────────────────────────────
+function applyTheme(){
+  document.body.classList.toggle('light',theme==='light');
+  document.getElementById('themeBtn').textContent=theme==='dark'?'☀️':'🌙';
 }
 applyTheme();
-document.getElementById('themeBtn').addEventListener('click',()=>{
-  theme = theme==='dark'?'light':'dark';
-  localStorage.setItem('theme',theme);
-  applyTheme();
-});
+document.getElementById('themeBtn').onclick=()=>{theme=theme==='dark'?'light':'dark';localStorage.setItem('theme',theme);applyTheme();};
 
-// ── Utils ─────────────────────────────────
-const $ = id => document.getElementById(id);
-const fmt = n => new Intl.NumberFormat('uk-UA').format(Math.round(n||0));
-const today = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); };
-const addDays = (d,n) => { const x=new Date(d+'T12:00:00'); x.setDate(x.getDate()+n); return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0'); };
-const fmtL = d => new Date(d+'T12:00:00').toLocaleDateString('uk-UA',{day:'numeric',month:'long'});
-const fmtS = d => new Date(d+'T12:00:00').toLocaleDateString('uk-UA',{day:'numeric',month:'short'});
-const DN = ['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
-const HOURS = Array.from({length:13},(_,i)=>i+8); // 8-20
-const CATS = ['Фарби','Окислювачі','Порошки','Шампуні','Маски','Кондиціонери','Стайлінг','Інше'];
-const ic = {
-  plus:'M12 5v14M5 12h14',
-  edit:'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z',
-  del:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6',
-  x:'M18 6L6 18M6 6l12 12',
-  l:'M15 18l-6-6 6-6', r:'M9 18l6-6-6-6',
-  w:'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01',
-  h:'M16 16l-4 4-4-4M12 12v8M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3'
-};
-const svg = (d,s=16,c='currentColor') => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+// ── Utils ──────────────────────────────────────────
+const $=id=>document.getElementById(id);
+const fmt=n=>new Intl.NumberFormat('uk-UA').format(Math.round(n||0));
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+const addDays=(d,n)=>{const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0');};
+const fmtL=d=>new Date(d+'T12:00:00').toLocaleDateString('uk-UA',{day:'numeric',month:'long'});
+const fmtS=d=>new Date(d+'T12:00:00').toLocaleDateString('uk-UA',{day:'numeric',month:'short'});
+const DN=['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
+const HOURS=Array.from({length:13},(_,i)=>i+8);
+const CATS=['Фарби','Окислювачі','Порошки','Шампуні','Маски','Кондиціонери','Стайлінг','Інше'];
+const svg=(d,s=16,c='currentColor')=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
+const ic={plus:'M12 5v14M5 12h14',edit:'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z',del:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6',x:'M18 6L6 18M6 6l12 12',l:'M15 18l-6-6 6-6',r:'M9 18l6-6-6-6',w:'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01',h:'M16 16l-4 4-4-4M12 12v8M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3'};
 
-// ── Schedule helpers ──────────────────────
-function isWorkDay(date) {
-  if(exceptions[date]===true) return true;
-  if(exceptions[date]===false) return false;
-  return schedule.days.includes(new Date(date+'T12:00:00').getDay());
-}
-function getWorkMins(date) { return isWorkDay(date)?(schedule.end-schedule.start)*60:0; }
-function getBookedMins(date) {
-  return appts.filter(a=>a.date===date&&a.status!=='cancelled')
-    .reduce((s,a)=>s+(svcs.find(sv=>sv.id===a.serviceId)?.duration||60),0);
-}
-function dayColor(date) {
-  const total=getWorkMins(date); if(!total) return '#4E5460';
-  const pct=getBookedMins(date)/total;
-  if(pct<=0) return '#4E5460';
-  if(pct<0.5) return '#7BAF8A';
-  if(pct<0.75) return '#D4A853';
-  if(pct<1) return '#E07B39';
-  return '#B87070';
-}
-function dayRing(date) {
-  const total=getWorkMins(date); if(!total) return '';
-  const pct=Math.min(getBookedMins(date)/total,1);
-  const r=9,circ=2*Math.PI*r,color=dayColor(date);
-  // For full circle (pct=1): dash=circ, gap=0, no offset needed
-  const dash=pct>=1?circ:pct*circ;
-  const gap=pct>=1?0:circ-dash;
-  const offset=pct>=1?0:circ/4;
-  return `<svg width="26" height="26" style="position:absolute;top:-2px;left:50%;transform:translateX(-50%)" viewBox="0 0 26 26">
+// ── Schedule ───────────────────────────────────────
+const isWorkDay=d=>{if(exceptions[d]===true)return true;if(exceptions[d]===false)return false;return schedule.days.includes(new Date(d+'T12:00:00').getDay());};
+const getWorkMins=d=>isWorkDay(d)?(schedule.end-schedule.start)*60:0;
+const getBookedMins=d=>appts.filter(a=>a.date===d&&a.status!=='cancelled').reduce((s,a)=>s+(svcs.find(sv=>sv.id===a.serviceId)?.duration||60),0);
+const dayColor=d=>{const t=getWorkMins(d);if(!t)return'#4E5460';const p=getBookedMins(d)/t;if(p<=0)return'#4E5460';if(p<.5)return'#7BAF8A';if(p<.75)return'#D4A853';if(p<1)return'#E07B39';return'#B87070';};
+const dayRing=d=>{
+  const t=getWorkMins(d);if(!t)return'';
+  const p=Math.min(getBookedMins(d)/t,1),r=9,C=2*Math.PI*r,col=dayColor(d);
+  if(p<=0)return`<svg width="22" height="22" viewBox="0 0 26 26" style="position:absolute;top:0;left:50%;transform:translateX(-50%)"><circle cx="13" cy="13" r="${r}" fill="none" stroke="rgba(128,128,128,.2)" stroke-width="2"/></svg>`;
+  const dash=p*C,gap=C-dash,off=p>=1?0:C/4;
+  return`<svg width="22" height="22" viewBox="0 0 26 26" style="position:absolute;top:0;left:50%;transform:translateX(-50%)">
     <circle cx="13" cy="13" r="${r}" fill="none" stroke="rgba(128,128,128,.2)" stroke-width="2"/>
-    ${pct>0?`<circle cx="13" cy="13" r="${r}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" stroke-linecap="${pct>=1?'butt':'round'}"/>`:''}
+    <circle cx="13" cy="13" r="${r}" fill="none" stroke="${col}" stroke-width="2.5" stroke-dasharray="${dash.toFixed(2)} ${Math.max(0,gap-.01).toFixed(2)}" stroke-dashoffset="${off.toFixed(2)}" stroke-linecap="${p>=1?'butt':'round'}"/>
   </svg>`;
-}
+};
 
-// ── Firebase ──────────────────────────────
-onSnapshot(collection(db,'services'), s=>{svcs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name));draw();});
-onSnapshot(collection(db,'materials'), s=>{mats=s.docs.map(d=>({id:d.id,...d.data()}));draw();});
-onSnapshot(collection(db,'appointments'), s=>{
-  appts=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.date===b.date?a.time?.localeCompare(b.time):a.date?.localeCompare(b.date));
+// ── Firebase ───────────────────────────────────────
+onSnapshot(collection(db,'services'),s=>{svcs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name));draw();});
+onSnapshot(collection(db,'materials'),s=>{mats=s.docs.map(d=>({id:d.id,...d.data()}));draw();});
+onSnapshot(collection(db,'appointments'),s=>{
+  appts=s.docs.map(d=>({id:d.id,...d.data()}))
+    .sort((a,b)=>a.date===b.date?(a.time||'').localeCompare(b.time||''):(a.date||'').localeCompare(b.date||''));
   draw();
 });
-onSnapshot(collection(db,'purchases'), s=>{ops=s.docs.map(d=>({id:d.id,...d.data()}));draw();});
+onSnapshot(collection(db,'purchases'),s=>{ops=s.docs.map(d=>({id:d.id,...d.data()}));draw();});
 
-// ── Header ────────────────────────────────
-$('hdate').textContent = fmtL(today());
+$('hdate').textContent=fmtL(today());
 
-// ── Tabs ──────────────────────────────────
-document.querySelectorAll('.nb').forEach(b=>{
-  b.addEventListener('click',()=>{
-    tab=b.dataset.tab;
-    document.querySelectorAll('.nb').forEach(x=>x.classList.remove('on'));
-    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on');
-    $('t-'+tab).classList.add('on');
-    draw();
-  });
-});
+// ── Tabs ───────────────────────────────────────────
+document.querySelectorAll('.nb').forEach(b=>b.addEventListener('click',()=>{
+  tab=b.dataset.tab;
+  document.querySelectorAll('.nb').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');$('t-'+tab).classList.add('on');draw();
+}));
 
-// ── Modal ─────────────────────────────────
+// ── Modal ──────────────────────────────────────────
 function show(html){$('modal').innerHTML=html;$('overlay').classList.add('show');}
 function hide(){$('overlay').classList.remove('show');}
 $('overlay').addEventListener('click',e=>{if(e.target===$('overlay'))hide();});
 
-// ── DRAW ──────────────────────────────────
 function draw(){
-  if(tab==='cal') drawCal();
-  else if(tab==='stock') drawStock();
-  else if(tab==='svc') drawSvc();
-  else if(tab==='stats') drawStats();
+  if(tab==='cal')drawCal();
+  else if(tab==='stock')drawStock();
+  else if(tab==='svc')drawSvc();
+  else if(tab==='stats')drawStats();
 }
 
-// ════════════════════════════════════════
+// ══════════════════════════════════════════════════
 // CALENDAR
-// ════════════════════════════════════════
+// ══════════════════════════════════════════════════
 function drawCal(){
   const el=$('t-cal');
   const dates=Array.from({length:calView},(_,i)=>addDays(calDate,i));
@@ -282,49 +206,53 @@ function drawCal(){
   const todayStr=today();
   const pending=appts.filter(a=>a.date===calDate&&a.status==='pending').length;
 
-  const timesHtml=HOURS.map(h=>`<div class="tl">${h}:00</div>`).join('');
+  // Header row for day columns
+  const hdrRow=`<div style="display:flex">
+    <div style="width:44px;flex-shrink:0"></div>
+    ${dates.map(d=>{
+      const isT=d===todayStr,dn=DN[new Date(d+'T12:00:00').getDay()],day=new Date(d+'T12:00:00').getDate();
+      const ring=dayRing(d);
+      return`<div class="CAL-COL COL-H ${isT?'tod':''}" style="position:relative;padding-top:6px;padding-bottom:6px;height:auto;min-height:28px">
+        ${ring}<span style="position:relative;z-index:1">${dn} <b>${day}</b></span>
+      </div>`;
+    }).join('')}
+  </div>`;
 
-  const colsHtml=dates.map(d=>{
-    const isT=d===todayStr;
-    const dn=DN[new Date(d+'T12:00:00').getDay()];
-    const day=new Date(d+'T12:00:00').getDate();
-    const ring=dayRing(d);
-    const cells=HOURS.map(h=>{
+  // Time rows
+  const rows=HOURS.map(h=>{
+    const cells=dates.map(d=>{
       const da=appts.filter(a=>a.date===d&&a.time&&+a.time.split(':')[0]===h);
       const blocks=da.map(a=>{
         const svc=svcs.find(s=>s.id===a.serviceId);
-        const dur=svc?.duration||60;
+        const dur=Math.min(svc?.duration||60,480);
         const min=+(a.time.split(':')[1]||0);
-        const cls=a.status==='done'?'adn':a.status==='cancelled'?'ac':'ap';
         const topPx=(min/60)*60;
-        const hPx=Math.max((dur/60)*60,24);
-        return `<div class="ab ${cls}" style="top:${topPx}px;height:${hPx}px" data-aid="${a.id}">
-          <div class="an">${a.client}</div>
-          <div class="at">${a.time}${svc?' · '+svc.name:''}</div>
-          <div class="ab-resize" data-resize="${a.id}"><div class="ab-resize-bar"></div></div>
+        const hPx=Math.max((dur/60)*60,22);
+        const cls=a.status==='done'?'done':a.status==='cancelled'?'cancelled':'pending';
+        return`<div class="AB ${cls}" style="top:${topPx}px;height:${hPx}px" data-aid="${a.id}">
+          <div class="AB-N">${a.client}</div>
+          <div class="AB-T">${a.time}${svc?' · '+svc.name:''}</div>
+          <div class="AB-RES" data-resize="${a.id}"><div style="width:20px;height:2px;background:rgba(255,255,255,.25);border-radius:2px"></div></div>
         </div>`;
       }).join('');
-      return `<div class="tc" data-d="${d}" data-h="${String(h).padStart(2,'0')}:00">${blocks}</div>`;
+      return`<div class="CAL-COL TC" data-d="${d}" data-h="${String(h).padStart(2,'0')}:00">${blocks}</div>`;
     }).join('');
-    return `<div class="cal-col">
-      <div class="col-hdr ${isT?'tod':''}" style="padding-bottom:12px">${ring}${dn}<br><b>${day}</b></div>
-      ${cells}
-    </div>`;
+    return`<div style="display:flex"><div style="width:44px;flex-shrink:0"><div class="TL">${h}:00</div></div>${cells}</div>`;
   }).join('');
 
   el.innerHTML=`
-    <div style="background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:10px 14px;margin-bottom:10px;cursor:pointer" id="cdatelbl">
+    <div style="background:var(--surf);border:1px solid var(--brd);border-radius:12px;padding:10px 14px;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:8px">
-        <button class="bi" id="cprev" style="flex-shrink:0">${svg(ic.l,16)}</button>
-        <div style="flex:1;text-align:center">
-          <div style="font-weight:700;font-size:15px">${lbl} 📅</div>
-          <div style="font-size:11px;color:var(--dim)">${pending} очікує · натисни для пікера</div>
+        <button class="bi" id="cprev">${svg(ic.l,16)}</button>
+        <div id="cdatelbl" style="flex:1;text-align:center;cursor:pointer">
+          <div style="font-weight:700;font-size:15px">${lbl}</div>
+          <div style="font-size:11px;color:var(--dim)">${pending} очікує</div>
         </div>
-        <button class="bi" id="cnext" style="flex-shrink:0">${svg(ic.r,16)}</button>
+        <button class="bi" id="cnext">${svg(ic.r,16)}</button>
       </div>
     </div>
     <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">
-      <div class="vc" style="flex:1;margin-bottom:0">
+      <div style="display:flex;gap:4px;flex:1">
         <button class="vb ${calView===1?'on':''}" data-cv="1">День</button>
         <button class="vb ${calView===2?'on':''}" data-cv="2">2 дні</button>
         <button class="vb ${calView===7?'on':''}" data-cv="7">Тиждень</button>
@@ -332,144 +260,104 @@ function drawCal(){
       <button class="btn bp bs" id="cadd">${svg(ic.plus,14)} Запис</button>
       <button class="bi" id="csched">⚙️</button>
     </div>
-    <div class="cal-wrap">
-      <div class="cal-grid">
-        <div class="cal-times">${timesHtml}</div>
-        <div class="cal-cols">${colsHtml}</div>
-      </div>
+    <div style="overflow-x:auto;border:1px solid var(--brd);border-radius:10px;">
+      ${hdrRow}
+      <div>${rows}</div>
     </div>`;
 
-  $('cprev').onclick=()=>{calDate=addDays(calDate,-calView);drawCal();};
-  $('cnext').onclick=()=>{calDate=addDays(calDate,calView);drawCal();};
+  $('cprev').onclick=e=>{e.stopPropagation();calDate=addDays(calDate,-calView);drawCal();};
+  $('cnext').onclick=e=>{e.stopPropagation();calDate=addDays(calDate,calView);drawCal();};
+  $('cdatelbl').onclick=()=>miniCalModal();
   $('cadd').onclick=()=>apptModal(null,calDate,'10:00');
-  $('cdatelbl').addEventListener('click',e=>{
-    if(!e.target.closest('#cprev')&&!e.target.closest('#cnext'))miniCalModal();
-  });
   $('csched').onclick=()=>schedModal();
   el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{calView=+b.dataset.cv;drawCal();}));
-  el.querySelectorAll('.tc').forEach(c=>c.addEventListener('click',e=>{
-    if(!e.target.closest('.ab'))apptModal(null,c.dataset.d,c.dataset.h);
-  }));
-  el.querySelectorAll('.ab').forEach(b=>b.addEventListener('click',e=>{
+  el.querySelectorAll('.TC').forEach(c=>c.addEventListener('click',e=>{if(!e.target.closest('.AB'))apptModal(null,c.dataset.d,c.dataset.h);}));
+  el.querySelectorAll('.AB').forEach(b=>b.addEventListener('click',e=>{
     if(e.target.closest('[data-resize]'))return;
     e.stopPropagation();
     const a=appts.find(x=>x.id===b.dataset.aid);
     if(a)apptModal(a,a.date,a.time);
   }));
 
-  // ── Drag to move ──────────────────────
-  el.querySelectorAll('.ab').forEach(block=>{
-    let pressTimer=null,dragging=false,startY=0,dragA=null;
+  // Drag to move
+  el.querySelectorAll('.AB').forEach(block=>{
+    let pt=null,drag=false,startY=0,dragA=null,lastUpd=0;
     block.addEventListener('touchstart',e=>{
       if(e.target.closest('[data-resize]'))return;
       startY=e.touches[0].clientY;
-      pressTimer=setTimeout(()=>{
-        dragging=true;
-        dragA=appts.find(x=>x.id===block.dataset.aid);
-        block.style.opacity='0.5';
-        block.style.transform='scale(1.02)';
-      },500);
+      pt=setTimeout(()=>{drag=true;dragA=appts.find(x=>x.id===block.dataset.aid);block.style.opacity='.5';},450);
     },{passive:true});
-    block.addEventListener('touchend',()=>{
-      clearTimeout(pressTimer);
-      if(dragging){block.style.opacity='';block.style.transform='';dragging=false;dragA=null;}
-    });
-    let lastUpdate=0;
+    block.addEventListener('touchend',()=>{clearTimeout(pt);if(drag){block.style.opacity='';drag=false;dragA=null;}});
     block.addEventListener('touchmove',async e=>{
-      clearTimeout(pressTimer);
-      if(!dragging||!dragA)return;
+      clearTimeout(pt);if(!drag||!dragA)return;
       e.preventDefault();
-      const now3=Date.now();
-      if(now3-lastUpdate<300)return; // throttle
+      const now2=Date.now();if(now2-lastUpd<200)return;
       const touch=e.touches[0];
-      // Calculate time from Y position
-      const calWrap=document.querySelector('.cal-wrap');
-      if(!calWrap)return;
-      const rect=calWrap.getBoundingClientRect();
-      const colsEl=document.querySelector('.cal-cols');
-      const timesW=44;
-      // Find which day column
-      const relX=touch.clientX-rect.left-timesW;
-      const colW=colsEl?.offsetWidth/calView||80;
-      const colIdx=Math.max(0,Math.min(calView-1,Math.floor(relX/colW)));
-      const dates2=Array.from({length:calView},(_,i)=>addDays(calDate,i));
-      const newDate=dates2[colIdx]||dragA.date;
-      // Find time from Y
-      const hdrH=document.querySelector('.col-hdr')?.offsetHeight||32;
-      const relY=touch.clientY-rect.top-hdrH+calWrap.scrollTop;
-      const totalMins=Math.max(0,Math.floor(relY/60*60));
-      const h=Math.floor(totalMins/60)+8;
-      const m=Math.round((totalMins%60)/5)*5;
-      const hh=Math.min(20,Math.max(8,h));
-      const newTime=String(hh).padStart(2,'0')+':'+String(Math.min(55,m)).padStart(2,'0');
+      const el2=document.elementFromPoint(touch.clientX,touch.clientY);
+      const cell=el2?.closest('.TC');
+      if(!cell)return;
+      // Get minute from Y position within cell
+      const rect=cell.getBoundingClientRect();
+      const relY=Math.max(0,touch.clientY-rect.top);
+      const mins=Math.round(relY/60*60/5)*5;
+      const h=+cell.dataset.h.split(':')[0];
+      const newMin=Math.min(55,mins);
+      const newTime=String(h).padStart(2,'0')+':'+String(newMin).padStart(2,'0');
+      const newDate=cell.dataset.d;
       if(newDate!==dragA.date||newTime!==dragA.time){
-        lastUpdate=now3;
+        lastUpd=now2;
         await updateDoc(doc(db,'appointments',dragA.id),{date:newDate,time:newTime});
         dragA={...dragA,date:newDate,time:newTime};
       }
     },{passive:false});
   });
 
-  // ── Resize (stretch) ──────────────────
+  // Resize
   el.querySelectorAll('[data-resize]').forEach(handle=>{
-    let startY=0,origDur=0,resizeAid=null,origH=0;
+    let startY=0,origDur=0,resizeId=null;
     handle.addEventListener('touchstart',e=>{
       e.stopPropagation();
-      resizeAid=handle.dataset.resize;
-      const ra=appts.find(x=>x.id===resizeAid);
-      const svc=svcs.find(s=>s.id===ra?.serviceId);
-      origDur=svc?.duration||60;
-      origH=handle.closest('.ab')?.offsetHeight||origDur;
+      resizeId=handle.dataset.resize;
+      const a=appts.find(x=>x.id===resizeId);
+      origDur=svcs.find(s=>s.id===a?.serviceId)?.duration||60;
       startY=e.touches[0].clientY;
-      // Visually resize just this block
-      handle.closest('.ab').style.transition='none';
+      handle.closest('.AB').style.transition='none';
     },{passive:true});
     handle.addEventListener('touchmove',e=>{
-      if(!resizeAid)return;
-      e.preventDefault();
+      if(!resizeId)return;e.preventDefault();
       const dy=e.touches[0].clientY-startY;
-      const newDur=Math.max(15,Math.round((origDur+dy/60*60)/15)*15);
-      const newH=Math.max(24,(newDur/60)*60);
-      handle.closest('.ab').style.height=newH+'px';
+      const newH=Math.max(22,(origDur/60+dy/60)*60);
+      handle.closest('.AB').style.height=newH+'px';
     },{passive:false});
-    handle.addEventListener('touchend',async ()=>{
-      if(!resizeAid)return;
-      const ab=handle.closest('.ab');
-      const newH=parseFloat(ab.style.height)||60;
-      const newDur=Math.max(15,Math.round((newH/60)*60/15)*15);
-      const ra=appts.find(x=>x.id===resizeAid);
-      if(ra){
-        const svc=svcs.find(s=>s.id===ra.serviceId);
-        if(svc) await updateDoc(doc(db,'services',svc.id),{duration:newDur});
-      }
-      ab.style.transition='';
-      resizeAid=null;
+    handle.addEventListener('touchend',async()=>{
+      if(!resizeId)return;
+      const ab=handle.closest('.AB');
+      const newDur=Math.max(15,Math.round((parseFloat(ab.style.height)/60*60)/15)*15);
+      const a=appts.find(x=>x.id===resizeId);
+      if(a){const svc=svcs.find(s=>s.id===a.serviceId);if(svc)await updateDoc(doc(db,'services',svc.id),{duration:newDur});}
+      ab.style.transition='';resizeId=null;
     });
   });
 }
 
-// ── Mini Calendar ─────────────────────────
+// Mini Calendar Modal (opens at top)
 function miniCalModal(){
-  let vm=new Date(calDate+'T12:00:00'); vm.setDate(1);
+  let vm=new Date(calDate+'T12:00:00');vm.setDate(1);
   function render(){
     const y=vm.getFullYear(),m=vm.getMonth();
     const lbl=vm.toLocaleDateString('uk-UA',{month:'long',year:'numeric'});
-    const first=new Date(y,m,1).getDay();
-    const dim=new Date(y,m+1,0).getDate();
-    const off=first===0?6:first-1;
-    const todayStr=today();
+    const first=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate();
+    const off=first===0?6:first-1,todayStr=today();
     let cells='';
     for(let i=0;i<off;i++)cells+='<div></div>';
     for(let d=1;d<=dim;d++){
       const ds=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-      const isSel=ds===calDate,isT=ds===todayStr;
-      const isW=isWorkDay(ds);
-      const pct=getWorkMins(ds)>0?Math.min(getBookedMins(ds)/getWorkMins(ds),1):0;
-      const color=dayColor(ds);
-      const r=9,circ=2*Math.PI*r,dash=pct*circ;
+      const isSel=ds===calDate,isT=ds===todayStr,isW=isWorkDay(ds);
+      const p=getWorkMins(ds)>0?Math.min(getBookedMins(ds)/getWorkMins(ds),1):0;
+      const col=dayColor(ds),r=9,C2=2*Math.PI*r,dash=p*C2,gap=C2-dash,off2=p>=1?0:C2/4;
       const ring=`<svg width="100%" height="100%" viewBox="0 0 26 26" style="position:absolute;top:0;left:0">
-        ${isW?`<circle cx="13" cy="13" r="${r}" fill="none" stroke="rgba(128,128,128,.2)" stroke-width="2"/>`:'' }
-        ${isW&&pct>0?`<circle cx="13" cy="13" r="${r}" fill="none" stroke="${color}" stroke-width="2" stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}" stroke-dashoffset="${(circ/4).toFixed(1)}" stroke-linecap="round"/>`:''}
+        ${isW?`<circle cx="13" cy="13" r="${r}" fill="none" stroke="rgba(128,128,128,.2)" stroke-width="2"/>`:''}
+        ${isW&&p>0?`<circle cx="13" cy="13" r="${r}" fill="none" stroke="${col}" stroke-width="2.5" stroke-dasharray="${dash.toFixed(2)} ${Math.max(0,gap-.01).toFixed(2)}" stroke-dashoffset="${off2.toFixed(2)}" stroke-linecap="${p>=1?'butt':'round'}"/>`:''}
       </svg>`;
       const hasExc=exceptions[ds]!==undefined;
       cells+=`<div style="position:relative;width:36px;height:36px;margin:2px auto;cursor:pointer" data-date="${ds}">
@@ -488,143 +376,152 @@ function miniCalModal(){
         <button class="bi" id="mx">${svg(ic.x,18)}</button>
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:8px;text-align:center">
-        ${['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map(d=>`<div style="font-size:10px;font-weight:700;color:var(--dim);padding:4px 0">${d}</div>`).join('')}
+        ${['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map(d=>`<div style="font-size:10px;font-weight:700;color:var(--dim);padding:3px 0">${d}</div>`).join('')}
       </div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center">${cells}</div>
-      <div style="display:flex;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap;font-size:11px">
-        <span style="color:var(--mut)"><span style="color:#7BAF8A">●</span> Вільно</span>
-        <span style="color:var(--mut)"><span style="color:#D4A853">●</span> 50%+</span>
-        <span style="color:var(--mut)"><span style="color:#E07B39">●</span> 75%+</span>
-        <span style="color:var(--mut)"><span style="color:#B87070">●</span> Заповнено</span>
-      </div>
-      <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--dim)">Утримуй дату щоб змінити робочий/вихідний</div>`;
+      <div style="display:flex;gap:10px;justify-content:center;margin-top:12px;flex-wrap:wrap;font-size:11px;color:var(--mut)">
+        <span><span style="color:#7BAF8A">●</span> Вільно</span>
+        <span><span style="color:#D4A853">●</span> 50%+</span>
+        <span><span style="color:#E07B39">●</span> 75%+</span>
+        <span><span style="color:#B87070">●</span> Заповнено</span>
+      </div>`;
     $('mx').onclick=hide;
     $('mprev').onclick=()=>{vm.setMonth(vm.getMonth()-1);render();};
     $('mnext').onclick=()=>{vm.setMonth(vm.getMonth()+1);render();};
     $('modal').querySelectorAll('[data-date]').forEach(el=>{
       const d=el.dataset.date;
       let pressT=null;
-      el.addEventListener('touchstart',()=>{
-        pressT=setTimeout(()=>{
-          // Toggle work/off day
-          if(exceptions[d]===true)delete exceptions[d];
-          else if(exceptions[d]===false)delete exceptions[d];
-          else if(isWorkDay(d))exceptions[d]=false;
-          else exceptions[d]=true;
-          localStorage.setItem('exc',JSON.stringify(exceptions));
-          render();
-        },600);
-      },{passive:true});
-      el.addEventListener('touchend',()=>{
-        clearTimeout(pressT);
-      });
-      el.addEventListener('click',()=>{
-        if(isWorkDay(d)){calDate=d;hide();drawCal();}
-      });
+      el.addEventListener('touchstart',()=>{pressT=setTimeout(()=>{
+        if(exceptions[d]===true)delete exceptions[d];
+        else if(exceptions[d]===false)delete exceptions[d];
+        else if(isWorkDay(d))exceptions[d]=false;
+        else exceptions[d]=true;
+        localStorage.setItem('exc',JSON.stringify(exceptions));render();
+      },600);},{passive:true});
+      el.addEventListener('touchend',()=>clearTimeout(pressT));
+      el.addEventListener('click',()=>{if(isWorkDay(d)){calDate=d;hide();drawCal();}});
     });
   }
   show('');render();
 }
 
-// ── Schedule Modal ────────────────────────
+// Schedule Modal
 function schedModal(){
-  const ho=Array.from({length:24},(_,i)=>`<option value="${i}" ${schedule.start===i?'selected':''}>${i}:00</option>`).join('');
-  const he=Array.from({length:24},(_,i)=>`<option value="${i}" ${schedule.end===i?'selected':''}>${i}:00</option>`).join('');
+  const ho=h=>Array.from({length:24},(_,i)=>`<option value="${i}" ${i===h?'selected':''}>${i}:00</option>`).join('');
   show(`
     <div class="mh"><div class="mt">⚙️ Графік роботи</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
     <div class="field"><label>Робочі дні</label>
-      <div class="chips" id="daychips">
-        ${[1,2,3,4,5,6,0].map(d=>`<button class="chip ${schedule.days.includes(d)?'on':''}" data-day="${d}">${DN[d]}</button>`).join('')}
-      </div>
+      <div class="chips">${[1,2,3,4,5,6,0].map(d=>`<button class="chip ${schedule.days.includes(d)?'on':''}" data-day="${d}">${DN[d]}</button>`).join('')}</div>
     </div>
     <div class="g2">
-      <div class="field"><label>Початок</label><select id="wstart">${ho}</select></div>
-      <div class="field"><label>Кінець</label><select id="wend">${he}</select></div>
+      <div class="field"><label>Початок</label><select class="fi" id="wstart">${ho(schedule.start)}</select></div>
+      <div class="field"><label>Кінець</label><select class="fi" id="wend">${ho(schedule.end)}</select></div>
     </div>
-    <div style="font-size:12px;color:var(--mut);margin-bottom:14px">💡 В пікері календаря утримуй дату щоб змінити вихідний/робочий день</div>
     <div class="mf">
-      <button class="btn bg" id="mcancel">Скасувати</button>
-      <button class="btn bp" id="msave">Зберегти</button>
+      <button class="btn bg" id="mc">Скасувати</button>
+      <button class="btn bp" id="ms">Зберегти</button>
     </div>`);
-  $('mx').onclick=hide; $('mcancel').onclick=hide;
-  $('modal').querySelectorAll('[data-day]').forEach(b=>b.addEventListener('click',()=>b.classList.toggle('on')));
-  $('msave').onclick=()=>{
-    const days=[...$('modal').querySelectorAll('[data-day].on')].map(b=>+b.dataset.day);
-    schedule={days,start:+$('wstart').value,end:+$('wend').value};
-    localStorage.setItem('sched',JSON.stringify(schedule));
-    hide(); drawCal();
+  $('mx').onclick=hide;$('mc').onclick=hide;
+  $('modal').querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>b.classList.toggle('on'));
+  $('ms').onclick=()=>{
+    schedule={days:[...$('modal').querySelectorAll('[data-day].on')].map(b=>+b.dataset.day),start:+$('wstart').value,end:+$('wend').value};
+    localStorage.setItem('sched',JSON.stringify(schedule));hide();drawCal();
   };
 }
 
-// ── Appointment Modal ─────────────────────
+// Appointment Modal — multiple services
 function apptModal(a,date,time){
-  const opts=svcs.map(s=>`<option value="${s.id}" ${a?.serviceId===s.id?'selected':''}>${s.name} — ${fmt(s.price)} грн</option>`).join('');
-  show(`
-    <div class="mh"><div class="mt">${a?'Редагувати запис':'Новий запис'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-    <div class="field"><label>Клієнтка</label><input id="fc" value="${a?.client||''}" placeholder="Ім'я Прізвище"/></div>
-    <div class="field"><label>Телефон</label><input id="fp" value="${a?.phone||''}" placeholder="+380..."/></div>
-    <div class="field"><label>Послуга</label><select id="fs"><option value="">— Оберіть —</option>${opts}</select></div>
-    <div class="g2">
-      <div class="field"><label>Дата</label><input type="date" id="fd" value="${a?.date||date||today()}"/></div>
-      <div class="field"><label>Час</label><input type="time" id="ft" value="${a?.time||time||'10:00'}"/></div>
-    </div>
-    <div class="field"><label>Статус</label><select id="fst">
-      <option value="pending" ${!a||a.status==='pending'?'selected':''}>Очікує</option>
-      <option value="done" ${a?.status==='done'?'selected':''}>Виконано</option>
-      <option value="cancelled" ${a?.status==='cancelled'?'selected':''}>Скасовано</option>
-    </select></div>
-    <div class="field"><label>Оплачено (грн)</label><input type="number" id="fm" value="${a?.paid||0}"/></div>
-    <div class="field"><label>Примітка</label><textarea id="fn">${a?.note||''}</textarea></div>
-    <div class="mf">
-      ${a?`<button class="btn bd bs" id="fdel">Видалити</button>`:''}
-      <button class="btn bg" id="fcancel">Скасувати</button>
-      <button class="btn bp" id="fsave">Зберегти</button>
-    </div>`);
-  $('mx').onclick=hide; $('fcancel').onclick=hide;
-  $('fsave').onclick=async()=>{
-    const d={client:$('fc').value,phone:$('fp').value,serviceId:$('fs').value,date:$('fd').value,time:$('ft').value,status:$('fst').value,paid:+$('fm').value,note:$('fn').value};
-    if(!d.client||!d.serviceId){alert("Заповніть ім'я та послугу");return;}
-    if(a)await updateDoc(doc(db,'appointments',a.id),d);
-    else await addDoc(collection(db,'appointments'),d);
-    hide();
-  };
-  if(a)$('fdel').onclick=async()=>{if(confirm('Видалити?')){await deleteDoc(doc(db,'appointments',a.id));hide();}};
+  // selectedServices: [{serviceId, price}]
+  let selSvcs = a ? [{serviceId:a.serviceId,price:svcs.find(s=>s.id===a.serviceId)?.price||0}] : [];
+
+  function renderApptModal(){
+    const opts=svcs.map(s=>`<option value="${s.id}">${s.name} — ${fmt(s.price)} грн</option>`).join('');
+    const selRows=selSvcs.map((ss,i)=>{
+      const svc=svcs.find(s=>s.id===ss.serviceId);
+      return`<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--brd)">
+        <div style="flex:1"><div style="font-size:13px;font-weight:600">${svc?.name||'?'}</div>
+        <div style="font-size:11px;color:var(--mut)">${fmt(svc?.price||0)} грн · ${svc?.duration||60} хв</div></div>
+        <button class="bi bs" data-rmsvc="${i}">${svg(ic.x,12,'var(--err)')}</button>
+      </div>`;
+    }).join('');
+    const totalPrice=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.price||0),0);
+    const totalDur=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.duration||60),0);
+
+    $('modal').innerHTML=`
+      <div class="mh"><div class="mt">${a?'Редагувати':'Новий запис'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <div class="field"><label>Клієнтка</label><input class="fi" id="fc" value="${a?.client||''}" placeholder="Ім'я Прізвище"/></div>
+      <div class="field"><label>Телефон</label><input class="fi" id="fp" value="${a?.phone||''}" placeholder="+380..."/></div>
+      <div class="field"><label>Послуги ${selSvcs.length>0?`<span style="color:var(--acc);font-weight:700">${selSvcs.length} · ${fmt(totalPrice)} грн · ${totalDur} хв</span>`:''}</label>
+        ${selRows}
+        <select class="fi" id="fsadd" style="margin-top:8px">
+          <option value="">+ Додати послугу</option>${opts}
+        </select>
+      </div>
+      <div class="g2">
+        <div class="field"><label>Дата</label><input type="date" class="fi" id="fd" value="${a?.date||date||today()}"/></div>
+        <div class="field"><label>Час</label><input type="time" class="fi" id="ft" value="${a?.time||time||'10:00'}"/></div>
+      </div>
+      <div class="field"><label>Статус</label><select class="fi" id="fst">
+        <option value="pending" ${!a||a.status==='pending'?'selected':''}>Очікує</option>
+        <option value="done" ${a?.status==='done'?'selected':''}>Виконано</option>
+        <option value="cancelled" ${a?.status==='cancelled'?'selected':''}>Скасовано</option>
+      </select></div>
+      <div class="field"><label>Оплачено (грн)</label><input type="number" class="fi" id="fm" value="${a?.paid||0}"/></div>
+      <div class="field"><label>Примітка</label><textarea class="fi" id="fn">${a?.note||''}</textarea></div>
+      <div class="mf">
+        ${a?`<button class="btn bd bs" id="fdel">Видалити</button>`:''}
+        <button class="btn bg" id="fcancel">Скасувати</button>
+        <button class="btn bp" id="fsave">Зберегти</button>
+      </div>`;
+
+    $('mx').onclick=hide;$('fcancel').onclick=hide;
+    $('fsadd').onchange=e=>{
+      if(!e.target.value)return;
+      selSvcs.push({serviceId:e.target.value});
+      renderApptModal();
+    };
+    $('modal').querySelectorAll('[data-rmsvc]').forEach(b=>b.onclick=()=>{selSvcs.splice(+b.dataset.rmsvc,1);renderApptModal();});
+    $('fsave').onclick=async()=>{
+      const client=$('fc').value;
+      if(!client||selSvcs.length===0){alert("Заповніть ім'я та оберіть послугу");return;}
+      // Save primary service (first) for calendar display
+      const data={client,phone:$('fp').value,serviceId:selSvcs[0].serviceId,services:selSvcs.map(s=>s.serviceId),date:$('fd').value,time:$('ft').value,status:$('fst').value,paid:+$('fm').value,note:$('fn').value};
+      if(a)await updateDoc(doc(db,'appointments',a.id),data);
+      else await addDoc(collection(db,'appointments'),data);
+      hide();
+    };
+    if(a)$('fdel').onclick=async()=>{if(confirm('Видалити?')){await deleteDoc(doc(db,'appointments',a.id));hide();}};
+  }
+  show('');renderApptModal();
 }
 
-// ════════════════════════════════════════
+// ══════════════════════════════════════════════════
 // STOCK
-// ════════════════════════════════════════
+// ══════════════════════════════════════════════════
 function drawStock(){
   const el=$('t-stock');
   const low=mats.filter(m=>m.qty<=m.minQty);
   const fil=mats.filter(m=>(stockCat==='Всі'||m.category===stockCat)&&(!stockQ||m.name.toLowerCase().includes(stockQ.toLowerCase())));
   const grp=CATS.map(c=>({c,items:fil.filter(m=>m.category===c)})).filter(g=>g.items.length>0);
-
   el.innerHTML=`
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <button class="btn bp bs" id="breceive">${svg(ic.h,14)} Прихід</button>
       <button class="btn bg bs" id="bnewmat">${svg(ic.plus,14)} Новий</button>
       <button class="btn bg bs" id="bhistory">📋 Історія</button>
     </div>
-    <input id="sq" style="width:100%;background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;color:var(--txt);font-size:14px;outline:none;margin-bottom:10px" placeholder="🔍 Пошук..." value="${stockQ}"/>
-    ${low.length?`<div class="alert ad">${svg(ic.w,15,'var(--err)')} Закінчується: ${low.map(m=>m.name).join(', ')}</div>`:''}
+    <input class="fi" id="sq" style="margin-bottom:10px" placeholder="🔍 Пошук..." value="${stockQ}"/>
+    ${low.length?`<div class="alert alert-d">${svg(ic.w,15,'var(--err)')} Закінчується: ${low.map(m=>m.name).join(', ')}</div>`:''}
     <div class="chips">${['Всі',...CATS].map(c=>`<button class="chip ${stockCat===c?'on':''}" data-c="${c}">${c}</button>`).join('')}</div>
     ${fil.length===0?'<div class="empty">Нічого не знайдено</div>':grp.map(({c,items})=>`
       <div class="sec">${c}</div>
       ${items.map(m=>{
-        const isLow=m.qty<=m.minQty;
-        const byG=m.spendUnit&&m.spendUnit!=='шт'&&m.volPerUnit>0;
-        const totalU=byG?fmt(m.qty*m.volPerUnit)+' '+m.spendUnit:'';
+        const isLow=m.qty<=m.minQty,byG=m.spendUnit&&m.spendUnit!=='шт'&&m.volPerUnit>0;
+        const tu=byG?fmt(m.qty*m.volPerUnit)+' '+m.spendUnit:'';
         const ppu=byG?fmt(m.avgPricePerUnit||m.pricePerUnit||0)+' грн/'+m.spendUnit:fmt(m.avgPrice||m.price||0)+' грн/шт';
-        return `<div class="ri" style="border-left:3px solid ${isLow?'var(--err)':'var(--brd)'}">
-          <div class="rl">
-            <div class="rn">${m.name} ${isLow?'<span style="background:rgba(184,112,112,.15);color:var(--err);padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700">Мало</span>':''}</div>
-            <div class="rs">${totalU?totalU+' · ':''}${ppu}</div>
-          </div>
-          <div class="rr">
-            <div class="rv" style="color:${isLow?'var(--err)':'var(--acs)'}">${m.qty} шт</div>
-            <div class="ra">мін. ${m.minQty}</div>
-          </div>
+        return`<div class="ri" style="border-left:3px solid ${isLow?'var(--err)':'var(--brd)'}">
+          <div class="rl"><div class="rn">${m.name} ${isLow?'<span style="background:rgba(184,112,112,.15);color:var(--err);padding:2px 7px;border-radius:10px;font-size:10px">Мало</span>':''}</div>
+          <div class="rs">${tu?tu+' · ':''}${ppu}</div></div>
+          <div class="rr"><div class="rv" style="color:${isLow?'var(--err)':'var(--acs)'}">${m.qty} шт</div><div class="ra">мін. ${m.minQty}</div></div>
           <div class="rac">
             <button class="bi bs" data-sp="${m.id}">${svg('M5 12h14',13)}</button>
             <button class="bi bs" data-em="${m.id}">${svg(ic.edit,13)}</button>
@@ -632,46 +529,132 @@ function drawStock(){
           </div>
         </div>`;
       }).join('')}`).join('')}`;
-
   $('breceive').onclick=()=>receiveModal();
   $('bnewmat').onclick=()=>matModal(null);
   $('bhistory').onclick=()=>historyModal();
-  $('sq').addEventListener('input',e=>{stockQ=e.target.value;drawStock();});
-  el.querySelectorAll('[data-c]').forEach(b=>b.addEventListener('click',()=>{stockCat=b.dataset.c;drawStock();}));
-  el.querySelectorAll('[data-sp]').forEach(b=>b.addEventListener('click',()=>spendModal(b.dataset.sp)));
-  el.querySelectorAll('[data-em]').forEach(b=>b.addEventListener('click',()=>matModal(b.dataset.em)));
-  el.querySelectorAll('[data-dm]').forEach(b=>b.addEventListener('click',async()=>{if(confirm('Видалити?'))await deleteDoc(doc(db,'materials',b.dataset.dm));}));
+  // Search without losing focus
+  $('sq').addEventListener('input',e=>{stockQ=e.target.value;
+    const fil2=mats.filter(m=>(stockCat==='Всі'||m.category===stockCat)&&(!stockQ||m.name.toLowerCase().includes(stockQ.toLowerCase())));
+    // Just re-render the list, not the whole tab
+    drawStock();
+    // Restore focus
+    setTimeout(()=>{const el2=$('sq');if(el2){el2.focus();el2.setSelectionRange(el2.value.length,el2.value.length);}},10);
+  });
+  el.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{stockCat=b.dataset.c;drawStock();});
+  el.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>spendModal(b.dataset.sp));
+  el.querySelectorAll('[data-em]').forEach(b=>b.onclick=()=>matModal(b.dataset.em));
+  el.querySelectorAll('[data-dm]').forEach(b=>b.onclick=async()=>{if(confirm('Видалити?'))await deleteDoc(doc(db,'materials',b.dataset.dm));});
+}
+
+// Receive Modal — multi-item with search, no keyboard close
+let rcvItems=[];
+function receiveModal(){
+  rcvItems=[];
+  function render(searchVal=''){
+    const fil2=mats.filter(m=>!searchVal||m.name.toLowerCase().includes(searchVal.toLowerCase()));
+    const itemsHtml=rcvItems.map((it,idx)=>{
+      const m=mats.find(x=>x.id===it.matId),dp=(it.price||0)*(1-(it.disc||0)/100);
+      return`<div style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:13px;font-weight:600">${m?.name||'?'}</span>
+          <button class="bi bs" data-rem="${idx}">${svg(ic.x,12,'var(--err)')}</button>
+        </div>
+        <div class="g3">
+          <div><div style="font-size:10px;color:var(--mut);margin-bottom:3px">К-сть</div>
+            <input type="number" step="0.5" value="${it.qty}" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px;color:var(--txt);font-size:13px;outline:none" data-qty="${idx}"/></div>
+          <div><div style="font-size:10px;color:var(--mut);margin-bottom:3px">Ціна</div>
+            <input type="number" value="${it.price}" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px;color:var(--txt);font-size:13px;outline:none" data-price="${idx}"/></div>
+          <div><div style="font-size:10px;color:var(--mut);margin-bottom:3px">Знижка %</div>
+            <input type="number" value="${it.disc||0}" min="0" max="100" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px;color:var(--txt);font-size:13px;outline:none" data-disc="${idx}"/></div>
+        </div>
+        <div style="font-size:11px;color:var(--mut);margin-top:6px">Сума: <b style="color:var(--acs)">${fmt(it.qty*dp)} грн</b></div>
+      </div>`;
+    }).join('');
+    const total=rcvItems.reduce((s,it)=>s+it.qty*(it.price||0)*(1-(it.disc||0)/100),0);
+    const listHtml=fil2.map(m=>`<div style="padding:10px 14px;border-bottom:1px solid var(--brd);cursor:pointer;display:flex;justify-content:space-between" data-add="${m.id}">
+      <span style="font-size:13px">${m.name}</span>
+      <span style="font-size:12px;color:var(--mut)">${m.qty} шт</span>
+    </div>`).join('');
+
+    const prevSearch=searchVal;
+    $('modal').innerHTML=`
+      <div class="mh"><div class="mt">📦 Прихід товару</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <div class="field"><label>Дата</label><input type="date" class="fi" id="rdate" value="${today()}"/></div>
+      <div class="field"><label>Примітка</label><input class="fi" id="rnote" placeholder="Постачальник..."/></div>
+      ${rcvItems.length?`<div style="margin-bottom:10px">${itemsHtml}<div style="text-align:right;font-weight:700;font-size:14px;color:var(--sil)">Загалом: ${fmt(total)} грн</div></div>`:''}
+      <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Оберіть товари:</div>
+      <input class="fi" id="rsearch" style="margin-bottom:8px" placeholder="🔍 Пошук..." value="${prevSearch}"/>
+      <div style="max-height:180px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px;margin-bottom:14px">${listHtml||'<div style="padding:14px;color:var(--dim);text-align:center">Нічого не знайдено</div>'}</div>
+      <div class="mf">
+        <button class="btn bg" id="rcancel">Скасувати</button>
+        <button class="btn bp" id="rsave">Оприбуткувати (${rcvItems.length})</button>
+      </div>`;
+
+    $('mx').onclick=hide;$('rcancel').onclick=hide;
+    // Search WITHOUT re-rendering whole modal — just update list
+    $('rsearch').addEventListener('input',e=>{
+      const v=e.target.value;
+      const fil3=mats.filter(m=>!v||m.name.toLowerCase().includes(v.toLowerCase()));
+      document.querySelector('#modal [style*="max-height:180px"]').innerHTML=
+        fil3.map(m=>`<div style="padding:10px 14px;border-bottom:1px solid var(--brd);cursor:pointer;display:flex;justify-content:space-between" data-add="${m.id}">
+          <span style="font-size:13px">${m.name}</span><span style="font-size:12px;color:var(--mut)">${m.qty} шт</span>
+        </div>`).join('') || '<div style="padding:14px;color:var(--dim);text-align:center">Нічого не знайдено</div>';
+      bindAddBtns();
+    });
+    // Don't auto-focus search to avoid keyboard issues
+    function bindAddBtns(){
+      $('modal').querySelectorAll('[data-add]').forEach(el2=>{
+        el2.onclick=()=>{
+          const m=mats.find(x=>x.id===el2.dataset.add);
+          rcvItems.push({matId:el2.dataset.add,qty:1,price:m?.price||0,disc:0});
+          render($('rsearch').value);
+        };
+      });
+    }
+    bindAddBtns();
+    $('modal').querySelectorAll('[data-rem]').forEach(b=>b.onclick=()=>{rcvItems.splice(+b.dataset.rem,1);render($('rsearch')?.value||'');});
+    $('modal').querySelectorAll('[data-qty]').forEach(inp=>inp.onchange=()=>{rcvItems[+inp.dataset.qty].qty=+inp.value||1;});
+    $('modal').querySelectorAll('[data-price]').forEach(inp=>inp.onchange=()=>{rcvItems[+inp.dataset.price].price=+inp.value||0;});
+    $('modal').querySelectorAll('[data-disc]').forEach(inp=>inp.onchange=()=>{rcvItems[+inp.dataset.disc].disc=+inp.value||0;});
+    $('rsave').onclick=async()=>{
+      if(rcvItems.length===0){alert('Додайте товари');return;}
+      const date=$('rdate').value,note=$('rnote').value;
+      for(const it of rcvItems){
+        const m=mats.find(x=>x.id===it.matId);if(!m)continue;
+        const dp=(it.price||0)*(1-(it.disc||0)/100),oldQ=m.qty||0,oldAvg=m.avgPrice||m.price||dp;
+        const newQ=oldQ+it.qty,newAvg=(oldQ*oldAvg+it.qty*dp)/newQ,newPPU=m.volPerUnit>0?newAvg/m.volPerUnit:0;
+        await updateDoc(doc(db,'materials',it.matId),{qty:newQ,avgPrice:newAvg,avgPricePerUnit:newPPU});
+        await addDoc(collection(db,'purchases'),{matId:it.matId,matName:m.name,type:'receive',qty:it.qty,unit:'шт',price:dp,origPrice:it.price,disc:it.disc||0,total:it.qty*dp,date,note});
+      }
+      hide();
+    };
+  }
+  show('');render();
 }
 
 function matModal(id){
   const m=id?mats.find(x=>x.id===id):{};
   show(`
     <div class="mh"><div class="mt">${id?'Редагувати':'Новий матеріал'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-    <div class="field"><label>Назва</label><input id="mn" value="${m?.name||''}" placeholder="Фарба Wella 8/0"/></div>
-    <div class="field"><label>Категорія</label><select id="mcat">${CATS.map(c=>`<option ${m?.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
+    <div class="field"><label>Назва</label><input class="fi" id="mn" value="${m?.name||''}" placeholder="Фарба Wella 8/0"/></div>
+    <div class="field"><label>Категорія</label><select class="fi" id="mcat">${CATS.map(c=>`<option ${m?.category===c?'selected':''}>${c}</option>`).join('')}</select></div>
     <div class="g2">
-      <div class="field"><label>К-сть (шт)</label><input type="number" id="mq" value="${m?.qty||0}" step="0.5"/></div>
-      <div class="field"><label>Мін. запас (шт)</label><input type="number" id="mm" value="${m?.minQty||1}"/></div>
+      <div class="field"><label>К-сть (шт)</label><input type="number" class="fi" id="mq" value="${m?.qty||0}" step="0.5"/></div>
+      <div class="field"><label>Мін. запас (шт)</label><input type="number" class="fi" id="mm" value="${m?.minQty||1}"/></div>
     </div>
-    <div class="field"><label>Одиниця списання</label><select id="msu">
+    <div class="field"><label>Одиниця списання</label><select class="fi" id="msu">
       <option value="шт" ${(!m?.spendUnit||m?.spendUnit==='шт')?'selected':''}>шт</option>
       <option value="г" ${m?.spendUnit==='г'?'selected':''}>г (грами)</option>
-      <option value="мл" ${m?.spendUnit==='мл'?'selected':''}>мл (мілілітри)</option>
+      <option value="мл" ${m?.spendUnit==='мл'?'selected':''}>мл</option>
     </select></div>
     <div id="vpkg" style="${m?.spendUnit&&m?.spendUnit!=='шт'?'':'display:none'}">
-      <div class="field"><label id="vlbl">Об'єм упаковки (г в 1 шт)</label><input type="number" id="mvol" value="${m?.volPerUnit||0}" placeholder="60"/></div>
+      <div class="field"><label id="vlbl">Об'єм упаковки (г в 1 шт)</label><input type="number" class="fi" id="mvol" value="${m?.volPerUnit||0}" placeholder="60"/></div>
     </div>
-    <div class="field"><label>Ціна за упаковку (грн/шт)</label><input type="number" id="mp" value="${m?.price||0}"/></div>
-    <div class="card" id="mcalc" style="background:var(--surf);${m?.spendUnit&&m?.spendUnit!=='шт'&&m?.volPerUnit>0?'':'display:none'}">
-      <div style="display:flex;justify-content:space-between;font-size:13px">
-        <span style="color:var(--mut)">Ціна за г/мл:</span>
-        <span id="mpg" style="font-weight:700;color:var(--acs)">${m?.pricePerUnit?fmt(m.pricePerUnit)+' грн':'—'}</span>
-      </div>
+    <div class="field"><label>Ціна за упаковку (грн/шт)</label><input type="number" class="fi" id="mp" value="${m?.price||0}"/></div>
+    <div id="mcalc" style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:13px;${m?.spendUnit&&m?.spendUnit!=='шт'&&m?.volPerUnit>0?'':'display:none'}">
+      <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--mut)">Ціна за г/мл:</span><span id="mpg" style="font-weight:700;color:var(--acs)">${m?.pricePerUnit?fmt(m.pricePerUnit)+' грн':'—'}</span></div>
     </div>
-    <div class="mf">
-      <button class="btn bg" id="mcancel">Скасувати</button>
-      <button class="btn bp" id="msave">Зберегти</button>
-    </div>`);
+    <div class="mf"><button class="btn bg" id="mc">Скасувати</button><button class="btn bp" id="ms">Зберегти</button></div>`);
   const upd=()=>{
     const su=$('msu').value,vol=+($('mvol')?.value||0),p=+$('mp').value;
     $('vpkg').style.display=su!=='шт'?'':'none';
@@ -679,16 +662,15 @@ function matModal(id){
     if(su!=='шт'&&vol>0&&p>0){$('mcalc').style.display='';$('mpg').textContent=fmt(p/vol)+' грн/'+su;}
     else $('mcalc').style.display='none';
   };
-  $('msu').onchange=upd; $('mvol')&&$('mvol').addEventListener('input',upd); $('mp').addEventListener('input',upd);
-  $('mx').onclick=hide; $('mcancel').onclick=hide;
-  $('msave').onclick=async()=>{
+  $('msu').onchange=upd;$('mvol')&&$('mvol').addEventListener('input',upd);$('mp').addEventListener('input',upd);
+  $('mx').onclick=hide;$('mc').onclick=hide;
+  $('ms').onclick=async()=>{
     const name=$('mn').value,su=$('msu').value,vol=+($('mvol')?.value||0),price=+$('mp').value,qty=+$('mq').value;
     if(!name){alert('Введіть назву');return;}
-    if(!id){const dup=mats.find(m=>m.name.toLowerCase()===name.toLowerCase());if(dup){alert('Товар "'+name+'" вже існує!');return;}}
+    if(!id){const dup=mats.find(x=>x.name.toLowerCase()===name.toLowerCase());if(dup){alert('Товар "'+name+'" вже існує!');return;}}
     const ppu=su!=='шт'&&vol>0?price/vol:0;
     const data={name,category:$('mcat').value,qty,minQty:+$('mm').value,price,avgPrice:price,spendUnit:su,volPerUnit:vol,pricePerUnit:ppu,avgPricePerUnit:ppu};
-    if(id)await updateDoc(doc(db,'materials',id),data);
-    else await addDoc(collection(db,'materials'),data);
+    if(id)await updateDoc(doc(db,'materials',id),data);else await addDoc(collection(db,'materials'),data);
     hide();
   };
 }
@@ -696,52 +678,30 @@ function matModal(id){
 function spendModal(id){
   const m=mats.find(x=>x.id===id);
   const byG=m.spendUnit&&m.spendUnit!=='шт'&&m.volPerUnit>0;
-  const totalU=byG?m.qty*m.volPerUnit:m.qty;
-  const ppu=m.avgPricePerUnit||m.pricePerUnit||0;
-  const unit=byG?m.spendUnit:'шт';
+  const totalU=byG?m.qty*m.volPerUnit:m.qty,ppu=m.avgPricePerUnit||m.pricePerUnit||0,unit=byG?m.spendUnit:'шт';
   show(`
     <div class="mh"><div class="mt">Списати: ${m.name}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-    <div class="card" style="background:var(--surf);margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
-        <span style="color:var(--mut)">В наявності:</span>
-        <span style="font-weight:700;color:var(--acs)">${fmt(totalU)} ${unit} (${m.qty} шт)</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:13px">
-        <span style="color:var(--mut)">Ціна за ${unit}:</span>
-        <span style="font-weight:700;color:var(--sil)">${fmt(byG?ppu:m.avgPrice||m.price||0)} грн</span>
-      </div>
+    <div style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:13px">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span style="color:var(--mut)">В наявності:</span><span style="font-weight:700;color:var(--acs)">${fmt(totalU)} ${unit} (${m.qty} шт)</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--mut)">Ціна за ${unit}:</span><span style="font-weight:700;color:var(--sil)">${fmt(byG?ppu:m.avgPrice||m.price||0)} грн</span></div>
     </div>
-    <div class="field"><label>Кількість (${unit})</label><input type="number" id="sqa" step="0.1" placeholder="0"/></div>
-    <div class="card" id="scalc" style="background:var(--surf);margin-bottom:14px;display:none">
-      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px">
-        <span style="color:var(--mut)">Вартість:</span><span id="scost" style="font-weight:700;color:var(--err)"></span>
-      </div>
-      <div style="display:flex;justify-content:space-between;font-size:13px">
-        <span style="color:var(--mut)">Залишок:</span><span id="srem" style="font-weight:700;color:var(--acs)"></span>
-      </div>
+    <div class="field"><label>Кількість (${unit})</label><input type="number" class="fi" id="sqa" step="0.1" placeholder="0"/></div>
+    <div id="scalc" style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:13px;display:none">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:var(--mut)">Вартість:</span><span id="scost" style="font-weight:700;color:var(--err)"></span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--mut)">Залишок:</span><span id="srem" style="font-weight:700;color:var(--acs)"></span></div>
     </div>
-    <div class="field"><label>Дата</label><input type="date" id="sdate" value="${today()}"/></div>
-    <div class="field"><label>Примітка</label><input id="snote" placeholder="Клієнт, послуга..."/></div>
-    <div class="mf">
-      <button class="btn bg" id="scancel">Скасувати</button>
-      <button class="btn bp" id="ssave">Списати</button>
-    </div>`);
-  $('mx').onclick=hide; $('scancel').onclick=hide;
+    <div class="field"><label>Дата</label><input type="date" class="fi" id="sdate" value="${today()}"/></div>
+    <div class="field"><label>Примітка</label><input class="fi" id="snote" placeholder="Клієнт..."/></div>
+    <div class="mf"><button class="btn bg" id="mc">Скасувати</button><button class="btn bp" id="ms">Списати</button></div>`);
+  $('mx').onclick=hide;$('mc').onclick=hide;
   $('sqa').addEventListener('input',e=>{
     const q=+e.target.value||0;
-    if(q>0){
-      const cost=byG?q*ppu:q*(m.avgPrice||m.price||0);
-      const remU=Math.max(0,totalU-q);
-      const remS=byG?remU/m.volPerUnit:remU;
-      $('scalc').style.display='';
-      $('scost').textContent=fmt(cost)+' грн';
-      $('srem').textContent=fmt(remU)+' '+unit+' ('+remS.toFixed(2)+' шт)';
-    }else $('scalc').style.display='none';
+    if(q>0){const cost=byG?q*ppu:q*(m.avgPrice||m.price||0),remU=Math.max(0,totalU-q);$('scalc').style.display='';$('scost').textContent=fmt(cost)+' грн';$('srem').textContent=fmt(remU)+' '+unit+' ('+(byG?remU/m.volPerUnit:remU).toFixed(2)+' шт)';}
+    else $('scalc').style.display='none';
   });
-  $('ssave').onclick=async()=>{
-    const q=+$('sqa').value;
-    if(!q){alert('Введіть кількість');return;}
-    let newQty=byG?Math.max(0,(totalU-q)/m.volPerUnit):Math.max(0,m.qty-q);
+  $('ms').onclick=async()=>{
+    const q=+$('sqa').value;if(!q){alert('Введіть кількість');return;}
+    const newQty=byG?Math.max(0,(totalU-q)/m.volPerUnit):Math.max(0,m.qty-q);
     const total=byG?q*ppu:q*(m.avgPrice||m.price||0);
     await updateDoc(doc(db,'materials',id),{qty:+newQty.toFixed(4)});
     await addDoc(collection(db,'purchases'),{matId:id,matName:m.name,type:'spend',qty:q,unit,total,date:$('sdate').value,note:$('snote').value});
@@ -749,198 +709,80 @@ function spendModal(id){
   };
 }
 
-// Receive modal - multi-item with search
-let receiveItems = []; // [{matId, qty, price, disc}]
-let receiveSearch = '';
-
-function receiveModal(){
-  receiveItems = [];
-  receiveSearch = '';
-  renderReceiveModal();
-}
-
-function renderReceiveModal(){
-  const fil = mats.filter(m=>!receiveSearch||m.name.toLowerCase().includes(receiveSearch.toLowerCase()));
-  const itemsHtml = receiveItems.map((it,idx)=>{
-    const m=mats.find(x=>x.id===it.matId);
-    const dp=(it.price||0)*(1-(it.disc||0)/100);
-    return `<div style="padding:10px;background:var(--surf);border:1px solid var(--brd);border-radius:8px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:13px;font-weight:600;color:var(--txt)">${m?.name||'?'}</span>
-        <button class="bi bs" data-rem="${idx}">${svg(ic.x,12,'var(--err)')}</button>
-      </div>
-      <div class="g3">
-        <div><label style="font-size:10px;color:var(--mut);display:block;margin-bottom:3px">К-сть</label>
-          <input type="number" step="0.5" value="${it.qty}" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--txt);font-size:13px;outline:none" data-qty="${idx}"/></div>
-        <div><label style="font-size:10px;color:var(--mut);display:block;margin-bottom:3px">Ціна (грн)</label>
-          <input type="number" value="${it.price}" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--txt);font-size:13px;outline:none" data-price="${idx}"/></div>
-        <div><label style="font-size:10px;color:var(--mut);display:block;margin-bottom:3px">Знижка %</label>
-          <input type="number" value="${it.disc||0}" min="0" max="100" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--txt);font-size:13px;outline:none" data-disc="${idx}"/></div>
-      </div>
-      <div style="font-size:11px;color:var(--mut);margin-top:6px">Сума: <b style="color:var(--acs)">${fmt(it.qty*dp)} грн</b> · Ціна зі знижкою: ${fmt(dp)} грн/шт</div>
-    </div>`;
-  }).join('');
-
-  const total=receiveItems.reduce((s,it)=>s+it.qty*(it.price||0)*(1-(it.disc||0)/100),0);
-
-  $('modal').innerHTML=`
-    <div class="mh"><div class="mt">📦 Прихід товару</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-    <div class="field"><label>Дата</label><input type="date" id="rdate" value="${today()}"/></div>
-    <div class="field"><label>Примітка</label><input id="rnote" placeholder="Постачальник, накладна..."/></div>
-    ${receiveItems.length>0?`<div style="margin-bottom:10px">${itemsHtml}
-      <div style="text-align:right;font-size:14px;font-weight:700;color:var(--sil);padding:8px 0">Загальна сума: ${fmt(total)} грн</div>
-    </div>`:''}
-    <div style="font-size:12px;color:var(--mut);margin-bottom:8px">Додайте товари зі складу:</div>
-    <input id="rsearch" style="width:100%;background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;color:var(--txt);font-size:14px;outline:none;margin-bottom:10px" placeholder="🔍 Пошук товару..." value="${receiveSearch}"/>
-    <div style="max-height:200px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px;margin-bottom:14px">
-      ${fil.map(m=>`<div style="padding:10px 14px;border-bottom:1px solid var(--brd);cursor:pointer;display:flex;justify-content:space-between;align-items:center" data-add="${m.id}">
-        <span style="font-size:13px;color:var(--txt)">${m.name}</span>
-        <span style="font-size:12px;color:var(--mut)">${m.qty} шт · ${fmt(m.price||0)} грн</span>
-      </div>`).join('')}
-    </div>
-    <div class="mf">
-      <button class="btn bg" id="rcancel">Скасувати</button>
-      <button class="btn bp" id="rsave" ${receiveItems.length===0?'disabled style="opacity:.5"':''}>Оприбуткувати (${receiveItems.length})</button>
-    </div>`;
-
-  $('mx').onclick=hide; $('rcancel').onclick=hide;
-  $('rsearch').addEventListener('input',e=>{receiveSearch=e.target.value;renderReceiveModal();});
-  $('rsearch').focus();
-
-  $('modal').querySelectorAll('[data-add]').forEach(el=>{
-    el.addEventListener('click',()=>{
-      const m=mats.find(x=>x.id===el.dataset.add);
-      receiveItems.push({matId:el.dataset.add,qty:1,price:m?.price||0,disc:0});
-      receiveSearch='';
-      renderReceiveModal();
-    });
-  });
-  $('modal').querySelectorAll('[data-rem]').forEach(b=>{
-    b.addEventListener('click',()=>{receiveItems.splice(+b.dataset.rem,1);renderReceiveModal();});
-  });
-  $('modal').querySelectorAll('[data-qty]').forEach(inp=>{
-    inp.addEventListener('change',()=>{receiveItems[+inp.dataset.qty].qty=+inp.value||1;renderReceiveModal();});
-  });
-  $('modal').querySelectorAll('[data-price]').forEach(inp=>{
-    inp.addEventListener('change',()=>{receiveItems[+inp.dataset.price].price=+inp.value||0;renderReceiveModal();});
-  });
-  $('modal').querySelectorAll('[data-disc]').forEach(inp=>{
-    inp.addEventListener('change',()=>{receiveItems[+inp.dataset.disc].disc=+inp.value||0;renderReceiveModal();});
-  });
-
-  if(receiveItems.length>0){
-    $('rsave').onclick=async()=>{
-      const date=$('rdate').value, note=$('rnote').value;
-      for(const it of receiveItems){
-        const m=mats.find(x=>x.id===it.matId);
-        if(!m)continue;
-        const dp=(it.price||0)*(1-(it.disc||0)/100);
-        const oldQ=m.qty||0,oldAvg=m.avgPrice||m.price||dp;
-        const newQ=oldQ+it.qty,newAvg=(oldQ*oldAvg+it.qty*dp)/newQ;
-        const newPPU=m.volPerUnit>0?newAvg/m.volPerUnit:0;
-        await updateDoc(doc(db,'materials',it.matId),{qty:newQ,avgPrice:newAvg,avgPricePerUnit:newPPU});
-        await addDoc(collection(db,'purchases'),{matId:it.matId,matName:m.name,type:'receive',qty:it.qty,unit:'шт',price:dp,origPrice:it.price,disc:it.disc||0,total:it.qty*dp,date,note});
-      }
-      hide();
-    };
-  }
-}
-
 function historyModal(){
   const rec=ops.slice(-40).reverse();
   const rows=rec.map(o=>`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:11px;font-weight:700;color:${o.type==='receive'?'var(--ok)':'var(--err)'}">${o.type==='receive'?'📦 Прихід':'📉 Витрата'}</div>
-        <div style="font-size:13px;color:var(--txt);margin:2px 0">${o.matName||'?'}</div>
+      <div style="flex:1"><div style="font-size:11px;font-weight:700;color:${o.type==='receive'?'var(--ok)':'var(--err)'}">${o.type==='receive'?'📦 Прихід':'📉 Витрата'}</div>
+        <div style="font-size:13px;margin:2px 0">${o.matName||'?'}</div>
         <div style="font-size:11px;color:var(--mut)">${o.date} · ${o.qty} ${o.unit||'шт'}${o.disc?' · -'+o.disc+'%':''}</div>
         ${o.note?`<div style="font-size:11px;color:var(--dim)">${o.note}</div>`:''}
       </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-weight:700;font-size:13px;color:var(--sil)">${fmt(o.total)} грн</div>
-        <button class="bi bs" style="margin-top:4px" data-oid="${o.id}" data-omid="${o.matId||o.matId}" data-otype="${o.type}" data-oqty="${o.qty}">${svg(ic.x,12,'var(--err)')}</button>
+      <div style="text-align:right"><div style="font-weight:700;font-size:13px;color:var(--sil)">${fmt(o.total)} грн</div>
+        <button class="bi bs" style="margin-top:4px" data-oid="${o.id}" data-omid="${o.matId}" data-otype="${o.type}" data-oqty="${o.qty}">${svg(ic.x,12,'var(--err)')}</button>
       </div>
     </div>`).join('');
-  show(`
-    <div class="mh"><div class="mt">Історія операцій</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-    ${rec.length===0?'<div class="empty">Операцій немає</div>':rows}`);
+  show(`<div class="mh"><div class="mt">Історія операцій</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>${rec.length===0?'<div class="empty">Операцій немає</div>':rows}`);
   $('mx').onclick=hide;
-  $('modal').querySelectorAll('[data-oid]').forEach(b=>{
-    b.addEventListener('click',async()=>{
-      if(!confirm('Скасувати цю операцію?'))return;
-      const m=mats.find(x=>x.id===b.dataset.omid);
-      if(m){
-        const q=+b.dataset.oqty;
-        const nq=b.dataset.otype==='receive'?Math.max(0,m.qty-q):m.qty+q;
-        await updateDoc(doc(db,'materials',b.dataset.omid),{qty:+nq.toFixed(4)});
-      }
-      await deleteDoc(doc(db,'purchases',b.dataset.oid));
-      hide();
-    });
+  $('modal').querySelectorAll('[data-oid]').forEach(b=>b.onclick=async()=>{
+    if(!confirm('Скасувати?'))return;
+    const m=mats.find(x=>x.id===b.dataset.omid);
+    if(m){const q=+b.dataset.oqty,nq=b.dataset.otype==='receive'?Math.max(0,m.qty-q):m.qty+q;await updateDoc(doc(db,'materials',b.dataset.omid),{qty:+nq.toFixed(4)});}
+    await deleteDoc(doc(db,'purchases',b.dataset.oid));hide();
   });
 }
 
-// ════════════════════════════════════════
+// ══════════════════════════════════════════════════
 // SERVICES
-// ════════════════════════════════════════
+// ══════════════════════════════════════════════════
 function drawSvc(){
   const el=$('t-svc');
   el.innerHTML=`
     <div style="display:flex;justify-content:flex-end;margin-bottom:14px">
       <button class="btn bp" id="bnsvc">${svg(ic.plus,14)} Додати послугу</button>
     </div>
-    ${svcs.length===0?'<div class="empty">Послуг немає</div>':svcs.map(s=>`
-      <div class="ri">
-        <div class="rl"><div class="rn">${s.name}</div><div class="rs">⏱ ${s.duration>=60?Math.floor(s.duration/60)+'г ':''} ${s.duration%60>0?s.duration%60+'хв':''}</div></div>
+    ${svcs.length===0?'<div class="empty">Послуг немає</div>':svcs.map(s=>{
+      const h=Math.floor((s.duration||60)/60),min=(s.duration||60)%60;
+      return`<div class="ri">
+        <div class="rl"><div class="rn">${s.name}</div><div class="rs">⏱ ${h>0?h+'г ':''} ${min>0?min+'хв':''}</div></div>
         <div class="rr"><div class="rv">${fmt(s.price)} грн</div></div>
         <div class="rac">
           <button class="bi bs" data-es="${s.id}">${svg(ic.edit,13)}</button>
           <button class="bi bs" data-ds="${s.id}">${svg(ic.del,13,'var(--err)')}</button>
         </div>
-      </div>`).join('')}`;
+      </div>`;
+    }).join('')}`;
   $('bnsvc').onclick=()=>svcModal(null);
-  el.querySelectorAll('[data-es]').forEach(b=>b.addEventListener('click',()=>svcModal(b.dataset.es)));
-  el.querySelectorAll('[data-ds]').forEach(b=>b.addEventListener('click',async()=>{if(confirm('Видалити?'))await deleteDoc(doc(db,'services',b.dataset.ds));}));
+  el.querySelectorAll('[data-es]').forEach(b=>b.onclick=()=>svcModal(b.dataset.es));
+  el.querySelectorAll('[data-ds]').forEach(b=>b.onclick=async()=>{if(confirm('Видалити?'))await deleteDoc(doc(db,'services',b.dataset.ds));});
 }
 
 function svcModal(id){
-  const s=id?svcs.find(x=>x.id===id):{};
-  const dur=s?.duration||60;
-  const hh=Math.floor(dur/60),mm=dur%60;
+  const s=id?svcs.find(x=>x.id===id):{},dur=s?.duration||60,hh=Math.floor(dur/60),mm=dur%60;
   show(`
     <div class="mh"><div class="mt">${id?'Редагувати':'Нова послуга'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-    <div class="field"><label>Назва</label><input id="sn" value="${s?.name||''}" placeholder="Стрижка, Фарбування..."/></div>
-    <div class="field"><label>Ціна (грн)</label><input type="number" id="sp" value="${s?.price||0}"/></div>
+    <div class="field"><label>Назва</label><input class="fi" id="sn" value="${s?.name||''}" placeholder="Стрижка, Фарбування..."/></div>
+    <div class="field"><label>Ціна (грн)</label><input type="number" class="fi" id="sp" value="${s?.price||0}"/></div>
     <div class="field"><label>Тривалість</label>
       <div class="g2">
-        <select id="sdh" style="width:100%;background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;color:var(--txt);font-size:14px;outline:none">
-          ${Array.from({length:9},(_,i)=>`<option value="${i}" ${hh===i?'selected':''}>${i} год</option>`).join('')}
-        </select>
-        <select id="sdm" style="width:100%;background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:9px 12px;color:var(--txt);font-size:14px;outline:none">
-          ${[0,15,30,45].map(m=>`<option value="${m}" ${mm===m?'selected':''}>${m} хв</option>`).join('')}
-        </select>
+        <select class="fi" id="sdh">${Array.from({length:9},(_,i)=>`<option value="${i}" ${hh===i?'selected':''}>${i} год</option>`).join('')}</select>
+        <select class="fi" id="sdm">${[0,15,30,45].map(m=>`<option value="${m}" ${mm===m?'selected':''}>${m} хв</option>`).join('')}</select>
       </div>
     </div>
-    <div class="mf">
-      <button class="btn bg" id="scancel">Скасувати</button>
-      <button class="btn bp" id="ssave">Зберегти</button>
-    </div>`);
-  $('mx').onclick=hide; $('scancel').onclick=hide;
-  $('ssave').onclick=async()=>{
+    <div class="mf"><button class="btn bg" id="mc">Скасувати</button><button class="btn bp" id="ms">Зберегти</button></div>`);
+  $('mx').onclick=hide;$('mc').onclick=hide;
+  $('ms').onclick=async()=>{
     const d={name:$('sn').value,price:+$('sp').value,duration:+$('sdh').value*60 + +$('sdm').value};
     if(!d.name||!d.price){alert('Заповніть поля');return;}
-    if(id)await updateDoc(doc(db,'services',id),d);
-    else await addDoc(collection(db,'services'),d);
-    hide();
+    if(id)await updateDoc(doc(db,'services',id),d);else await addDoc(collection(db,'services'),d);hide();
   };
 }
 
-// ════════════════════════════════════════
+// ══════════════════════════════════════════════════
 // ANALYTICS
-// ════════════════════════════════════════
+// ══════════════════════════════════════════════════
 function drawStats(){
-  const el=$('t-stats');
-  const now2=new Date();
+  const el=$('t-stats'),now2=new Date();
   const done=appts.filter(a=>{
     if(a.status!=='done')return false;
     const d=new Date(a.date+'T12:00:00');
@@ -956,29 +798,20 @@ function drawStats(){
     return d.getFullYear()===now2.getFullYear();
   });
   const rev=done.reduce((s,a)=>s+(a.paid||svcs.find(sv=>sv.id===a.serviceId)?.price||0),0);
-  const exp=recOps.reduce((s,o)=>s+(o.total||0),0);
-  const profit=rev-exp;
-  const avg=done.length?rev/done.length:0;
+  const exp=recOps.reduce((s,o)=>s+(o.total||0),0),profit=rev-exp,avg=done.length?rev/done.length:0;
   const bySvc=svcs.map(sv=>{const cnt=done.filter(a=>a.serviceId===sv.id).length;return{...sv,cnt,rev:cnt*sv.price};}).filter(s=>s.cnt>0).sort((a,b)=>b.rev-a.rev);
   const maxS=Math.max(...bySvc.map(s=>s.rev),1);
-  const byDay=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map((l,i)=>{
-    const dn=(i+1)%7;
-    const r=done.filter(a=>new Date(a.date+'T12:00:00').getDay()===dn).reduce((s,a)=>s+(svcs.find(sv=>sv.id===a.serviceId)?.price||0),0);
-    return{l,r};
-  });
+  const byDay=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map((l,i)=>{const dn=(i+1)%7,r=done.filter(a=>new Date(a.date+'T12:00:00').getDay()===dn).reduce((s,a)=>s+(svcs.find(sv=>sv.id===a.serviceId)?.price||0),0);return{l,r};});
   const maxD=Math.max(...byDay.map(d=>d.r),1);
   el.innerHTML=`
-    <div class="chips" id="pchips">
-      ${[['week','Тиждень'],['month','Місяць'],['year','Рік']].map(([k,l])=>`<button class="chip ${period===k?'on':''}" data-p="${k}">${l}</button>`).join('')}
-    </div>
+    <div class="chips">${[['week','Тиждень'],['month','Місяць'],['year','Рік']].map(([k,l])=>`<button class="chip ${period===k?'on':''}" data-p="${k}">${l}</button>`).join('')}</div>
     <div class="sg">
-      <div class="sc"><div class="sv" style="color:var(--sil)">${fmt(rev)} грн</div><div class="sl">Виручка</div><div class="ss">${done.length} послуг</div></div>
-      <div class="sc"><div class="sv" style="color:var(--err)">${fmt(exp)} грн</div><div class="sl">Витрати</div><div class="ss">закупівлі</div></div>
+      <div class="sc"><div class="sv" style="color:var(--sil)">${fmt(rev)} грн</div><div class="sl">Виручка</div><div style="color:var(--mut);font-size:11px">${done.length} послуг</div></div>
+      <div class="sc"><div class="sv" style="color:var(--err)">${fmt(exp)} грн</div><div class="sl">Витрати</div></div>
       <div class="sc"><div class="sv" style="color:${profit>=0?'var(--ok)':'var(--err)'}">${fmt(profit)} грн</div><div class="sl">Прибуток</div></div>
       <div class="sc"><div class="sv" style="color:var(--acs)">${fmt(avg)} грн</div><div class="sl">Сер. чек</div></div>
     </div>
-    <div class="card">
-      <div class="sec" style="margin-top:0">По днях тижня</div>
+    <div class="card"><div class="sec" style="margin-top:0">По днях тижня</div>
       <div style="display:flex;align-items:flex-end;gap:5px;height:80px">
         ${byDay.map(({l,r})=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
           <div style="font-size:9px;color:var(--dim)">${r>0?fmt(r/1000)+'к':''}</div>
@@ -987,27 +820,24 @@ function drawStats(){
         </div>`).join('')}
       </div>
     </div>
-    <div class="card">
-      <div class="sec" style="margin-top:0">Послуги</div>
+    <div class="card"><div class="sec" style="margin-top:0">Послуги</div>
       ${bySvc.length===0?'<div style="color:var(--dim);text-align:center;padding:20px 0">Немає даних</div>':bySvc.map(s=>`
         <div style="margin-bottom:12px">
           <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="font-size:13px;color:var(--txt)">${s.name} <span style="color:var(--dim)">×${s.cnt}</span></span>
+            <span style="font-size:13px">${s.name} <span style="color:var(--dim)">×${s.cnt}</span></span>
             <span style="font-weight:700;color:var(--sil)">${fmt(s.rev)} грн</span>
           </div>
           <div class="pb"><div class="pf" style="width:${s.rev/maxS*100}%"></div></div>
         </div>`).join('')}
     </div>
-    <div class="card">
-      <div class="sec" style="margin-top:0">Останні закупівлі</div>
-      ${recOps.length===0?'<div style="color:var(--dim);text-align:center;padding:20px 0">Немає закупівель</div>':recOps.slice(-8).reverse().map(o=>`
+    <div class="card"><div class="sec" style="margin-top:0">Останні закупівлі</div>
+      ${recOps.length===0?'<div style="color:var(--dim);text-align:center;padding:20px 0">Немає</div>':recOps.slice(-8).reverse().map(o=>`
         <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--brd)">
-          <div><div style="font-size:13px;color:var(--txt)">${o.matName||'?'}</div>
-          <div style="font-size:11px;color:var(--mut)">${o.date} · ${o.qty} шт${o.disc?' · -'+o.disc+'%':''}</div></div>
+          <div><div style="font-size:13px">${o.matName||'?'}</div><div style="font-size:11px;color:var(--mut)">${o.date} · ${o.qty} шт${o.disc?' · -'+o.disc+'%':''}</div></div>
           <div style="font-weight:700;color:var(--sil);white-space:nowrap">${fmt(o.total)} грн</div>
         </div>`).join('')}
     </div>`;
-  el.querySelectorAll('[data-p]').forEach(b=>b.addEventListener('click',()=>{period=b.dataset.p;drawStats();}));
+  el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{period=b.dataset.p;drawStats();});
 }
 
 draw();
