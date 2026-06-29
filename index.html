@@ -224,14 +224,19 @@ function drawCal(){
       const da=appts.filter(a=>a.date===d&&a.time&&+a.time.split(':')[0]===h);
       const blocks=da.map(a=>{
         const svc=svcs.find(s=>s.id===a.serviceId);
-        const dur=Math.min(svc?.duration||60,480);
+        const dur=Math.min(svc?.duration||60,480); // primary service only
         const min=+(a.time.split(':')[1]||0);
         const topPx=(min/60)*60;
         const hPx=Math.max((dur/60)*60,22);
         const cls=a.status==='done'?'done':a.status==='cancelled'?'cancelled':'pending';
+        // For multiple services show combined name
+        const svcNames = a.services ? a.services.map(sid=>svcs.find(s=>s.id===sid)?.name||'').filter(Boolean).join('+') : (svc?.name||'');
         return`<div class="AB ${cls}" style="top:${topPx}px;height:${hPx}px" data-aid="${a.id}">
-          <div class="AB-N">${a.client}</div>
-          <div class="AB-T">${a.time}${svc?' · '+svc.name:''}</div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <div class="AB-DRAG" style="padding:2px 4px 2px 2px;cursor:grab;color:rgba(255,255,255,.4);font-size:10px;touch-action:none">⠿</div>
+            <div class="AB-N" style="flex:1">${a.client}</div>
+          </div>
+          <div class="AB-T">${a.time}${svcNames?' · '+svcNames:''}</div>
           <div class="AB-RES" data-resize="${a.id}"><div style="width:20px;height:2px;background:rgba(255,255,255,.25);border-radius:2px"></div></div>
         </div>`;
       }).join('');
@@ -279,30 +284,34 @@ function drawCal(){
     if(a)apptModal(a,a.date,a.time);
   }));
 
-  // Drag to move
+  // Drag to move — via drag handle (≡ icon at top of block)
   el.querySelectorAll('.AB').forEach(block=>{
-    let pt=null,drag=false,startY=0,dragA=null,lastUpd=0;
-    block.addEventListener('touchstart',e=>{
-      if(e.target.closest('[data-resize]'))return;
-      startY=e.touches[0].clientY;
-      pt=setTimeout(()=>{drag=true;dragA=appts.find(x=>x.id===block.dataset.aid);block.style.opacity='.5';},450);
+    const handle=block.querySelector('.AB-DRAG');
+    if(!handle)return;
+    let drag=false,dragA=null,lastUpd=0,startX=0,startY=0;
+    handle.addEventListener('touchstart',e=>{
+      e.stopPropagation();
+      drag=true;
+      dragA=appts.find(x=>x.id===block.dataset.aid);
+      startX=e.touches[0].clientX;startY=e.touches[0].clientY;
+      block.style.opacity='.6';block.style.zIndex='10';
     },{passive:true});
-    block.addEventListener('touchend',()=>{clearTimeout(pt);if(drag){block.style.opacity='';drag=false;dragA=null;}});
-    block.addEventListener('touchmove',async e=>{
-      clearTimeout(pt);if(!drag||!dragA)return;
+    document.addEventListener('touchend',()=>{
+      if(drag){block.style.opacity='';block.style.zIndex='';drag=false;dragA=null;}
+    },{passive:true});
+    document.addEventListener('touchmove',async e=>{
+      if(!drag||!dragA)return;
       e.preventDefault();
-      const now2=Date.now();if(now2-lastUpd<200)return;
+      const now2=Date.now();if(now2-lastUpd<150)return;
       const touch=e.touches[0];
       const el2=document.elementFromPoint(touch.clientX,touch.clientY);
       const cell=el2?.closest('.TC');
       if(!cell)return;
-      // Get minute from Y position within cell
       const rect=cell.getBoundingClientRect();
       const relY=Math.max(0,touch.clientY-rect.top);
       const mins=Math.round(relY/60*60/5)*5;
       const h=+cell.dataset.h.split(':')[0];
-      const newMin=Math.min(55,mins);
-      const newTime=String(h).padStart(2,'0')+':'+String(newMin).padStart(2,'0');
+      const newTime=String(h).padStart(2,'0')+':'+String(Math.min(55,mins)).padStart(2,'0');
       const newDate=cell.dataset.d;
       if(newDate!==dragA.date||newTime!==dragA.time){
         lastUpd=now2;
