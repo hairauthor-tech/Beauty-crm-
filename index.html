@@ -78,9 +78,9 @@ input[type=date],input[type=time]{color-scheme:dark;}
 .AB-RES{position:absolute;bottom:0;left:0;right:0;height:12px;display:flex;align-items:center;justify-content:center;cursor:ns-resize;}
 .vb{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--brd);background:transparent;color:var(--mut);}
 .vb.on{background:var(--acc);color:#fff;border-color:var(--acc);}
-.now-line{position:absolute;left:0;right:0;height:2px;background:#E74C3C;z-index:5;pointer-events:none;}
-.now-dot{position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:#E74C3C;}
-.now-label{position:absolute;left:-44px;top:-9px;width:40px;text-align:right;font-size:9px;font-weight:700;color:#fff;background:#E74C3C;border-radius:4px;padding:2px 4px;white-space:nowrap;}
+.now-line{position:absolute;left:0;right:0;height:2px;background:#1A1A1E;z-index:5;pointer-events:none;}
+.now-dot{position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:#1A1A1E;}
+.now-label{position:absolute;left:-44px;top:-9px;width:40px;text-align:right;font-size:9px;font-weight:700;color:#fff;background:#1A1A1E;border-radius:4px;padding:2px 4px;white-space:nowrap;}
 .alert{border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;font-size:13px;}
 .alert-d{background:rgba(184,112,112,.1);border:1px solid rgba(184,112,112,.4);color:var(--err);}
 </style>
@@ -354,44 +354,54 @@ function drawCal(){
   }));
 
   // Drag to move — via drag handle (≡ icon at top of block)
+  let activeDragBlock=null, activeDragA=null, dragLastUpd=0;
+
+  function globalTouchMove(e){
+    if(!activeDragBlock||!activeDragA)return;
+    e.preventDefault();
+    const now2=Date.now();if(now2-dragLastUpd<150)return;
+    const touch=e.touches[0];
+    const el2=document.elementFromPoint(touch.clientX,touch.clientY);
+    const cell=el2?.closest('.TC');
+    if(!cell)return;
+    const rect=cell.getBoundingClientRect();
+    const relY=Math.max(0,touch.clientY-rect.top);
+    const minsOffset=Math.round(relY/30*30/5)*5;
+    const baseH=+cell.dataset.h.split(':')[0];
+    const baseM=+cell.dataset.h.split(':')[1];
+    const totalMins=baseH*60+baseM+minsOffset;
+    const newH=Math.floor(totalMins/60),newM=totalMins%60;
+    const newTime=String(Math.min(20,newH)).padStart(2,'0')+':'+String(Math.min(55,newM)).padStart(2,'0');
+    const newDate=cell.dataset.d;
+    if(newDate!==activeDragA.date||newTime!==activeDragA.time){
+      dragLastUpd=now2;
+      updateDoc(doc(db,'appointments',activeDragA.id),{date:newDate,time:newTime});
+      activeDragA={...activeDragA,date:newDate,time:newTime};
+    }
+  }
+  function globalTouchEnd(){
+    if(activeDragBlock){activeDragBlock.style.opacity='';activeDragBlock.style.zIndex='';}
+    activeDragBlock=null;activeDragA=null;
+  }
+  // Bind global listeners once
+  if(!window.__dragBound){
+    window.__dragBound=true;
+    document.addEventListener('touchmove',e=>globalTouchMove(e),{passive:false});
+    document.addEventListener('touchend',()=>globalTouchEnd(),{passive:true});
+    document.addEventListener('touchcancel',()=>globalTouchEnd(),{passive:true});
+  }
+  window.globalTouchMove=globalTouchMove;
+  window.globalTouchEnd=globalTouchEnd;
+
   el.querySelectorAll('.AB').forEach(block=>{
     const handle=block.querySelector('.AB-DRAG');
     if(!handle)return;
-    let drag=false,dragA=null,lastUpd=0,startX=0,startY=0;
     handle.addEventListener('touchstart',e=>{
       e.stopPropagation();
-      drag=true;
-      dragA=appts.find(x=>x.id===block.dataset.aid);
-      startX=e.touches[0].clientX;startY=e.touches[0].clientY;
+      activeDragBlock=block;
+      activeDragA=appts.find(x=>x.id===block.dataset.aid);
       block.style.opacity='.6';block.style.zIndex='10';
     },{passive:true});
-    document.addEventListener('touchend',()=>{
-      if(drag){block.style.opacity='';block.style.zIndex='';drag=false;dragA=null;}
-    },{passive:true});
-    document.addEventListener('touchmove',async e=>{
-      if(!drag||!dragA)return;
-      e.preventDefault();
-      const now2=Date.now();if(now2-lastUpd<150)return;
-      const touch=e.touches[0];
-      const el2=document.elementFromPoint(touch.clientX,touch.clientY);
-      const cell=el2?.closest('.TC');
-      if(!cell)return;
-      const rect=cell.getBoundingClientRect();
-      const relY=Math.max(0,touch.clientY-rect.top);
-      // 30px = 30 minutes
-      const minsOffset=Math.round(relY/30*30/5)*5;
-      const baseH=+cell.dataset.h.split(':')[0];
-      const baseM=+cell.dataset.h.split(':')[1];
-      const totalMins=baseH*60+baseM+minsOffset;
-      const newH=Math.floor(totalMins/60),newM=totalMins%60;
-      const newTime=String(Math.min(20,newH)).padStart(2,'0')+':'+String(Math.min(55,newM)).padStart(2,'0');
-      const newDate=cell.dataset.d;
-      if(newDate!==dragA.date||newTime!==dragA.time){
-        lastUpd=now2;
-        await updateDoc(doc(db,'appointments',dragA.id),{date:newDate,time:newTime});
-        dragA={...dragA,date:newDate,time:newTime};
-      }
-    },{passive:false});
   });
 
   // Now-line indicator
@@ -654,11 +664,11 @@ function drawStock(){
       ${items.map(m=>{
         const isLow=m.qty<=m.minQty,byG=m.spendUnit&&m.spendUnit!=='шт'&&m.volPerUnit>0;
         const tu=byG?fmt(m.qty*m.volPerUnit)+' '+m.spendUnit:'';
-        const ppu=byG?fmt(m.avgPricePerUnit||m.pricePerUnit||0)+' грн/'+m.spendUnit:fmt(m.avgPrice||m.price||0)+' грн/шт';
+        const ppu=byG?(m.avgPricePerUnit||m.pricePerUnit||0).toFixed(2)+' грн/'+m.spendUnit:(m.avgPrice||m.price||0).toFixed(2)+' грн/шт';
         return`<div class="ri" style="border-left:3px solid ${isLow?'var(--err)':'var(--brd)'}">
           <div class="rl"><div class="rn">${m.name} ${isLow?'<span style="background:rgba(184,112,112,.15);color:var(--err);padding:2px 7px;border-radius:10px;font-size:10px">Мало</span>':''}</div>
           <div class="rs">${tu?tu+' · ':''}${ppu}</div></div>
-          <div class="rr"><div class="rv" style="color:${isLow?'var(--err)':'var(--acs)'}">${m.qty} шт</div><div class="ra">мін. ${m.minQty}</div></div>
+          <div class="rr"><div class="rv" style="color:${isLow?'var(--err)':'var(--acs)'}">${Number.isInteger(m.qty)?m.qty:m.qty.toFixed(2)} шт</div><div class="ra">мін. ${m.minQty}</div></div>
           <div class="rac">
             <button class="bi bs" data-sp="${m.id}">${svg('M5 12h14',13)}</button>
             <button class="bi bs" data-em="${m.id}">${svg(ic.edit,13)}</button>
@@ -704,7 +714,7 @@ function receiveModal(){
           <div><div style="font-size:10px;color:var(--mut);margin-bottom:3px">Знижка %</div>
             <input type="number" value="${it.disc||0}" min="0" max="100" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px;color:var(--txt);font-size:13px;outline:none" data-disc="${idx}"/></div>
         </div>
-        <div style="font-size:11px;color:var(--mut);margin-top:6px">Сума: <b style="color:var(--acs)">${fmt(it.qty*dp)} грн</b></div>
+        <div style="font-size:11px;color:var(--mut);margin-top:6px" data-sum="${idx}">${fmt(it.qty*dp)} грн (ціна зі знижкою: ${dp.toFixed(2)} грн/шт)</div>
       </div>`;
     }).join('');
     const total=rcvItems.reduce((s,it)=>s+it.qty*(it.price||0)*(1-(it.disc||0)/100),0);
@@ -718,7 +728,7 @@ function receiveModal(){
       <div class="mh"><div class="mt">📦 Прихід товару</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
       <div class="field"><label>Дата</label><input type="date" class="fi" id="rdate" value="${today()}"/></div>
       <div class="field"><label>Примітка</label><input class="fi" id="rnote" placeholder="Постачальник..."/></div>
-      ${rcvItems.length?`<div style="margin-bottom:10px">${itemsHtml}<div style="text-align:right;font-weight:700;font-size:14px;color:var(--sil)">Загалом: ${fmt(total)} грн</div></div>`:''}
+      ${rcvItems.length?`<div style="margin-bottom:10px">${itemsHtml}<div style="text-align:right;font-weight:700;font-size:14px;color:var(--sil)" data-grandtotal>Загалом: ${fmt(total)} грн</div></div>`:''}
       <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Оберіть товари:</div>
       <input class="fi" id="rsearch" style="margin-bottom:8px" placeholder="🔍 Пошук..." value="${prevSearch}"/>
       <div style="max-height:180px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px;margin-bottom:14px">${listHtml||'<div style="padding:14px;color:var(--dim);text-align:center">Нічого не знайдено</div>'}</div>
@@ -750,9 +760,19 @@ function receiveModal(){
     }
     bindAddBtns();
     $('modal').querySelectorAll('[data-rem]').forEach(b=>b.onclick=()=>{rcvItems.splice(+b.dataset.rem,1);render($('rsearch')?.value||'');});
-    $('modal').querySelectorAll('[data-qty]').forEach(inp=>inp.onchange=()=>{rcvItems[+inp.dataset.qty].qty=+inp.value||1;});
-    $('modal').querySelectorAll('[data-price]').forEach(inp=>inp.onchange=()=>{rcvItems[+inp.dataset.price].price=+inp.value||0;});
-    $('modal').querySelectorAll('[data-disc]').forEach(inp=>inp.onchange=()=>{rcvItems[+inp.dataset.disc].disc=+inp.value||0;});
+    function updateItemSum(idx){
+      const it=rcvItems[idx];
+      const dp2=(it.price||0)*(1-(it.disc||0)/100);
+      const sumEl=$('modal').querySelector(`[data-sum="${idx}"]`);
+      if(sumEl)sumEl.textContent=fmt(it.qty*dp2)+' грн (ціна зі знижкою: '+dp2.toFixed(2)+' грн/шт)';
+      // Update grand total
+      const total2=rcvItems.reduce((s,x)=>s+x.qty*(x.price||0)*(1-(x.disc||0)/100),0);
+      const totalEl=$('modal').querySelector('[data-grandtotal]');
+      if(totalEl)totalEl.textContent='Загалом: '+fmt(total2)+' грн';
+    }
+    $('modal').querySelectorAll('[data-qty]').forEach(inp=>inp.addEventListener('input',()=>{rcvItems[+inp.dataset.qty].qty=+inp.value||0;updateItemSum(+inp.dataset.qty);}));
+    $('modal').querySelectorAll('[data-price]').forEach(inp=>inp.addEventListener('input',()=>{rcvItems[+inp.dataset.price].price=+inp.value||0;updateItemSum(+inp.dataset.price);}));
+    $('modal').querySelectorAll('[data-disc]').forEach(inp=>inp.addEventListener('input',()=>{rcvItems[+inp.dataset.disc].disc=+inp.value||0;updateItemSum(+inp.dataset.disc);}));
     $('rsave').onclick=async()=>{
       if(rcvItems.length===0){alert('Додайте товари');return;}
       const date=$('rdate').value,note=$('rnote').value;
@@ -787,16 +807,16 @@ function matModal(id){
     <div id="vpkg" style="${m?.spendUnit&&m?.spendUnit!=='шт'?'':'display:none'}">
       <div class="field"><label id="vlbl">Об'єм упаковки (г в 1 шт)</label><input type="number" class="fi" id="mvol" value="${m?.volPerUnit||0}" placeholder="60"/></div>
     </div>
-    <div class="field"><label>Ціна за упаковку (грн/шт)</label><input type="number" class="fi" id="mp" value="${m?.price||0}"/></div>
+    <div class="field"><label>Ціна за упаковку (грн/шт)</label><input type="number" step="0.01" class="fi" id="mp" value="${m?.price?Number(m.price.toFixed(2)):0}"/></div>
     <div id="mcalc" style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:13px;${m?.spendUnit&&m?.spendUnit!=='шт'&&m?.volPerUnit>0?'':'display:none'}">
-      <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--mut)">Ціна за г/мл:</span><span id="mpg" style="font-weight:700;color:var(--acs)">${m?.pricePerUnit?fmt(m.pricePerUnit)+' грн':'—'}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--mut)">Ціна за г/мл:</span><span id="mpg" style="font-weight:700;color:var(--acs)">${m?.pricePerUnit?m.pricePerUnit.toFixed(2)+' грн':'—'}</span></div>
     </div>
     <div class="mf"><button class="btn bg" id="mc">Скасувати</button><button class="btn bp" id="ms">Зберегти</button></div>`);
   const upd=()=>{
     const su=$('msu').value,vol=+($('mvol')?.value||0),p=+$('mp').value;
     $('vpkg').style.display=su!=='шт'?'':'none';
     if(su!=='шт')$('vlbl').textContent='Об\'єм упаковки ('+su+' в 1 шт)';
-    if(su!=='шт'&&vol>0&&p>0){$('mcalc').style.display='';$('mpg').textContent=fmt(p/vol)+' грн/'+su;}
+    if(su!=='шт'&&vol>0&&p>0){$('mcalc').style.display='';$('mpg').textContent=(p/vol).toFixed(2)+' грн/'+su;}
     else $('mcalc').style.display='none';
   };
   $('msu').onchange=upd;$('mvol')&&$('mvol').addEventListener('input',upd);$('mp').addEventListener('input',upd);
@@ -820,7 +840,7 @@ function spendModal(id){
     <div class="mh"><div class="mt">Списати: ${m.name}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
     <div style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:13px">
       <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px"><span style="color:var(--mut)">В наявності:</span><span style="font-weight:700;color:var(--acs)">${fmt(totalU)} ${unit} (${m.qty} шт)</span></div>
-      <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--mut)">Ціна за ${unit}:</span><span style="font-weight:700;color:var(--sil)">${fmt(byG?ppu:m.avgPrice||m.price||0)} грн</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--mut)">Ціна за ${unit}:</span><span style="font-weight:700;color:var(--sil)">${(byG?ppu:m.avgPrice||m.price||0).toFixed(2)} грн</span></div>
     </div>
     <div class="field"><label>Кількість (${unit})</label><input type="number" class="fi" id="sqa" step="0.1" placeholder="0"/></div>
     <div id="scalc" style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:13px;display:none">
@@ -833,7 +853,7 @@ function spendModal(id){
   $('mx').onclick=hide;$('mc').onclick=hide;
   $('sqa').addEventListener('input',e=>{
     const q=+e.target.value||0;
-    if(q>0){const cost=byG?q*ppu:q*(m.avgPrice||m.price||0),remU=Math.max(0,totalU-q);$('scalc').style.display='';$('scost').textContent=fmt(cost)+' грн';$('srem').textContent=fmt(remU)+' '+unit+' ('+(byG?remU/m.volPerUnit:remU).toFixed(2)+' шт)';}
+    if(q>0){const cost=byG?q*ppu:q*(m.avgPrice||m.price||0),remU=Math.max(0,totalU-q);$('scalc').style.display='';$('scost').textContent=cost.toFixed(2)+' грн';const remShts=byG?remU/m.volPerUnit:remU;$('srem').textContent=remU.toFixed(1)+' '+unit+' ('+remShts.toFixed(2)+' шт)';}
     else $('scalc').style.display='none';
   });
   $('ms').onclick=async()=>{
