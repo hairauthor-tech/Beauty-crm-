@@ -78,6 +78,9 @@ input[type=date],input[type=time]{color-scheme:dark;}
 .AB-RES{position:absolute;bottom:0;left:0;right:0;height:12px;display:flex;align-items:center;justify-content:center;cursor:ns-resize;}
 .vb{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--brd);background:transparent;color:var(--mut);}
 .vb.on{background:var(--acc);color:#fff;border-color:var(--acc);}
+.now-line{position:absolute;left:0;right:0;height:2px;background:#E74C3C;z-index:5;pointer-events:none;}
+.now-dot{position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:#E74C3C;}
+.now-label{position:absolute;left:-44px;top:-9px;width:40px;text-align:right;font-size:9px;font-weight:700;color:#fff;background:#E74C3C;border-radius:4px;padding:2px 4px;white-space:nowrap;}
 .alert{border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;font-size:13px;}
 .alert-d{background:rgba(184,112,112,.1);border:1px solid rgba(184,112,112,.4);color:var(--err);}
 </style>
@@ -202,6 +205,49 @@ function draw(){
 // ══════════════════════════════════════════════════
 // CALENDAR
 // ══════════════════════════════════════════════════
+function updateNowLine(dates, todayStr){
+  // Remove old line
+  document.querySelectorAll('.now-line').forEach(el=>el.remove());
+  const todayIdx = dates.indexOf(todayStr);
+  if(todayIdx<0) return; // today not visible
+  const now = new Date();
+  const h = now.getHours(), m = now.getMinutes();
+  if(h<8||h>20) return; // outside visible range
+  const minsFromStart = (h-8)*60+m;
+  const topPx = (minsFromStart/30)*30; // 30px per 30min row
+  const wrap = document.getElementById('calGridWrap');
+  if(!wrap) return;
+  const cols = wrap.querySelectorAll('.CAL-COL.TC, .CAL-COL.COL-H');
+  // Find the target column by index among TC-bearing columns
+  const allTC = wrap.querySelectorAll('[data-d]');
+  if(allTC.length===0) return;
+  // Get unique dates in order
+  const uniqueDates=[...new Set([...allTC].map(e=>e.dataset.d))];
+  const colCount = uniqueDates.length;
+  // Find first TC cell for the today column to get its position
+  const targetCell = wrap.querySelector(`[data-d="${todayStr}"]`);
+  if(!targetCell) return;
+  const cellRect = targetCell.getBoundingClientRect();
+  const wrapRect = wrap.getBoundingClientRect();
+  const colLeft = cellRect.left - wrapRect.left + wrap.scrollLeft;
+  const colWidth = cellRect.width;
+  // Find header height (all rows above hour 8:00)
+  const firstRow = wrap.querySelector('[data-h="08:00"]');
+  if(!firstRow) return;
+  const firstRowRect = firstRow.getBoundingClientRect();
+  const topOffset = firstRowRect.top - wrapRect.top + wrap.scrollTop;
+  const finalTop = topOffset + topPx;
+
+  const line=document.createElement('div');
+  line.className='now-line';
+  line.style.left=colLeft+'px';
+  line.style.width=colWidth+'px';
+  line.style.top=finalTop+'px';
+  line.innerHTML=`<div class="now-dot"></div><div class="now-label">${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}</div>`;
+  wrap.style.position='relative';
+  wrap.appendChild(line);
+}
+
 function drawCal(){
   const el=$('t-cal');
   const dates=Array.from({length:calView},(_,i)=>addDays(calDate,i));
@@ -288,9 +334,9 @@ function drawCal(){
       <button class="btn bp bs" id="cadd">${svg(ic.plus,14)} Запис</button>
       <button class="bi" id="csched">⚙️</button>
     </div>
-    <div style="overflow-x:auto;border:1px solid var(--brd);border-radius:10px;">
+    <div style="overflow-x:auto;border:1px solid var(--brd);border-radius:10px;position:relative" id="calGridWrap">
       ${hdrRow}
-      <div>${rows}</div>
+      <div style="position:relative">${rows}</div>
     </div>`;
 
   $('cprev').onclick=e=>{e.stopPropagation();calDate=addDays(calDate,-calView);drawCal();};
@@ -347,6 +393,9 @@ function drawCal(){
       }
     },{passive:false});
   });
+
+  // Now-line indicator
+  updateNowLine(dates, todayStr);
 
   // Resize
   el.querySelectorAll('[data-resize]').forEach(handle=>{
@@ -929,6 +978,7 @@ function drawStats(){
 }
 
 draw();
+setInterval(()=>{ if(tab==='cal') drawCal(); }, 60000);
 </script>
 </body>
 </html>
