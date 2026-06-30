@@ -63,11 +63,12 @@ input[type=date],input[type=time]{color-scheme:dark;}
 .light input[type=date],.light input[type=time]{color-scheme:light;}
 /* Calendar */
 .CHR{height:28px;display:flex;align-items:center;padding-left:2px;}
-.TL{height:60px;display:flex;align-items:flex-start;justify-content:flex-end;padding:2px 6px 0 0;color:var(--dim);font-size:10px;}
+.TL{height:60px;display:flex;flex-direction:column;justify-content:space-between;padding:2px 6px 0 0;color:var(--dim);font-size:10px;}
+.TL-half{font-size:9px;color:var(--dim);opacity:.5;text-align:right}
 .CAL-COL{flex:1;min-width:80px;border-left:1px solid var(--brd);}
 .COL-H{height:28px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--mut);border-bottom:1px solid var(--brd);background:var(--surf);gap:4px;}
 .COL-H.tod{color:var(--acc);}
-.TC{height:60px;border-bottom:1px solid rgba(128,128,128,.08);position:relative;cursor:pointer;}
+.TC{position:absolute;cursor:pointer;}
 .AB{position:absolute;left:2px;right:2px;border-radius:6px;padding:3px 5px;overflow:hidden;z-index:2;cursor:pointer;touch-action:none;transition:opacity .15s;}
 .AB.pending{background:rgba(168,155,194,.2);border-left:3px solid var(--acc);}
 .AB.done{background:rgba(123,175,138,.15);border-left:3px solid var(--ok);}
@@ -144,6 +145,8 @@ const fmtL=d=>new Date(d+'T12:00:00').toLocaleDateString('uk-UA',{day:'numeric',
 const fmtS=d=>new Date(d+'T12:00:00').toLocaleDateString('uk-UA',{day:'numeric',month:'short'});
 const DN=['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
 const HOURS=Array.from({length:13},(_,i)=>i+8);
+const SLOTS=Array.from({length:26},(_,i)=>({h:Math.floor(i/2)+8,m:i%2===0?0:30}));
+const HALF_HOURS=Array.from({length:26},(_,i)=>i*0.5+8); // 8:00, 8:30, 9:00...20:00
 const CATS=['Фарби','Окислювачі','Порошки','Шампуні','Маски','Кондиціонери','Стайлінг','Інше'];
 const svg=(d,s=16,c='currentColor')=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
 const ic={plus:'M12 5v14M5 12h14',edit:'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z',del:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6',x:'M18 6L6 18M6 6l12 12',l:'M15 18l-6-6 6-6',r:'M9 18l6-6-6-6',w:'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01',h:'M16 16l-4 4-4-4M12 12v8M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3'};
@@ -218,31 +221,51 @@ function drawCal(){
     }).join('')}
   </div>`;
 
-  // Time rows
+  // Time rows with 30-min subgrid
+  // Each hour = 2 rows of 30px each = 60px total
   const rows=HOURS.map(h=>{
     const cells=dates.map(d=>{
       const da=appts.filter(a=>a.date===d&&a.time&&+a.time.split(':')[0]===h);
       const blocks=da.map(a=>{
         const svc=svcs.find(s=>s.id===a.serviceId);
-        const dur=Math.min(svc?.duration||60,480); // primary service only
+        // Use total duration of all services
+        const totalDur=a.services
+          ? a.services.reduce((s,ss)=>{const sid=typeof ss==='object'?ss.serviceId:ss;return s+(svcs.find(sv=>sv.id===sid)?.duration||60);},0)
+          : (svc?.duration||60);
+        const dur=Math.min(totalDur,480);
         const min=+(a.time.split(':')[1]||0);
-        const topPx=(min/60)*60;
-        const hPx=Math.max((dur/60)*60,22);
+        // 30px per 30 minutes
+        const topPx=(min/30)*30;
+        const hPx=Math.max((dur/30)*30,22);
         const cls=a.status==='done'?'done':a.status==='cancelled'?'cancelled':'pending';
-        // For multiple services show combined name
-        const svcNames = a.services ? a.services.map(s=>{const sid=typeof s==='object'?s.serviceId:s;return svcs.find(sv=>sv.id===sid)?.name||'';}).filter(Boolean).join('+') : (svc?.name||'');
+        const svcNames=a.services?a.services.map(s=>{const sid=typeof s==='object'?s.serviceId:s;return svcs.find(sv=>sv.id===sid)?.name||'';}).filter(Boolean).join('+'):(svc?.name||'');
         return`<div class="AB ${cls}" style="top:${topPx}px;height:${hPx}px" data-aid="${a.id}">
           <div style="display:flex;align-items:center;gap:4px">
-            <div class="AB-DRAG" style="padding:2px 4px 2px 2px;cursor:grab;color:rgba(255,255,255,.4);font-size:10px;touch-action:none">⠿</div>
+            <div class="AB-DRAG" style="padding:2px 4px;cursor:grab;color:rgba(255,255,255,.4);font-size:10px;touch-action:none">⠿</div>
             <div class="AB-N" style="flex:1">${a.client}</div>
           </div>
           <div class="AB-T">${a.time}${svcNames?' · '+svcNames:''}</div>
           <div class="AB-RES" data-resize="${a.id}"><div style="width:20px;height:2px;background:rgba(255,255,255,.25);border-radius:2px"></div></div>
         </div>`;
       }).join('');
-      return`<div class="CAL-COL TC" data-d="${d}" data-h="${String(h).padStart(2,'0')}:00">${blocks}</div>`;
+      // Two 30px sub-rows per hour
+      return`<div class="CAL-COL" style="position:relative;height:60px;border-left:1px solid var(--brd)">
+        <div style="position:absolute;inset:0;pointer-events:none">
+          <div style="height:30px;border-bottom:1px solid rgba(128,128,128,.05)"></div>
+          <div style="height:30px;border-bottom:1px solid rgba(128,128,128,.08)"></div>
+        </div>
+        <div class="TC" style="position:absolute;inset:0;height:30px" data-d="${d}" data-h="${String(h).padStart(2,'0')}:00"></div>
+        <div class="TC" style="position:absolute;top:30px;left:0;right:0;height:30px" data-d="${d}" data-h="${String(h).padStart(2,'0')}:30"></div>
+        ${blocks}
+      </div>`;
     }).join('');
-    return`<div style="display:flex"><div style="width:44px;flex-shrink:0"><div class="TL">${h}:00</div></div>${cells}</div>`;
+    return`<div style="display:flex">
+      <div style="width:44px;flex-shrink:0">
+        <div class="TL" style="height:30px">${h}:00</div>
+        <div style="height:30px;display:flex;align-items:flex-start;justify-content:flex-end;padding:2px 6px 0 0;color:var(--dim);font-size:9px;opacity:.5">:30</div>
+      </div>
+      ${cells}
+    </div>`;
   }).join('');
 
   el.innerHTML=`
@@ -309,9 +332,13 @@ function drawCal(){
       if(!cell)return;
       const rect=cell.getBoundingClientRect();
       const relY=Math.max(0,touch.clientY-rect.top);
-      const mins=Math.round(relY/60*60/5)*5;
-      const h=+cell.dataset.h.split(':')[0];
-      const newTime=String(h).padStart(2,'0')+':'+String(Math.min(55,mins)).padStart(2,'0');
+      // 30px = 30 minutes
+      const minsOffset=Math.round(relY/30*30/5)*5;
+      const baseH=+cell.dataset.h.split(':')[0];
+      const baseM=+cell.dataset.h.split(':')[1];
+      const totalMins=baseH*60+baseM+minsOffset;
+      const newH=Math.floor(totalMins/60),newM=totalMins%60;
+      const newTime=String(Math.min(20,newH)).padStart(2,'0')+':'+String(Math.min(55,newM)).padStart(2,'0');
       const newDate=cell.dataset.d;
       if(newDate!==dragA.date||newTime!==dragA.time){
         lastUpd=now2;
@@ -364,15 +391,20 @@ function miniCalModal(){
       const isSel=ds===calDate,isT=ds===todayStr,isW=isWorkDay(ds);
       const p=getWorkMins(ds)>0?Math.min(getBookedMins(ds)/getWorkMins(ds),1):0;
       const col=dayColor(ds),r=9,C2=2*Math.PI*r,dash=p*C2,gap=C2-dash,off2=p>=1?0:C2/4;
-      const ring=`<svg width="100%" height="100%" viewBox="0 0 26 26" style="position:absolute;top:0;left:0">
-        ${isW?`<circle cx="13" cy="13" r="${r}" fill="none" stroke="rgba(128,128,128,.2)" stroke-width="2"/>`:''}
-        ${isW&&p>0?`<circle cx="13" cy="13" r="${r}" fill="none" stroke="${col}" stroke-width="2.5" stroke-dasharray="${dash.toFixed(2)} ${Math.max(0,gap-.01).toFixed(2)}" stroke-dashoffset="${off2.toFixed(2)}" stroke-linecap="${p>=1?'butt':'round'}"/>`:''}
-      </svg>`;
-      const hasExc=exceptions[ds]!==undefined;
-      cells+=`<div style="position:relative;width:36px;height:36px;margin:2px auto;cursor:pointer" data-date="${ds}">
+      // Ring only on work days with bookings
+      const ring=isW?`<svg width="100%" height="100%" viewBox="0 0 26 26" style="position:absolute;top:0;left:0">
+        <circle cx="13" cy="13" r="${r}" fill="none" stroke="rgba(128,128,128,.15)" stroke-width="2"/>
+        ${p>0?`<circle cx="13" cy="13" r="${r}" fill="none" stroke="${col}" stroke-width="2.5" stroke-dasharray="${dash.toFixed(2)} ${Math.max(0,gap-.01).toFixed(2)}" stroke-dashoffset="${off2.toFixed(2)}" stroke-linecap="${p>=1?'butt':'round'}"/>`:''}
+      </svg>`:'';
+      // Colors: selected=green, work=purple, non-work=dim, no dots
+      const isSelDay = ds===calDate;
+      const numColor = isSelDay?'#4CAF50':isW?'var(--acc)':'var(--dim)';
+      const numWeight = isSelDay||isT?700:isW?600:400;
+      const bgCircle = isSelDay?'rgba(76,175,80,.2)':isT&&!isSelDay?'rgba(168,155,194,.15)':'transparent';
+      cells+=`<div style="position:relative;width:36px;height:36px;margin:2px auto;cursor:${isW||isSelDay?'pointer':'default'}" data-date="${ds}">
         ${ring}
-        ${hasExc?`<div style="position:absolute;top:-1px;right:-1px;width:7px;height:7px;border-radius:50%;background:${isW?'#7BAF8A':'#4E5460'};border:1px solid var(--bg);z-index:3"></div>`:''}
-        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:${isSel||isT?700:400};color:${isSel?'var(--acc)':isT?'var(--acs)':isW?'var(--txt)':'var(--dim)'}">
+        <div style="position:absolute;inset:2px;border-radius:50%;background:${bgCircle}"></div>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:${numWeight};color:${numColor}">
           ${d}
         </div>
       </div>`;
@@ -478,13 +510,15 @@ function apptModal(a,date,time){
       </div>`;
     }).join('');
     const totalPrice=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
-    const totalDur=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.duration||60),0);
+    const totalDurMin=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.duration||60),0);
+    const totalDur=totalDurMin; // keep for compat
+    const fmtTotalDur=d=>{const h=Math.floor(d/60),m=d%60;return(h>0?h+'г ':'')+( m>0?m+'хв':'');};
 
     $('modal').innerHTML=`
       <div class="mh"><div class="mt">${a?'Редагувати':'Новий запис'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
       <div class="field"><label>Клієнтка</label><input class="fi" id="fc" value="${a?.client||''}" placeholder="Ім'я Прізвище"/></div>
       <div class="field"><label>Телефон</label><input class="fi" id="fp" value="${a?.phone||''}" placeholder="+380..."/></div>
-      <div class="field"><label>Послуги ${selSvcs.length>0?`<span style="color:var(--acc);font-weight:700">${selSvcs.length} · ${fmt(totalPrice)} грн · ${totalDur} хв</span>`:''}</label>
+      <div class="field"><label>Послуги ${selSvcs.length>0?`<span style="color:var(--acc);font-weight:700">${selSvcs.length} · ${fmt(totalPrice)} грн · ${fmtTotalDur(totalDurMin)}</span>`:''}</label>
         ${selRows}
         <select class="fi" id="fsadd" style="margin-top:8px">
           <option value="">+ Додати послугу</option>${opts}
@@ -510,11 +544,17 @@ function apptModal(a,date,time){
     $('mx').onclick=hide;$('fcancel').onclick=hide;
     $('fsadd').onchange=e=>{
       if(!e.target.value)return;
+      // Save current adj values before re-render
+      $('modal').querySelectorAll('[data-adj]').forEach(inp=>{if(selSvcs[+inp.dataset.adj])selSvcs[+inp.dataset.adj].adj=+inp.value||0;});
       selSvcs.push({serviceId:e.target.value,adj:0});
       e.target.value='';
       renderApptModal();
     };
-    $('modal').querySelectorAll('[data-rmsvc]').forEach(b=>b.onclick=()=>{selSvcs.splice(+b.dataset.rmsvc,1);renderApptModal();});
+    $('modal').querySelectorAll('[data-rmsvc]').forEach(b=>b.onclick=()=>{
+      $('modal').querySelectorAll('[data-adj]').forEach(inp=>{if(selSvcs[+inp.dataset.adj])selSvcs[+inp.dataset.adj].adj=+inp.value||0;});
+      selSvcs.splice(+b.dataset.rmsvc,1);
+      renderApptModal();
+    });
     $('modal').querySelectorAll('[data-adj]').forEach(inp=>inp.addEventListener('input',e=>{
       selSvcs[+inp.dataset.adj].adj=+e.target.value||0;
       // Update total display without re-render
