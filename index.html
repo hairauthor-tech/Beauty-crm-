@@ -69,7 +69,7 @@ input[type=date],input[type=time]{color-scheme:dark;}
 .COL-H{height:28px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--mut);border-bottom:1px solid var(--brd);background:var(--surf);gap:4px;}
 .COL-H.tod{color:var(--acc);}
 .TC{position:absolute;cursor:pointer;}
-.AB{position:absolute;left:2px;right:2px;border-radius:6px;padding:3px 5px;overflow:hidden;z-index:2;cursor:pointer;touch-action:none;transition:opacity .15s;}
+.AB{position:absolute;left:2px;right:2px;border-radius:6px;padding:3px 5px;overflow:hidden;z-index:2;cursor:pointer;touch-action:none;transition:opacity .15s;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;}
 .AB.pending{background:rgba(168,155,194,.2);border-left:3px solid var(--acc);}
 .AB.done{background:rgba(123,175,138,.15);border-left:3px solid var(--ok);}
 .AB.cancelled{background:rgba(184,112,112,.15);border-left:3px solid var(--err);}
