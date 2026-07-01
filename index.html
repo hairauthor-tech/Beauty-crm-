@@ -285,8 +285,8 @@ async function gestureEnd(){
     GESTURE.block.style.opacity='';GESTURE.block.style.zIndex='';
   } else if(GESTURE.mode==='resize'&&GESTURE.block&&GESTURE.appt){
     const newDur=Math.max(15,Math.round((parseFloat(GESTURE.block.style.height)/60*60)/15)*15);
-    const svc=svcs.find(s=>s.id===GESTURE.appt.serviceId);
-    if(svc)await updateDoc(doc(db,'services',svc.id),{duration:newDur});
+    // Save duration on the APPOINTMENT itself, not the shared service
+    await updateDoc(doc(db,'appointments',GESTURE.appt.id),{customDuration:newDur});
     GESTURE.block.style.transition='';
   }
   GESTURE.mode=null;GESTURE.block=null;GESTURE.appt=null;
