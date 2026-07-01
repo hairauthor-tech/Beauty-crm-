@@ -248,6 +248,53 @@ function updateNowLine(dates, todayStr){
   wrap.appendChild(line);
 }
 
+// Single global gesture manager for drag & resize — avoids stale closures
+const GESTURE = { mode:null, block:null, appt:null, lastUpd:0, startY:0, origDur:0 };
+
+function gestureMove(e){
+  if(!GESTURE.mode||!GESTURE.block||!GESTURE.appt)return;
+  e.preventDefault();
+  if(GESTURE.mode==='drag'){
+    const now2=Date.now();if(now2-GESTURE.lastUpd<150)return;
+    const touch=e.touches[0];
+    const el2=document.elementFromPoint(touch.clientX,touch.clientY);
+    const cell=el2?.closest('.TC');
+    if(!cell)return;
+    const rect=cell.getBoundingClientRect();
+    const relY=Math.max(0,touch.clientY-rect.top);
+    const minsOffset=Math.round(relY/30*30/5)*5;
+    const baseH=+cell.dataset.h.split(':')[0];
+    const baseM=+cell.dataset.h.split(':')[1];
+    const totalMins=baseH*60+baseM+minsOffset;
+    const newH=Math.floor(totalMins/60),newM=totalMins%60;
+    const newTime=String(Math.min(20,newH)).padStart(2,'0')+':'+String(Math.min(55,newM)).padStart(2,'0');
+    const newDate=cell.dataset.d;
+    if(newDate!==GESTURE.appt.date||newTime!==GESTURE.appt.time){
+      GESTURE.lastUpd=now2;
+      updateDoc(doc(db,'appointments',GESTURE.appt.id),{date:newDate,time:newTime});
+      GESTURE.appt={...GESTURE.appt,date:newDate,time:newTime};
+    }
+  } else if(GESTURE.mode==='resize'){
+    const dy=e.touches[0].clientY-GESTURE.startY;
+    const newH=Math.max(22,(GESTURE.origDur/60+dy/60)*60);
+    GESTURE.block.style.height=newH+'px';
+  }
+}
+async function gestureEnd(){
+  if(GESTURE.mode==='drag'&&GESTURE.block){
+    GESTURE.block.style.opacity='';GESTURE.block.style.zIndex='';
+  } else if(GESTURE.mode==='resize'&&GESTURE.block&&GESTURE.appt){
+    const newDur=Math.max(15,Math.round((parseFloat(GESTURE.block.style.height)/60*60)/15)*15);
+    const svc=svcs.find(s=>s.id===GESTURE.appt.serviceId);
+    if(svc)await updateDoc(doc(db,'services',svc.id),{duration:newDur});
+    GESTURE.block.style.transition='';
+  }
+  GESTURE.mode=null;GESTURE.block=null;GESTURE.appt=null;
+}
+document.addEventListener('touchmove',gestureMove,{passive:false});
+document.addEventListener('touchend',gestureEnd,{passive:true});
+document.addEventListener('touchcancel',()=>{GESTURE.mode=null;GESTURE.block=null;GESTURE.appt=null;},{passive:true});
+
 function drawCal(){
   const el=$('t-cal');
   const dates=Array.from({length:calView},(_,i)=>addDays(calDate,i));
@@ -353,101 +400,34 @@ function drawCal(){
     if(a)apptModal(a,a.date,a.time);
   }));
 
-  // Drag to move — via drag handle (≡ icon at top of block)
-  let activeDragBlock=null, activeDragA=null, dragLastUpd=0;
-
-  function globalTouchMove(e){
-    if(!activeDragBlock||!activeDragA)return;
-    e.preventDefault();
-    const now2=Date.now();if(now2-dragLastUpd<150)return;
-    const touch=e.touches[0];
-    const el2=document.elementFromPoint(touch.clientX,touch.clientY);
-    const cell=el2?.closest('.TC');
-    if(!cell)return;
-    const rect=cell.getBoundingClientRect();
-    const relY=Math.max(0,touch.clientY-rect.top);
-    const minsOffset=Math.round(relY/30*30/5)*5;
-    const baseH=+cell.dataset.h.split(':')[0];
-    const baseM=+cell.dataset.h.split(':')[1];
-    const totalMins=baseH*60+baseM+minsOffset;
-    const newH=Math.floor(totalMins/60),newM=totalMins%60;
-    const newTime=String(Math.min(20,newH)).padStart(2,'0')+':'+String(Math.min(55,newM)).padStart(2,'0');
-    const newDate=cell.dataset.d;
-    if(newDate!==activeDragA.date||newTime!==activeDragA.time){
-      dragLastUpd=now2;
-      updateDoc(doc(db,'appointments',activeDragA.id),{date:newDate,time:newTime});
-      activeDragA={...activeDragA,date:newDate,time:newTime};
-    }
-  }
-  function globalTouchEnd(){
-    if(activeDragBlock){activeDragBlock.style.opacity='';activeDragBlock.style.zIndex='';}
-    activeDragBlock=null;activeDragA=null;
-  }
-  // Bind global listeners once
-  if(!window.__dragBound){
-    window.__dragBound=true;
-    document.addEventListener('touchmove',e=>globalTouchMove(e),{passive:false});
-    document.addEventListener('touchend',()=>globalTouchEnd(),{passive:true});
-    document.addEventListener('touchcancel',()=>globalTouchEnd(),{passive:true});
-  }
-  window.globalTouchMove=globalTouchMove;
-  window.globalTouchEnd=globalTouchEnd;
-
+  // Drag & Resize — bind handles to shared global gesture state
   el.querySelectorAll('.AB').forEach(block=>{
-    const handle=block.querySelector('.AB-DRAG');
-    if(!handle)return;
-    handle.addEventListener('touchstart',e=>{
-      e.stopPropagation();
-      activeDragBlock=block;
-      activeDragA=appts.find(x=>x.id===block.dataset.aid);
-      block.style.opacity='.6';block.style.zIndex='10';
-    },{passive:true});
+    const dragHandle=block.querySelector('.AB-DRAG');
+    if(dragHandle){
+      dragHandle.addEventListener('touchstart',e=>{
+        e.stopPropagation();
+        GESTURE.mode='drag';
+        GESTURE.block=block;
+        GESTURE.appt=appts.find(x=>x.id===block.dataset.aid);
+        block.style.opacity='.6';block.style.zIndex='10';
+      },{passive:true});
+    }
+    const resizeHandle=block.querySelector('[data-resize]');
+    if(resizeHandle){
+      resizeHandle.addEventListener('touchstart',e=>{
+        e.stopPropagation();
+        GESTURE.mode='resize';
+        GESTURE.block=block;
+        GESTURE.appt=appts.find(x=>x.id===block.dataset.aid);
+        GESTURE.origDur=svcs.find(s=>s.id===GESTURE.appt?.serviceId)?.duration||60;
+        GESTURE.startY=e.touches[0].clientY;
+        block.style.transition='none';
+      },{passive:true});
+    }
   });
 
   // Now-line indicator
   updateNowLine(dates, todayStr);
-
-  // Resize — single global state, isolated per-handle
-  let activeResizeHandle=null, activeResizeId=null, resizeStartY=0, resizeOrigDur=0;
-
-  function globalResizeMove(e){
-    if(!activeResizeHandle||!activeResizeId)return;
-    e.preventDefault();
-    const dy=e.touches[0].clientY-resizeStartY;
-    const newH=Math.max(22,(resizeOrigDur/60+dy/60)*60);
-    const ab=activeResizeHandle.closest('.AB');
-    if(ab)ab.style.height=newH+'px';
-  }
-  async function globalResizeEnd(){
-    if(!activeResizeHandle||!activeResizeId){activeResizeHandle=null;activeResizeId=null;return;}
-    const ab=activeResizeHandle.closest('.AB');
-    if(ab){
-      const newDur=Math.max(15,Math.round((parseFloat(ab.style.height)/60*60)/15)*15);
-      const a=appts.find(x=>x.id===activeResizeId);
-      if(a){const svc=svcs.find(s=>s.id===a.serviceId);if(svc)await updateDoc(doc(db,'services',svc.id),{duration:newDur});}
-      ab.style.transition='';
-    }
-    activeResizeHandle=null;activeResizeId=null;
-  }
-  if(!window.__resizeBound){
-    window.__resizeBound=true;
-    document.addEventListener('touchmove',e=>globalResizeMove(e),{passive:false});
-    document.addEventListener('touchend',()=>globalResizeEnd(),{passive:true});
-    document.addEventListener('touchcancel',()=>{activeResizeHandle=null;activeResizeId=null;},{passive:true});
-  }
-
-  el.querySelectorAll('[data-resize]').forEach(handle=>{
-    handle.addEventListener('touchstart',e=>{
-      e.stopPropagation();
-      activeResizeHandle=handle;
-      activeResizeId=handle.dataset.resize;
-      const a=appts.find(x=>x.id===activeResizeId);
-      resizeOrigDur=svcs.find(s=>s.id===a?.serviceId)?.duration||60;
-      resizeStartY=e.touches[0].clientY;
-      const ab=handle.closest('.AB');
-      if(ab)ab.style.transition='none';
-    },{passive:true});
-  });
 }
 
 // Mini Calendar Modal (opens at top)
