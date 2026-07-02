@@ -296,6 +296,7 @@ function gestureMove(e){
 }
 async function gestureEnd(){
   const mode=GESTURE.mode, block=GESTURE.block, appt=GESTURE.appt;
+  if(!mode)return; // ordinary tap, not a drag/resize — don't touch the DOM, let the click through
   if(mode==='drag'&&block){
     block.style.position='';block.style.left='';block.style.top='';block.style.width='';
     block.style.opacity='';block.style.zIndex='';
@@ -315,6 +316,7 @@ async function gestureEnd(){
 document.addEventListener('touchmove',gestureMove,{passive:false});
 document.addEventListener('touchend',gestureEnd,{passive:true});
 document.addEventListener('touchcancel',()=>{
+  if(!GESTURE.mode)return; // ordinary tap — nothing to clean up
   const block=GESTURE.block;
   if(block){block.style.position='';block.style.left='';block.style.top='';block.style.width='';block.style.opacity='';block.style.zIndex='';block.style.transition='';}
   GESTURE.mode=null;GESTURE.block=null;GESTURE.appt=null;GESTURE.pendingDate=null;GESTURE.pendingTime=null;
