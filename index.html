@@ -106,6 +106,16 @@ input[type=date],input[type=time]{color-scheme:dark;}
   <button class="nb" data-tab="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 16l4-4 4 4 4-4"/></svg>Аналітика</button>
 </nav>
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
+<div id="errBanner" style="display:none;position:fixed;top:0;left:0;right:0;background:#B87070;color:#fff;font-size:11px;padding:8px 10px;z-index:999;white-space:pre-wrap;word-break:break-word;max-height:40vh;overflow-y:auto"></div>
+<script>
+function showErr(msg){
+  const b=document.getElementById('errBanner');
+  b.style.display='block';
+  b.textContent=(b.textContent?b.textContent+'\n---\n':'')+msg;
+}
+window.addEventListener('error',e=>showErr('JS ERROR: '+e.message+' ('+(e.filename||'')+':'+e.lineno+')'));
+window.addEventListener('unhandledrejection',e=>showErr('PROMISE ERROR: '+(e.reason?.message||e.reason)));
+</script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
