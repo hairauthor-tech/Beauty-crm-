@@ -299,7 +299,7 @@ async function gestureEnd(){
   if(!mode)return; // ordinary tap, not a drag/resize — don't touch the DOM, let the click through
   if(mode==='drag'&&block){
     block.style.position='';block.style.left='';block.style.top='';block.style.width='';
-    block.style.opacity='';block.style.zIndex='';
+    block.style.opacity='';block.style.zIndex='';block.style.pointerEvents='';
     if(appt&&GESTURE.pendingDate&&GESTURE.pendingTime&&(GESTURE.pendingDate!==appt.date||GESTURE.pendingTime!==appt.time)){
       // Written once, at the end, scoped to THIS appointment's id only.
       await updateDoc(doc(db,'appointments',appt.id),{date:GESTURE.pendingDate,time:GESTURE.pendingTime});
@@ -318,7 +318,7 @@ document.addEventListener('touchend',gestureEnd,{passive:true});
 document.addEventListener('touchcancel',()=>{
   if(!GESTURE.mode)return; // ordinary tap — nothing to clean up
   const block=GESTURE.block;
-  if(block){block.style.position='';block.style.left='';block.style.top='';block.style.width='';block.style.opacity='';block.style.zIndex='';block.style.transition='';}
+  if(block){block.style.position='';block.style.left='';block.style.top='';block.style.width='';block.style.opacity='';block.style.zIndex='';block.style.pointerEvents='';block.style.transition='';}
   GESTURE.mode=null;GESTURE.block=null;GESTURE.appt=null;GESTURE.pendingDate=null;GESTURE.pendingTime=null;
   if(tab==='cal')drawCal();
 },{passive:true});
@@ -460,6 +460,11 @@ function drawCal(){
         block.style.top=rect.top+'px';
         block.style.width=rect.width+'px';
         block.style.opacity='.85';block.style.zIndex='999';
+        // Let touches "see through" the dragged block to the cell beneath it —
+        // otherwise elementFromPoint() during the move just keeps hitting the
+        // block itself, the drop cell is never detected, and the record snaps
+        // back to its original slot on release.
+        block.style.pointerEvents='none';
         if(navigator.vibrate)navigator.vibrate(10);
       };
       const longPressTimer=setTimeout(beginDrag,350);
