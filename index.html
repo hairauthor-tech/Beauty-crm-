@@ -106,16 +106,6 @@ input[type=date],input[type=time]{color-scheme:dark;}
   <button class="nb" data-tab="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 16l4-4 4 4 4-4"/></svg>Аналітика</button>
 </nav>
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
-<div id="errBanner" style="display:none;position:fixed;top:0;left:0;right:0;background:#B87070;color:#fff;font-size:11px;padding:8px 10px;z-index:999;white-space:pre-wrap;word-break:break-word;max-height:40vh;overflow-y:auto"></div>
-<script>
-function showErr(msg){
-  const b=document.getElementById('errBanner');
-  b.style.display='block';
-  b.textContent=(b.textContent?b.textContent+'\n---\n':'')+msg;
-}
-window.addEventListener('error',e=>showErr('JS ERROR: '+e.message+' ('+(e.filename||'')+':'+e.lineno+')'));
-window.addEventListener('unhandledrejection',e=>showErr('PROMISE ERROR: '+(e.reason?.message||e.reason)));
-</script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -446,11 +436,17 @@ function drawCal(){
 
   // Drag & Resize — bind handles to shared global gesture state
   el.querySelectorAll('.AB').forEach(block=>{
-    const dragHandle=block.querySelector('.AB-DRAG');
-    if(dragHandle){
-      dragHandle.addEventListener('touchstart',e=>{
-        e.stopPropagation();
-        const touch=e.touches[0];
+    // Long-press ANYWHERE on the block (except the resize strip) to start
+    // dragging. A tiny dedicated handle icon is too small a target to hit
+    // reliably on a real touchscreen — this is much easier to grab.
+    block.addEventListener('touchstart',e=>{
+      if(e.target.closest('[data-resize]'))return;
+      const touch=e.touches[0];
+      const startX=touch.clientX,startY=touch.clientY;
+      let moved=false,started=false;
+      const beginDrag=()=>{
+        if(moved||started)return;
+        started=true;
         const rect=block.getBoundingClientRect();
         GESTURE.mode='drag';
         GESTURE.block=block;
@@ -459,16 +455,31 @@ function drawCal(){
         GESTURE.origLeft=rect.left;GESTURE.origTop=rect.top;GESTURE.origWidth=rect.width;
         GESTURE.pendingDate=GESTURE.appt?.date||null;
         GESTURE.pendingTime=GESTURE.appt?.time||null;
-        // Detach from the grid flow so it can follow the finger freely,
-        // independent of any other block (even an identical duplicate
-        // sitting right next to it).
         block.style.position='fixed';
         block.style.left=rect.left+'px';
         block.style.top=rect.top+'px';
         block.style.width=rect.width+'px';
         block.style.opacity='.85';block.style.zIndex='999';
-      },{passive:true});
-    }
+        if(navigator.vibrate)navigator.vibrate(10);
+      };
+      const longPressTimer=setTimeout(beginDrag,350);
+      const onMove=ev=>{
+        const t=ev.touches&&ev.touches[0];
+        if(!t)return;
+        if(!started&&(Math.abs(t.clientX-startX)>10||Math.abs(t.clientY-startY)>10)){
+          moved=true;clearTimeout(longPressTimer);
+        }
+      };
+      const onEnd=()=>{
+        clearTimeout(longPressTimer);
+        block.removeEventListener('touchmove',onMove);
+        block.removeEventListener('touchend',onEnd);
+        block.removeEventListener('touchcancel',onEnd);
+      };
+      block.addEventListener('touchmove',onMove,{passive:true});
+      block.addEventListener('touchend',onEnd,{passive:true});
+      block.addEventListener('touchcancel',onEnd,{passive:true});
+    },{passive:true});
     const resizeHandle=block.querySelector('[data-resize]');
     if(resizeHandle){
       resizeHandle.addEventListener('touchstart',e=>{
