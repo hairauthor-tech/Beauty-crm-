@@ -274,13 +274,19 @@ function gestureMove(e){
   if(GESTURE.mode==='drag'){
     const touch=e.touches[0];
     const dx=touch.clientX-GESTURE.startX, dy=touch.clientY-GESTURE.startY;
-    GESTURE.block.style.left=(GESTURE.origLeft+dx)+'px';
-    GESTURE.block.style.top=(GESTURE.origTop+dy)+'px';
-    const el2=document.elementFromPoint(touch.clientX,touch.clientY);
+    const newLeft=GESTURE.origLeft+dx, newTop=GESTURE.origTop+dy;
+    GESTURE.block.style.left=newLeft+'px';
+    GESTURE.block.style.top=newTop+'px';
+    // Find the drop cell using the BLOCK's own top edge (where it's actually
+    // rendered), not the raw finger position — otherwise the card lands
+    // however far below its top edge you happened to grab it.
+    const probeX=newLeft+GESTURE.origWidth/2;
+    const probeY=newTop+2;
+    const el2=document.elementFromPoint(probeX,probeY);
     const cell=el2?.closest('.TC');
     if(!cell)return;
     const rect=cell.getBoundingClientRect();
-    const relY=Math.max(0,touch.clientY-rect.top);
+    const relY=Math.max(0,probeY-rect.top);
     const minsOffset=Math.round(relY/30*30/5)*5;
     const baseH=+cell.dataset.h.split(':')[0];
     const baseM=+cell.dataset.h.split(':')[1];
