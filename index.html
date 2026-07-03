@@ -268,32 +268,30 @@ function apptDuration(a){
 // with it), which is why blocks looked like they wouldn't drag or resize.
 const GESTURE={mode:null,block:null,appt:null,startX:0,startY:0,origDur:0,origLeft:0,origTop:0,origWidth:0,pendingDate:null,pendingTime:null};
 
+// Maps a screen point to the calendar cell under it, snapped to 5-minute
+// increments. Returns null if the point isn't over a cell.
+function cellFromPoint(x,y){
+  const el2=document.elementFromPoint(x,y);
+  const cell=el2?.closest('.TC');
+  if(!cell)return null;
+  const rect=cell.getBoundingClientRect();
+  const relY=Math.max(0,Math.min(30,y-rect.top));
+  const minsOffset=Math.round(relY/5)*5;
+  const baseH=+cell.dataset.h.split(':')[0];
+  const baseM=+cell.dataset.h.split(':')[1];
+  const totalMins=baseH*60+baseM+minsOffset;
+  const newH=Math.floor(totalMins/60),newM=totalMins%60;
+  return{date:cell.dataset.d,time:String(Math.min(20,newH)).padStart(2,'0')+':'+String(Math.min(55,newM)).padStart(2,'0')};
+}
+
 function gestureMove(e){
   if(!GESTURE.mode||!GESTURE.block||!GESTURE.appt)return;
   e.preventDefault();
   if(GESTURE.mode==='drag'){
     const touch=e.touches[0];
     const dx=touch.clientX-GESTURE.startX, dy=touch.clientY-GESTURE.startY;
-    const newLeft=GESTURE.origLeft+dx, newTop=GESTURE.origTop+dy;
-    GESTURE.block.style.left=newLeft+'px';
-    GESTURE.block.style.top=newTop+'px';
-    // Find the drop cell using the BLOCK's own top edge (where it's actually
-    // rendered), not the raw finger position — otherwise the card lands
-    // however far below its top edge you happened to grab it.
-    const probeX=newLeft+GESTURE.origWidth/2;
-    const probeY=newTop+2;
-    const el2=document.elementFromPoint(probeX,probeY);
-    const cell=el2?.closest('.TC');
-    if(!cell)return;
-    const rect=cell.getBoundingClientRect();
-    const relY=Math.max(0,probeY-rect.top);
-    const minsOffset=Math.round(relY/30*30/5)*5;
-    const baseH=+cell.dataset.h.split(':')[0];
-    const baseM=+cell.dataset.h.split(':')[1];
-    const totalMins=baseH*60+baseM+minsOffset;
-    const newH=Math.floor(totalMins/60),newM=totalMins%60;
-    GESTURE.pendingTime=String(Math.min(20,newH)).padStart(2,'0')+':'+String(Math.min(55,newM)).padStart(2,'0');
-    GESTURE.pendingDate=cell.dataset.d;
+    GESTURE.block.style.left=(GESTURE.origLeft+dx)+'px';
+    GESTURE.block.style.top=(GESTURE.origTop+dy)+'px';
   } else if(GESTURE.mode==='resize'){
     const dy=e.touches[0].clientY-GESTURE.startY;
     const newH=Math.max(22,(GESTURE.origDur/60+dy/60)*60);
@@ -304,11 +302,16 @@ async function gestureEnd(){
   const mode=GESTURE.mode, block=GESTURE.block, appt=GESTURE.appt;
   if(!mode)return; // ordinary tap, not a drag/resize — don't touch the DOM, let the click through
   if(mode==='drag'&&block){
+    // Read the drop position from the card's ACTUAL on-screen top edge, right
+    // now, at the moment of release — not from a value computed a moment
+    // earlier during the last touchmove tick.
+    const liveRect=block.getBoundingClientRect();
+    const drop=cellFromPoint(liveRect.left+liveRect.width/2, liveRect.top+2);
     block.style.position='';block.style.left='';block.style.top='';block.style.width='';
     block.style.opacity='';block.style.zIndex='';block.style.pointerEvents='';
-    if(appt&&GESTURE.pendingDate&&GESTURE.pendingTime&&(GESTURE.pendingDate!==appt.date||GESTURE.pendingTime!==appt.time)){
+    if(appt&&drop&&(drop.date!==appt.date||drop.time!==appt.time)){
       // Written once, at the end, scoped to THIS appointment's id only.
-      await updateDoc(doc(db,'appointments',appt.id),{date:GESTURE.pendingDate,time:GESTURE.pendingTime});
+      await updateDoc(doc(db,'appointments',appt.id),{date:drop.date,time:drop.time});
     }
   } else if(mode==='resize'&&block&&appt){
     const newDur=Math.max(15,Math.round((parseFloat(block.style.height)/60*60)/15)*15);
@@ -618,6 +621,12 @@ function apptModal(a,date,time){
       selSvcs = [{serviceId:a.serviceId,adj:0}];
     }
   }
+  // Effective duration in minutes shown/edited in the modal. Starts from
+  // whatever is actually saved on the appointment (customDuration, e.g. set
+  // by dragging the resize handle on the calendar) or, failing that, the sum
+  // of the selected services' durations. null = "not yet touched by the user
+  // in this modal session", so it keeps auto-tracking the services total.
+  let durOverride = a?.customDuration || null;
 
   function renderApptModal(){
     const opts=svcs.map(s=>`<option value="${s.id}">${s.name} — ${fmt(s.price)} грн</option>`).join('');
@@ -649,6 +658,11 @@ function apptModal(a,date,time){
     const totalDurMin=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.duration||60),0);
     const totalDur=totalDurMin; // keep for compat
     const fmtTotalDur=d=>{const h=Math.floor(d/60),m=d%60;return(h>0?h+'г ':'')+( m>0?m+'хв':'');};
+    // The duration actually shown to the user — the manual override if one
+    // exists (from a resize on the calendar, or a prior edit in this modal),
+    // otherwise the natural sum of the chosen services.
+    const shownDur=Math.min(durOverride!==null?durOverride:totalDurMin,480);
+    const curH=Math.floor(shownDur/60), curMraw=shownDur%60, curM=[0,15,30,45].reduce((best,m)=>Math.abs(m-curMraw)<Math.abs(best-curMraw)?m:best,0);
 
     $('modal').innerHTML=`
       <div class="mh"><div class="mt">${a?'Редагувати':'Новий запис'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
@@ -659,6 +673,12 @@ function apptModal(a,date,time){
         <select class="fi" id="fsadd" style="margin-top:8px">
           <option value="">+ Додати послугу</option>${opts}
         </select>
+      </div>
+      <div class="field"><label>Тривалість запису в календарі ${durOverride!==null&&durOverride!==totalDurMin?'<span style="color:var(--mut);font-weight:400;text-transform:none">(змінено вручну)</span>':''}</label>
+        <div class="g2">
+          <select class="fi" id="fdh">${Array.from({length:9},(_,i)=>`<option value="${i}" ${curH===i?'selected':''}>${i} год</option>`).join('')}</select>
+          <select class="fi" id="fdm">${[0,15,30,45].map(m=>`<option value="${m}" ${curM===m?'selected':''}>${m} хв</option>`).join('')}</select>
+        </div>
       </div>
       <div class="g2">
         <div class="field"><label>Дата</label><input type="date" class="fi" id="fd" value="${a?.date||date||today()}"/></div>
@@ -678,16 +698,21 @@ function apptModal(a,date,time){
       </div>`;
 
     $('mx').onclick=hide;$('fcancel').onclick=hide;
+    const captureDur=()=>{const hEl=$('fdh'),mEl=$('fdm');if(hEl&&mEl)durOverride=+hEl.value*60+ +mEl.value;};
+    $('fdh').onchange=captureDur;
+    $('fdm').onchange=captureDur;
     $('fsadd').onchange=e=>{
       if(!e.target.value)return;
-      // Save current adj values before re-render
+      // Save current adj + duration values before re-render
       $('modal').querySelectorAll('[data-adj]').forEach(inp=>{if(selSvcs[+inp.dataset.adj])selSvcs[+inp.dataset.adj].adj=+inp.value||0;});
+      captureDur();
       selSvcs.push({serviceId:e.target.value,adj:0});
       e.target.value='';
       renderApptModal();
     };
     $('modal').querySelectorAll('[data-rmsvc]').forEach(b=>b.onclick=()=>{
       $('modal').querySelectorAll('[data-adj]').forEach(inp=>{if(selSvcs[+inp.dataset.adj])selSvcs[+inp.dataset.adj].adj=+inp.value||0;});
+      captureDur();
       selSvcs.splice(+b.dataset.rmsvc,1);
       renderApptModal();
     });
@@ -706,9 +731,11 @@ function apptModal(a,date,time){
       // Read current adj values before saving
       $('modal').querySelectorAll('[data-adj]').forEach(inp=>{selSvcs[+inp.dataset.adj].adj=+inp.value||0;});
       const totalPaid=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
+      const finalDuration=+$('fdh').value*60 + +$('fdm').value;
       const data={client,phone:$('fp').value,serviceId:selSvcs[0].serviceId,
         services:selSvcs.map(s=>({serviceId:s.serviceId,adj:s.adj||0})),
         date:$('fd').value,time:$('ft').value,status:$('fst').value,
+        customDuration:finalDuration,
         paid:+$('fm').value||($('fst').value==='done'?totalPaid:0),note:$('fn').value};
       if(a)await updateDoc(doc(db,'appointments',a.id),data);
       else await addDoc(collection(db,'appointments'),data);
