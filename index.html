@@ -770,7 +770,11 @@ function drawStock(){
   const el=$('t-stock');
   const low=mats.filter(m=>m.qty<=m.minQty);
   const fil=mats.filter(m=>(stockCat==='Всі'||m.category===stockCat)&&(!stockQ||m.name.toLowerCase().includes(stockQ.toLowerCase())));
-  const grp=CATS.map(c=>({c,items:fil.filter(m=>m.category===c)})).filter(g=>g.items.length>0);
+  const grp=CATS.map(c=>({c,items:fil.filter(m=>m.category===c).sort((x,y)=>{
+    const xLow=x.qty<=x.minQty, yLow=y.qty<=y.minQty;
+    if(xLow!==yLow)return xLow?-1:1; // low-stock items first
+    return x.name.localeCompare(y.name);
+  })})).filter(g=>g.items.length>0);
   el.innerHTML=`
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <button class="btn bp bs" id="breceive">${svg(ic.h,14)} Прихід</button>
