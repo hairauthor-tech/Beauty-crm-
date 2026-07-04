@@ -536,10 +536,6 @@ function apptModal(a,date,time){
       selSvcs = [{serviceId:a.serviceId,adj:0}];
     }
   }
-  // Keep manually-entered date/time across re-renders (adding/removing a service
-  // used to reset these back to the original values — this preserves user edits).
-  let curDate = a?.date||date||today();
-  let curTime = a?.time||time||'10:00';
 
   function renderApptModal(){
     const opts=svcs.map(s=>`<option value="${s.id}">${s.name} — ${fmt(s.price)} грн</option>`).join('');
@@ -576,7 +572,6 @@ function apptModal(a,date,time){
       <div class="mh"><div class="mt">${a?'Редагувати':'Новий запис'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
       <div class="field"><label>Клієнтка</label><input class="fi" id="fc" value="${a?.client||''}" placeholder="Ім'я Прізвище"/></div>
       <div class="field"><label>Телефон</label><input class="fi" id="fp" value="${a?.phone||''}" placeholder="+380..."/></div>
-      <div style="font-size:12px;color:var(--mut);margin:-8px 0 12px" id="timeBadge">Час запису: <b style="color:var(--acs)">${curTime}</b></div>
       <div class="field"><label>Послуги ${selSvcs.length>0?`<span style="color:var(--acc);font-weight:700">${selSvcs.length} · ${fmt(totalPrice)} грн · ${fmtTotalDur(totalDurMin)}</span>`:''}</label>
         ${selRows}
         <select class="fi" id="fsadd" style="margin-top:8px">
@@ -584,8 +579,8 @@ function apptModal(a,date,time){
         </select>
       </div>
       <div class="g2">
-        <div class="field"><label>Дата</label><input type="date" class="fi" id="fd" value="${curDate}"/></div>
-        <div class="field"><label>Час</label><input type="time" class="fi" id="ft" value="${curTime}"/></div>
+        <div class="field"><label>Дата</label><input type="date" class="fi" id="fd" value="${a?.date||date||today()}"/></div>
+        <div class="field"><label>Час</label><input type="time" class="fi" id="ft" value="${a?.time||time||'10:00'}"/></div>
       </div>
       <div class="field"><label>Статус</label><select class="fi" id="fst">
         <option value="pending" ${!a||a.status==='pending'?'selected':''}>Очікує</option>
@@ -601,8 +596,6 @@ function apptModal(a,date,time){
       </div>`;
 
     $('mx').onclick=hide;$('fcancel').onclick=hide;
-    $('fd').addEventListener('input',e=>curDate=e.target.value);
-    $('ft').addEventListener('input',e=>{curTime=e.target.value;const tb=$('timeBadge');if(tb)tb.innerHTML=`Час запису: <b style="color:var(--acs)">${curTime}</b>`;});
     $('fsadd').onchange=e=>{
       if(!e.target.value)return;
       // Save current adj values before re-render
