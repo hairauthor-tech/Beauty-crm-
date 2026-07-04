@@ -519,7 +519,7 @@ function miniCalModal(){
   let vm=new Date(calDate+'T12:00:00');vm.setDate(1);
   function render(){
     const y=vm.getFullYear(),m=vm.getMonth();
-    const lbl=vm.toLocaleDateString('uk-UA',{month:'long',year:'numeric'});
+    const lbl=vm.toLocaleDateString('uk-UA',{month:'long',year:'numeric'}).replace(/\s*р\.?\s*$/i,'');
     const first=new Date(y,m,1).getDay(),dim=new Date(y,m+1,0).getDate();
     const off=first===0?6:first-1,todayStr=today();
     let cells='';
@@ -629,6 +629,21 @@ function apptModal(a,date,time){
   // of the selected services' durations. null = "not yet touched by the user
   // in this modal session", so it keeps auto-tracking the services total.
   let durOverride = a?.customDuration || null;
+  // The other fields also need to survive a re-render (triggered when adding
+  // or removing a service) — otherwise anything the user just typed gets
+  // thrown away and replaced with the original appointment's values.
+  let fClient=a?.client||'', fPhone=a?.phone||'', fDate=a?.date||date||today(),
+      fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fPaid=a?.paid||0, fNote=a?.note||'';
+  const captureFields=()=>{
+    if($('fc'))fClient=$('fc').value;
+    if($('fp'))fPhone=$('fp').value;
+    if($('fd'))fDate=$('fd').value;
+    if($('ft'))fTime=$('ft').value;
+    if($('fst'))fStatus=$('fst').value;
+    if($('fm'))fPaid=+$('fm').value||0;
+    if($('fn'))fNote=$('fn').value;
+    const hEl=$('fdh'),mEl=$('fdm');if(hEl&&mEl)durOverride=+hEl.value*60+ +mEl.value;
+  };
 
   function renderApptModal(){
     const opts=svcs.map(s=>`<option value="${s.id}">${s.name} — ${fmt(s.price)} грн</option>`).join('');
@@ -668,8 +683,8 @@ function apptModal(a,date,time){
 
     $('modal').innerHTML=`
       <div class="mh"><div class="mt">${a?'Редагувати':'Новий запис'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-      <div class="field"><label>Клієнтка</label><input class="fi" id="fc" value="${a?.client||''}" placeholder="Ім'я Прізвище"/></div>
-      <div class="field"><label>Телефон</label><input class="fi" id="fp" value="${a?.phone||''}" placeholder="+380..."/></div>
+      <div class="field"><label>Клієнтка</label><input class="fi" id="fc" value="${fClient}" placeholder="Ім'я Прізвище"/></div>
+      <div class="field"><label>Телефон</label><input class="fi" id="fp" value="${fPhone}" placeholder="+380..."/></div>
       <div class="field"><label>Послуги ${selSvcs.length>0?`<span style="color:var(--acc);font-weight:700">${selSvcs.length} · ${fmt(totalPrice)} грн · ${fmtTotalDur(totalDurMin)}</span>`:''}</label>
         ${selRows}
         <select class="fi" id="fsadd" style="margin-top:8px">
@@ -683,16 +698,16 @@ function apptModal(a,date,time){
         </div>
       </div>
       <div class="g2">
-        <div class="field"><label>Дата</label><input type="date" class="fi" id="fd" value="${a?.date||date||today()}"/></div>
-        <div class="field"><label>Час</label><input type="time" class="fi" id="ft" value="${a?.time||time||'10:00'}"/></div>
+        <div class="field"><label>Дата</label><input type="date" class="fi" id="fd" value="${fDate}"/></div>
+        <div class="field"><label>Час</label><input type="time" class="fi" id="ft" value="${fTime}"/></div>
       </div>
       <div class="field"><label>Статус</label><select class="fi" id="fst">
-        <option value="pending" ${!a||a.status==='pending'?'selected':''}>Очікує</option>
-        <option value="done" ${a?.status==='done'?'selected':''}>Виконано</option>
-        <option value="cancelled" ${a?.status==='cancelled'?'selected':''}>Скасовано</option>
+        <option value="pending" ${fStatus==='pending'?'selected':''}>Очікує</option>
+        <option value="done" ${fStatus==='done'?'selected':''}>Виконано</option>
+        <option value="cancelled" ${fStatus==='cancelled'?'selected':''}>Скасовано</option>
       </select></div>
-      <div class="field"><label>Оплачено (грн)</label><input type="number" class="fi" id="fm" value="${a?.paid||0}"/></div>
-      <div class="field"><label>Примітка</label><textarea class="fi" id="fn">${a?.note||''}</textarea></div>
+      <div class="field"><label>Оплачено (грн)</label><input type="number" class="fi" id="fm" value="${fPaid}"/></div>
+      <div class="field"><label>Примітка</label><textarea class="fi" id="fn">${fNote}</textarea></div>
       <div class="mf">
         ${a?`<button class="btn bd bs" id="fdel">Видалити</button>`:''}
         <button class="btn bg" id="fcancel">Скасувати</button>
@@ -700,7 +715,7 @@ function apptModal(a,date,time){
       </div>`;
 
     $('mx').onclick=hide;$('fcancel').onclick=hide;
-    const captureDur=()=>{const hEl=$('fdh'),mEl=$('fdm');if(hEl&&mEl)durOverride=+hEl.value*60+ +mEl.value;};
+    const captureDur=captureFields;
     $('fdh').onchange=captureDur;
     $('fdm').onchange=captureDur;
     $('fsadd').onchange=e=>{
