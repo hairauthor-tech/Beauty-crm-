@@ -83,6 +83,7 @@ input[type=date],input[type=time]{color-scheme:dark;}
 .now-label{position:absolute;left:-44px;top:-9px;width:40px;text-align:right;font-size:9px;font-weight:700;color:#fff;background:#1A1A1E;border-radius:4px;padding:2px 4px;white-space:nowrap;}
 .alert{border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;font-size:13px;}
 .alert-d{background:rgba(184,112,112,.1);border:1px solid rgba(184,112,112,.4);color:var(--err);}
+.alert-conn{background:rgba(196,164,106,.12);border:1px solid rgba(196,164,106,.4);color:var(--wrn);position:sticky;top:0;z-index:60;justify-content:center;}
 </style>
 </head>
 <body>
@@ -93,6 +94,7 @@ input[type=date],input[type=time]{color-scheme:dark;}
   </div>
   <button class="bi" id="themeBtn" style="font-size:18px;border:none;background:transparent;padding:4px">🌙</button>
 </div>
+<div id="connBanner"></div>
 <div class="content">
   <div class="tab on" id="t-cal"></div>
   <div class="tab" id="t-stock"></div>
@@ -109,7 +111,7 @@ input[type=date],input[type=time]{color-scheme:dark;}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore,collection,addDoc,updateDoc,deleteDoc,doc,onSnapshot,query,orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore,collection,addDoc,updateDoc,deleteDoc,doc,onSnapshot,query,orderBy,enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const db = getFirestore(initializeApp({
   apiKey:"AIzaSyBtEcQ69spy8Lp8R6ttJOX8krl1iH2j8X4",
@@ -119,6 +121,15 @@ const db = getFirestore(initializeApp({
   messagingSenderId:"1011794290495",
   appId:"1:1011794290495:web:d5dac454ea696e4924158a"
 }));
+
+// Keep the last-known data cached on the device (IndexedDB). Without this,
+// every time the phone drops signal / the tab is backgrounded and resumed,
+// Firestore has to re-fetch everything from the network before it can show
+// anything again — which is the "app freezes / everything disappears then
+// comes back" symptom. With persistence on, a reconnect serves the cached
+// data instantly while the fresh data loads quietly in the background.
+try{ await enableIndexedDbPersistence(db); }
+catch(e){ /* multiple tabs open, or browser doesn't support it — app still works, just without the cache cushion */ }
 
 // ── State ──────────────────────────────────────────
 let svcs=[], mats=[], appts=[], ops=[];
@@ -157,7 +168,11 @@ const ic={plus:'M12 5v14M5 12h14',edit:'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2
 // ── Schedule ───────────────────────────────────────
 const isWorkDay=d=>{if(exceptions[d]===true)return true;if(exceptions[d]===false)return false;return schedule.days.includes(new Date(d+'T12:00:00').getDay());};
 const getWorkMins=d=>isWorkDay(d)?(schedule.end-schedule.start)*60:0;
-const getBookedMins=d=>appts.filter(a=>a.date===d&&a.status!=='cancelled').reduce((s,a)=>s+(svcs.find(sv=>sv.id===a.serviceId)?.duration||60),0);
+// Uses the shared apptDuration() (declared below, hoisted) so a day's
+// "how booked is it" percentage matches what's actually on the calendar
+// grid — counting every service on a multi-service appointment and
+// respecting a manually-resized duration, not just the first service.
+const getBookedMins=d=>appts.filter(a=>a.date===d&&a.status!=='cancelled').reduce((s,a)=>s+apptDuration(a),0);
 const dayColor=d=>{const t=getWorkMins(d);if(!t)return'#4E5460';const p=getBookedMins(d)/t;if(p<=0)return'#4E5460';if(p<.5)return'#7BAF8A';if(p<.75)return'#D4A853';if(p<1)return'#E07B39';return'#B87070';};
 const dayRing=d=>{
   const t=getWorkMins(d);if(!t)return'';
@@ -171,14 +186,40 @@ const dayRing=d=>{
 };
 
 // ── Firebase ───────────────────────────────────────
-onSnapshot(collection(db,'services'),s=>{svcs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name));draw();});
-onSnapshot(collection(db,'materials'),s=>{mats=s.docs.map(d=>({id:d.id,...d.data()}));draw();});
+// All four listeners funnel into scheduleDraw() instead of draw() directly.
+// On first load (or after a reconnect) they tend to fire within a few
+// milliseconds of each other; calling draw() from each one separately used
+// to force up to 4 full re-renders back-to-back, which is what showed up as
+// a brief freeze/stutter, especially on older phones. Coalescing them into
+// a single animation-frame pass fixes that.
+let drawQueued=false;
+function scheduleDraw(){
+  if(drawQueued)return;
+  drawQueued=true;
+  requestAnimationFrame(()=>{drawQueued=false;draw();});
+}
+
+let connIssue=false;
+function setConnBanner(bad){
+  if(bad===connIssue)return;
+  connIssue=bad;
+  $('connBanner').innerHTML=bad?`<div class="alert alert-conn">📶 Немає з'єднання — показані останні збережені дані</div>`:'';
+}
+// Every listener shares the same error handler: on a real connection drop
+// Firestore keeps retrying on its own, so we just surface a small banner
+// instead of letting the tab go silently blank/unresponsive. We deliberately
+// do NOT clear svcs/mats/appts/ops on error — the last good data stays on
+// screen until a fresh snapshot actually arrives.
+const onErr=e=>{console.warn('Firestore listener error:',e);setConnBanner(true);};
+
+onSnapshot(collection(db,'services'),s=>{svcs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name));setConnBanner(false);scheduleDraw();},onErr);
+onSnapshot(collection(db,'materials'),s=>{mats=s.docs.map(d=>({id:d.id,...d.data()}));setConnBanner(false);scheduleDraw();},onErr);
 onSnapshot(collection(db,'appointments'),s=>{
   appts=s.docs.map(d=>({id:d.id,...d.data()}))
     .sort((a,b)=>a.date===b.date?(a.time||'').localeCompare(b.time||''):(a.date||'').localeCompare(b.date||''));
-  draw();
-});
-onSnapshot(collection(db,'purchases'),s=>{ops=s.docs.map(d=>({id:d.id,...d.data()}));draw();});
+  setConnBanner(false);scheduleDraw();
+},onErr);
+onSnapshot(collection(db,'purchases'),s=>{ops=s.docs.map(d=>({id:d.id,...d.data()}));setConnBanner(false);scheduleDraw();},onErr);
 
 $('hdate').textContent=fmtL(today());
 
