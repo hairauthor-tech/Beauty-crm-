@@ -158,7 +158,10 @@ const addDays=(d,n)=>{const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);r
 const fmtL=d=>new Date(d+'T12:00:00').toLocaleDateString('uk-UA',{day:'numeric',month:'long'});
 const fmtS=d=>new Date(d+'T12:00:00').toLocaleDateString('uk-UA',{day:'numeric',month:'short'});
 const DN=['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
-const HOURS=Array.from({length:13},(_,i)=>i+8);
+// The calendar grid's visible hours now follow whatever start/end you set in
+// the schedule (⚙️) modal, instead of always showing a fixed 8:00–20:30
+// range regardless of your actual working hours.
+const getHours=()=>{const len=Math.max(1,schedule.end-schedule.start);return Array.from({length:len},(_,i)=>i+schedule.start);};
 const SLOTS=Array.from({length:26},(_,i)=>({h:Math.floor(i/2)+8,m:i%2===0?0:30}));
 const HALF_HOURS=Array.from({length:26},(_,i)=>i*0.5+8); // 8:00, 8:30, 9:00...20:00
 const CATS=['Фарби','Окислювачі','Порошки','Шампуні','Маски','Кондиціонери','Стайлінг','Інше'];
@@ -253,8 +256,8 @@ function updateNowLine(dates, todayStr){
   if(todayIdx<0) return; // today not visible
   const now = new Date();
   const h = now.getHours(), m = now.getMinutes();
-  if(h<8||h>20) return; // outside visible range
-  const minsFromStart = (h-8)*60+m;
+  if(h<schedule.start||h>=schedule.end) return; // outside visible range
+  const minsFromStart = (h-schedule.start)*60+m;
   const topPx = (minsFromStart/30)*30; // 30px per 30min row
   const wrap = document.getElementById('calGridWrap');
   if(!wrap) return;
@@ -322,7 +325,7 @@ function cellFromPoint(x,y){
   const baseM=+cell.dataset.h.split(':')[1];
   const totalMins=baseH*60+baseM+minsOffset;
   const newH=Math.floor(totalMins/60),newM=totalMins%60;
-  return{date:cell.dataset.d,time:String(Math.min(20,newH)).padStart(2,'0')+':'+String(Math.min(55,newM)).padStart(2,'0')};
+  return{date:cell.dataset.d,time:String(Math.min(schedule.end-1,newH)).padStart(2,'0')+':'+String(Math.min(55,newM)).padStart(2,'0')};
 }
 
 function gestureMove(e){
@@ -394,7 +397,7 @@ function drawCal(){
 
   // Time rows with 30-min subgrid
   // Each hour = 2 rows of 30px each = 60px total
-  const rows=HOURS.map(h=>{
+  const rows=getHours().map(h=>{
     const cells=dates.map(d=>{
       const da=appts.filter(a=>a.date===d&&a.time&&+a.time.split(':')[0]===h);
       const blocks=da.map((a,i)=>{
