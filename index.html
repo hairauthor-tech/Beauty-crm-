@@ -73,6 +73,7 @@ input[type=date],input[type=time]{color-scheme:dark;}
 .AB.pending{background:rgba(168,155,194,.2);border-left:3px solid var(--acc);}
 .AB.done{background:rgba(123,175,138,.15);border-left:3px solid var(--ok);}
 .AB.cancelled{background:rgba(184,112,112,.15);border-left:3px solid var(--err);}
+.AB.brk{background:repeating-linear-gradient(45deg,rgba(132,138,150,.14),rgba(132,138,150,.14) 6px,rgba(132,138,150,.26) 6px,rgba(132,138,150,.26) 12px);border-left:3px solid var(--dim);}
 .AB-N{font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .AB-T{font-size:9px;color:var(--mut);}
 .AB-RES{position:absolute;bottom:0;left:0;right:0;height:12px;display:flex;align-items:center;justify-content:center;cursor:ns-resize;}
@@ -407,7 +408,7 @@ function drawCal(){
         // 30px per 30 minutes
         const topPx=(min/30)*30;
         const hPx=Math.max((dur/30)*30,22);
-        const cls=a.status==='done'?'done':a.status==='cancelled'?'cancelled':'pending';
+        const cls=a.isBreak?'brk':a.status==='done'?'done':a.status==='cancelled'?'cancelled':'pending';
         const svcNames=a.services?a.services.map(s=>{const sid=typeof s==='object'?s.serviceId:s;return svcs.find(sv=>sv.id===sid)?.name||'';}).filter(Boolean).join('+'):(svc?.name||'');
         // If several appointments start in the same slot (e.g. identical
         // duplicated services), lay them out side-by-side instead of
@@ -421,7 +422,7 @@ function drawCal(){
         return`<div class="AB ${cls}" style="top:${topPx}px;height:${hPx}px;${posStyle}" data-aid="${a.id}">
           <div style="display:flex;align-items:center;gap:4px">
             <div class="AB-DRAG" style="padding:2px 4px;cursor:grab;color:rgba(255,255,255,.4);font-size:10px;touch-action:none">⠿</div>
-            <div class="AB-N" style="flex:1">${a.client}</div>
+            <div class="AB-N" style="flex:1">${a.isBreak?'⏸ ':''}${a.client}</div>
           </div>
           <div class="AB-T">${a.time}${svcNames?' · '+svcNames:''}</div>
           <div class="AB-RES" data-resize="${a.id}"><div style="width:20px;height:2px;background:rgba(255,255,255,.25);border-radius:2px"></div></div>
@@ -465,6 +466,7 @@ function drawCal(){
         <button class="vb ${calView===7?'on':''}" data-cv="7">Тиждень</button>
       </div>
       <button class="btn bp bs" id="cadd">${svg(ic.plus,14)} Запис</button>
+      <button class="btn bg bs" id="cbreak">⏸ Перерва</button>
       <button class="bi" id="csched">⚙️</button>
     </div>
     <div style="overflow-x:auto;border:1px solid var(--brd);border-radius:10px;position:relative" id="calGridWrap">
@@ -476,6 +478,7 @@ function drawCal(){
   $('cnext').onclick=e=>{e.stopPropagation();calDate=addDays(calDate,calView);drawCal();};
   $('cdatelbl').onclick=()=>miniCalModal();
   $('cadd').onclick=()=>apptModal(null,calDate,'10:00');
+  $('cbreak').onclick=()=>breakModal(null,calDate);
   $('csched').onclick=()=>schedModal();
   el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{calView=+b.dataset.cv;drawCal();}));
   el.querySelectorAll('.TC').forEach(c=>c.addEventListener('click',e=>{if(!e.target.closest('.AB'))apptModal(null,c.dataset.d,c.dataset.h);}));
@@ -483,7 +486,9 @@ function drawCal(){
     if(e.target.closest('[data-resize]'))return;
     e.stopPropagation();
     const a=appts.find(x=>x.id===b.dataset.aid);
-    if(a)apptModal(a,a.date,a.time);
+    if(!a)return;
+    if(a.isBreak)breakModal(a);
+    else apptModal(a,a.date,a.time);
   }));
 
   // Drag & Resize — bind handles to shared global gesture state
@@ -805,6 +810,47 @@ function apptModal(a,date,time){
     if(a)$('fdel').onclick=async()=>{if(confirm('Видалити?')){await deleteDoc(doc(db,'appointments',a.id));hide();}};
   }
   show('');renderApptModal();
+}
+
+// Break / pause block — a lightweight non-client entry (lunch, consultation
+// hold, etc). Stored in the same 'appointments' collection with isBreak:true
+// so it reuses the existing drag/resize/rendering machinery for free, but is
+// skipped everywhere client stats are computed (nothing sets a.status on it,
+// and analytics only counts a.status==='done').
+function breakModal(a,date){
+  const label=a?.client||'Обід';
+  const dur=a?.customDuration||60;
+  const bDate=a?.date||date||calDate;
+  const bTime=a?.time||'13:00';
+  const hh=Math.floor(dur/60),mm=dur%60;
+  show(`
+    <div class="mh"><div class="mt">${a?'Редагувати блок часу':'Новий блок часу'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    <div class="field"><label>Назва</label><input class="fi" id="bl" value="${label}" placeholder="Обід, консультація..."/></div>
+    <div class="g2">
+      <div class="field"><label>Дата</label><input type="date" class="fi" id="bd" value="${bDate}"/></div>
+      <div class="field"><label>Час</label><input type="time" class="fi" id="bt" value="${bTime}"/></div>
+    </div>
+    <div class="field"><label>Тривалість</label>
+      <div class="g2">
+        <select class="fi" id="bdh">${Array.from({length:9},(_,i)=>`<option value="${i}" ${hh===i?'selected':''}>${i} год</option>`).join('')}</select>
+        <select class="fi" id="bdm">${[0,15,30,45].map(m=>`<option value="${m}" ${mm===m?'selected':''}>${m} хв</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="mf">
+      ${a?`<button class="btn bd bs" id="bdel">Видалити</button>`:''}
+      <button class="btn bg" id="bcancel">Скасувати</button>
+      <button class="btn bp" id="bsave">Зберегти</button>
+    </div>`);
+  $('mx').onclick=hide;$('bcancel').onclick=hide;
+  $('bsave').onclick=async()=>{
+    const name=$('bl').value.trim()||'Перерва';
+    const durMin=Math.max(5,+$('bdh').value*60 + +$('bdm').value);
+    const data={client:name,isBreak:true,date:$('bd').value,time:$('bt').value,customDuration:durMin};
+    if(a)await updateDoc(doc(db,'appointments',a.id),data);
+    else await addDoc(collection(db,'appointments'),data);
+    hide();
+  };
+  if(a)$('bdel').onclick=async()=>{if(confirm('Видалити блок?')){await deleteDoc(doc(db,'appointments',a.id));hide();}};
 }
 
 // ══════════════════════════════════════════════════
