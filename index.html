@@ -169,6 +169,24 @@ const CATS=['Фарби','Окислювачі','Порошки','Шампуні
 const svg=(d,s=16,c='currentColor')=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
 const ic={plus:'M12 5v14M5 12h14',edit:'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z',del:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6',x:'M18 6L6 18M6 6l12 12',l:'M15 18l-6-6 6-6',r:'M9 18l6-6-6-6',w:'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01',h:'M16 16l-4 4-4-4M12 12v8M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3'};
 
+// Shared unit/pricing info for a material — same logic spendModal uses to
+// decide whether it's spent by шт or by г/мл, and what one unit costs.
+// Used both by spendModal and by the appointment materials section so the
+// two stay consistent.
+function matUnitInfo(m){
+  const byG=!!(m&&m.spendUnit&&m.spendUnit!=='шт'&&m.volPerUnit>0);
+  const unit=byG?m.spendUnit:'шт';
+  const ppu=byG?(m.avgPricePerUnit||m.pricePerUnit||0):(m?.avgPrice||m?.price||0);
+  const availUnits=byG?(m?.qty||0)*m.volPerUnit:(m?.qty||0);
+  return{byG,unit,ppu,availUnits};
+}
+// Converts a quantity expressed in the material's spend-unit (шт or г/мл)
+// into шт, for adjusting the stored stock qty (which is always in шт).
+function unitsToSht(m,units){
+  const{byG}=matUnitInfo(m);
+  return byG?units/m.volPerUnit:units;
+}
+
 // ── Schedule ───────────────────────────────────────
 const isWorkDay=d=>{if(exceptions[d]===true)return true;if(exceptions[d]===false)return false;return schedule.days.includes(new Date(d+'T12:00:00').getDay());};
 const getWorkMins=d=>isWorkDay(d)?(schedule.end-schedule.start)*60:0;
@@ -672,6 +690,9 @@ function apptModal(a,date,time){
       selSvcs = [{serviceId:a.serviceId,adj:0}];
     }
   }
+  // Materials actually used for this appointment — {matId, qty} where qty is
+  // expressed in that material's spend-unit (шт, or г/мл if configured).
+  let selMats = a?.materialsUsed ? a.materialsUsed.map(m=>({matId:m.matId,qty:m.qty})) : [];
   // Effective duration in minutes shown/edited in the modal. Starts from
   // whatever is actually saved on the appointment (customDuration, e.g. set
   // by dragging the resize handle on the calendar) or, failing that, the sum
@@ -724,6 +745,40 @@ function apptModal(a,date,time){
     const totalDurMin=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.duration||60),0);
     const totalDur=totalDurMin; // keep for compat
     const fmtTotalDur=d=>{const h=Math.floor(d/60),m=d%60;return(h>0?h+'г ':'')+( m>0?m+'хв':'');};
+
+    // ── Materials used on this appointment ──────────────────────────
+    const matOpts=mats.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+    const matRows=selMats.map((sm,i)=>{
+      const m=mats.find(x=>x.id===sm.matId);
+      const{unit,ppu,availUnits}=matUnitInfo(m);
+      // When editing an existing appointment, whatever this line already
+      // consumed is still "available" to re-allocate (it was already
+      // deducted once), so add it back for the purposes of this warning.
+      const alreadyUsed=(a?.materialsUsed||[]).find(x=>x.matId===sm.matId);
+      const effAvail=availUnits+(alreadyUsed?alreadyUsed.qty:0);
+      const cost=(sm.qty||0)*ppu;
+      const over=sm.qty>effAvail;
+      return`<div style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:13px;font-weight:600">${m?.name||'?'}</div>
+          <button class="bi bs" data-rmmat="${i}">${svg(ic.x,12,'var(--err)')}</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1">
+            <div style="font-size:10px;color:var(--mut);margin-bottom:3px">Кількість (${unit})</div>
+            <input type="number" step="0.1" value="${sm.qty}" style="width:100%;background:var(--bg);border:1px solid ${over?'var(--err)':'var(--brd)'};border-radius:6px;padding:6px 8px;color:var(--txt);font-size:13px;outline:none" data-matqty="${i}"/>
+          </div>
+          <div style="text-align:right;min-width:70px">
+            <div style="font-size:10px;color:var(--mut)">Вартість</div>
+            <div style="font-size:14px;font-weight:700;color:var(--sil)">${cost.toFixed(2)} грн</div>
+          </div>
+        </div>
+        <div style="font-size:10px;color:${over?'var(--err)':'var(--dim)'};margin-top:4px">${over?'⚠️ Перевищує залишок — ':''}Доступно: ${effAvail.toFixed(1)} ${unit}</div>
+      </div>`;
+    }).join('');
+    const totalMatCost=selMats.reduce((s,sm)=>{const m=mats.find(x=>x.id===sm.matId);return s+(sm.qty||0)*matUnitInfo(m).ppu;},0);
+    const margin=totalPrice-totalMatCost;
+    const marginPct=totalPrice>0?(margin/totalPrice*100):0;
     // The duration actually shown to the user — the manual override if one
     // exists (from a resize on the calendar, or a prior edit in this modal),
     // otherwise the natural sum of the chosen services.
@@ -739,6 +794,16 @@ function apptModal(a,date,time){
         <select class="fi" id="fsadd" style="margin-top:8px">
           <option value="">+ Додати послугу</option>${opts}
         </select>
+      </div>
+      <div class="field"><label>Матеріали на запис ${selMats.length>0?`<span style="color:var(--acc);font-weight:700">${selMats.length} · ${totalMatCost.toFixed(2)} грн</span>`:''}</label>
+        ${matRows}
+        <select class="fi" id="fmadd" style="margin-top:8px">
+          <option value="">+ Додати матеріал</option>${matOpts}
+        </select>
+      </div>
+      <div class="card" style="margin-bottom:13px;padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:var(--mut)">Собівартість матеріалів:</span><span id="fmatcosttxt" style="font-weight:700;color:var(--err)">${totalMatCost.toFixed(2)} грн</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--mut)">Маржа:</span><span id="fmargintxt" style="font-weight:700;color:${margin>=0?'var(--ok)':'var(--err)'}">${fmt(margin)} грн (${marginPct.toFixed(0)}%)</span></div>
       </div>
       <div class="field"><label>Тривалість запису в календарі ${durOverride!==null&&durOverride!==totalDurMin?'<span style="color:var(--mut);font-weight:400;text-transform:none">(змінено вручну)</span>':''}</label>
         <div class="g2">
@@ -764,24 +829,49 @@ function apptModal(a,date,time){
       </div>`;
 
     $('mx').onclick=hide;$('fcancel').onclick=hide;
-    const captureDur=captureFields;
+    // Reads whatever is currently sitting in the adj / material-qty inputs
+    // back into selSvcs/selMats. Must run before any re-render (adding or
+    // removing a service/material, or the duration selects triggering
+    // captureFields), otherwise those in-progress edits get discarded.
+    const captureLiveInputs=()=>{
+      $('modal').querySelectorAll('[data-adj]').forEach(inp=>{if(selSvcs[+inp.dataset.adj])selSvcs[+inp.dataset.adj].adj=+inp.value||0;});
+      $('modal').querySelectorAll('[data-matqty]').forEach(inp=>{if(selMats[+inp.dataset.matqty])selMats[+inp.dataset.matqty].qty=+inp.value||0;});
+    };
+    const captureDur=()=>{captureLiveInputs();captureFields();};
     $('fdh').onchange=captureDur;
     $('fdm').onchange=captureDur;
     $('fsadd').onchange=e=>{
       if(!e.target.value)return;
-      // Save current adj + duration values before re-render
-      $('modal').querySelectorAll('[data-adj]').forEach(inp=>{if(selSvcs[+inp.dataset.adj])selSvcs[+inp.dataset.adj].adj=+inp.value||0;});
       captureDur();
       selSvcs.push({serviceId:e.target.value,adj:0});
       e.target.value='';
       renderApptModal();
     };
     $('modal').querySelectorAll('[data-rmsvc]').forEach(b=>b.onclick=()=>{
-      $('modal').querySelectorAll('[data-adj]').forEach(inp=>{if(selSvcs[+inp.dataset.adj])selSvcs[+inp.dataset.adj].adj=+inp.value||0;});
       captureDur();
       selSvcs.splice(+b.dataset.rmsvc,1);
       renderApptModal();
     });
+    $('fmadd').onchange=e=>{
+      if(!e.target.value)return;
+      captureDur();
+      selMats.push({matId:e.target.value,qty:0});
+      e.target.value='';
+      renderApptModal();
+    };
+    $('modal').querySelectorAll('[data-rmmat]').forEach(b=>b.onclick=()=>{
+      captureDur();
+      selMats.splice(+b.dataset.rmmat,1);
+      renderApptModal();
+    });
+    const updateCostMarginDisplay=()=>{
+      const totalPrice2=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
+      const totalMatCost2=selMats.reduce((s,sm)=>{const m=mats.find(x=>x.id===sm.matId);return s+(sm.qty||0)*matUnitInfo(m).ppu;},0);
+      const margin2=totalPrice2-totalMatCost2,marginPct2=totalPrice2>0?(margin2/totalPrice2*100):0;
+      const mc=$('fmatcosttxt'),mg=$('fmargintxt');
+      if(mc)mc.textContent=totalMatCost2.toFixed(2)+' грн';
+      if(mg){mg.textContent=fmt(margin2)+' грн ('+marginPct2.toFixed(0)+'%)';mg.style.color=margin2>=0?'var(--ok)':'var(--err)';}
+    };
     $('modal').querySelectorAll('[data-adj]').forEach(inp=>inp.addEventListener('input',e=>{
       selSvcs[+inp.dataset.adj].adj=+e.target.value||0;
       // Update total display without re-render
@@ -790,24 +880,67 @@ function apptModal(a,date,time){
       const fmtDur2=d=>{const h=Math.floor(d/60),m=d%60;return(h>0?h+'г ':'')+(m>0?m+'хв':'');};
       const lbl=$('modal').querySelector('label[for-svc-lbl]');
       if(lbl)lbl.textContent=`Послуги ${selSvcs.length} · ${fmt(totalPrice2)} грн · ${fmtDur2(totalDur2)}`;
+      updateCostMarginDisplay();
+    }));
+    $('modal').querySelectorAll('[data-matqty]').forEach(inp=>inp.addEventListener('input',e=>{
+      selMats[+inp.dataset.matqty].qty=+e.target.value||0;
+      updateCostMarginDisplay();
     }));
     $('fsave').onclick=async()=>{
       const client=$('fc').value;
       if(!client||selSvcs.length===0){alert("Заповніть ім'я та оберіть послугу");return;}
-      // Read current adj values before saving
+      // Read current adj + material qty values before saving
       $('modal').querySelectorAll('[data-adj]').forEach(inp=>{selSvcs[+inp.dataset.adj].adj=+inp.value||0;});
+      $('modal').querySelectorAll('[data-matqty]').forEach(inp=>{selMats[+inp.dataset.matqty].qty=+inp.value||0;});
       const totalPaid=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
       const finalDuration=+$('fdh').value*60 + +$('fdm').value;
+      const newStatus=$('fst').value;
+      const materialsUsedFinal=selMats.filter(sm=>sm.matId&&sm.qty>0).map(sm=>({matId:sm.matId,qty:sm.qty}));
+      const materialCostFinal=materialsUsedFinal.reduce((s,sm)=>{const m=mats.find(x=>x.id===sm.matId);return s+sm.qty*matUnitInfo(m).ppu;},0);
+
+      // Stock correction: compare what was actually deducted before
+      // ("effective old" — empty if the appointment was cancelled, since a
+      // cancelled record's materials are already back on the shelf) against
+      // what should be deducted now ("effective new" — also empty if the
+      // record is being saved as cancelled). The difference per material is
+      // subtracted from stock (positive delta = using more than before).
+      const oldEffective=(a&&a.status!=='cancelled')?(a.materialsUsed||[]):[];
+      const newEffective=(newStatus==='cancelled')?[]:materialsUsedFinal;
+      const matIds=[...new Set([...oldEffective.map(x=>x.matId),...newEffective.map(x=>x.matId)])];
+      for(const mid of matIds){
+        const m=mats.find(x=>x.id===mid);if(!m)continue;
+        const oldQ=oldEffective.find(x=>x.matId===mid)?.qty||0;
+        const newQ=newEffective.find(x=>x.matId===mid)?.qty||0;
+        const deltaUnits=newQ-oldQ;
+        if(deltaUnits===0)continue;
+        const deltaSht=unitsToSht(m,deltaUnits);
+        await updateDoc(doc(db,'materials',mid),{qty:+Math.max(0,(m.qty||0)-deltaSht).toFixed(4)});
+      }
+
       const data={client,phone:$('fp').value,serviceId:selSvcs[0].serviceId,
         services:selSvcs.map(s=>({serviceId:s.serviceId,adj:s.adj||0})),
-        date:$('fd').value,time:$('ft').value,status:$('fst').value,
+        date:$('fd').value,time:$('ft').value,status:newStatus,
         customDuration:finalDuration,
-        paid:+$('fm').value||($('fst').value==='done'?totalPaid:0),note:$('fn').value};
+        materialsUsed:materialsUsedFinal,materialCost:materialCostFinal,
+        paid:+$('fm').value||(newStatus==='done'?totalPaid:0),note:$('fn').value};
       if(a)await updateDoc(doc(db,'appointments',a.id),data);
       else await addDoc(collection(db,'appointments'),data);
       hide();
     };
-    if(a)$('fdel').onclick=async()=>{if(confirm('Видалити?')){await deleteDoc(doc(db,'appointments',a.id));hide();}};
+    if(a)$('fdel').onclick=async()=>{
+      if(!confirm('Видалити?'))return;
+      // Return materials to stock — but only what's actually still "out":
+      // if the appointment was already cancelled, its materials were
+      // already restored when it was cancelled, so there's nothing left to
+      // return here.
+      const effective=a.status!=='cancelled'?(a.materialsUsed||[]):[];
+      for(const{matId,qty}of effective){
+        const m=mats.find(x=>x.id===matId);if(!m)continue;
+        const deltaSht=unitsToSht(m,qty);
+        await updateDoc(doc(db,'materials',matId),{qty:+((m.qty||0)+deltaSht).toFixed(4)});
+      }
+      await deleteDoc(doc(db,'appointments',a.id));hide();
+    };
   }
   show('');renderApptModal();
 }
@@ -1171,6 +1304,12 @@ function drawStats(){
   });
   const rev=done.reduce((s,a)=>s+(a.paid||svcs.find(sv=>sv.id===a.serviceId)?.price||0),0);
   const exp=recOps.reduce((s,o)=>s+(o.total||0),0),profit=rev-exp,avg=done.length?rev/done.length:0;
+  // Собівартість матеріалів, реально списаних під виконані записи (точний
+  // варіант — сума materialCost, збереженого на кожному запису), і маржа
+  // (виручка мінус ці матеріали), окремо від "Витрат"/"Прибутку" вище, які
+  // рахуються по надходженнях на склад за період.
+  const matCostTotal=done.reduce((s,a)=>s+(a.materialCost||0),0);
+  const svcMargin=rev-matCostTotal, svcMarginPct=rev>0?(svcMargin/rev*100):0;
   const bySvc=svcs.map(sv=>{const cnt=done.filter(a=>a.serviceId===sv.id).length;return{...sv,cnt,rev:cnt*sv.price};}).filter(s=>s.cnt>0).sort((a,b)=>b.rev-a.rev);
   const maxS=Math.max(...bySvc.map(s=>s.rev),1);
   const byDay=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map((l,i)=>{const dn=(i+1)%7,r=done.filter(a=>new Date(a.date+'T12:00:00').getDay()===dn).reduce((s,a)=>s+(svcs.find(sv=>sv.id===a.serviceId)?.price||0),0);return{l,r};});
@@ -1182,6 +1321,8 @@ function drawStats(){
       <div class="sc"><div class="sv" style="color:var(--err)">${fmt(exp)} грн</div><div class="sl">Витрати</div></div>
       <div class="sc"><div class="sv" style="color:${profit>=0?'var(--ok)':'var(--err)'}">${fmt(profit)} грн</div><div class="sl">Прибуток</div></div>
       <div class="sc"><div class="sv" style="color:var(--acs)">${fmt(avg)} грн</div><div class="sl">Сер. чек</div></div>
+      <div class="sc"><div class="sv" style="color:var(--wrn)">${fmt(matCostTotal)} грн</div><div class="sl">Собівартість матеріалів</div></div>
+      <div class="sc"><div class="sv" style="color:${svcMargin>=0?'var(--ok)':'var(--err)'}">${fmt(svcMargin)} грн</div><div class="sl">Маржа (${svcMarginPct.toFixed(0)}%)</div></div>
     </div>
     <div class="card"><div class="sec" style="margin-top:0">По днях тижня</div>
       <div style="display:flex;align-items:flex-end;gap:5px;height:80px">
