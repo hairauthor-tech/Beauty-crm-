@@ -101,12 +101,14 @@ input[type=date],input[type=time]{color-scheme:dark;}
   <div class="tab" id="t-stock"></div>
   <div class="tab" id="t-svc"></div>
   <div class="tab" id="t-stats"></div>
+  <div class="tab" id="t-exp"></div>
 </div>
 <nav class="bnav">
   <button class="nb on" data-tab="cal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v3M16 2v3M3 8h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>Записи</button>
   <button class="nb" data-tab="stock"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16V8zM3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>Склад</button>
   <button class="nb" data-tab="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>Послуги</button>
   <button class="nb" data-tab="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 16l4-4 4 4 4-4"/></svg>Аналітика</button>
+  <button class="nb" data-tab="exp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Витрати</button>
 </nav>
 <div class="overlay" id="overlay"><div class="modal" id="modal"></div></div>
 
@@ -133,9 +135,11 @@ try{ await enableIndexedDbPersistence(db); }
 catch(e){ /* multiple tabs open, or browser doesn't support it — app still works, just without the cache cushion */ }
 
 // ── State ──────────────────────────────────────────
-let svcs=[], mats=[], appts=[], ops=[];
+let svcs=[], mats=[], appts=[], ops=[], exps=[];
 let tab='cal', calView=1;
 let stockCat='Всі', stockQ='', period='month';
+let expCat='Всі', expPeriod='month';
+let customExpCats=JSON.parse(localStorage.getItem('expCats')||'[]');
 let theme=localStorage.getItem('theme')||'dark';
 let schedule=JSON.parse(localStorage.getItem('sched')||'{"days":[1,2,3,4,5,6],"start":9,"end":19}');
 let exceptions=JSON.parse(localStorage.getItem('exc')||'{}');
@@ -166,6 +170,12 @@ const getHours=()=>{const len=Math.max(1,schedule.end-schedule.start);return Arr
 const SLOTS=Array.from({length:26},(_,i)=>({h:Math.floor(i/2)+8,m:i%2===0?0:30}));
 const HALF_HOURS=Array.from({length:26},(_,i)=>i*0.5+8); // 8:00, 8:30, 9:00...20:00
 const CATS=['Фарби','Окислювачі','Порошки','Шампуні','Маски','Кондиціонери','Стайлінг','Інше'];
+// Base expense categories are always shown; any category the person adds
+// via the "+ Нова категорія" option in expModal is remembered in
+// localStorage (customExpCats) and appended after them, same pattern as
+// the schedule/exceptions persistence used elsewhere in the app.
+const BASE_EXP_CATS=['Оренда','Податки','Комунальні','Подарунки','Реклама','Інше'];
+const getExpCats=()=>[...BASE_EXP_CATS,...customExpCats.filter(c=>!BASE_EXP_CATS.includes(c))];
 const svg=(d,s=16,c='currentColor')=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
 const ic={plus:'M12 5v14M5 12h14',edit:'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z',del:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6',x:'M18 6L6 18M6 6l12 12',l:'M15 18l-6-6 6-6',r:'M9 18l6-6-6-6',w:'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01',h:'M16 16l-4 4-4-4M12 12v8M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3'};
 
@@ -242,6 +252,7 @@ onSnapshot(collection(db,'appointments'),s=>{
   setConnBanner(false);scheduleDraw();
 },onErr);
 onSnapshot(collection(db,'purchases'),s=>{ops=s.docs.map(d=>({id:d.id,...d.data()}));setConnBanner(false);scheduleDraw();},onErr);
+onSnapshot(collection(db,'expenses'),s=>{exps=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||'').localeCompare(a.date||''));setConnBanner(false);scheduleDraw();},onErr);
 
 $('hdate').textContent=fmtL(today());
 
@@ -263,6 +274,7 @@ function draw(){
   else if(tab==='stock')drawStock();
   else if(tab==='svc')drawSvc();
   else if(tab==='stats')drawStats();
+  else if(tab==='exp')drawExp();
 }
 
 // ══════════════════════════════════════════════════
@@ -1327,6 +1339,12 @@ function drawStats(){
     if(period==='month')return d.getMonth()===now2.getMonth()&&d.getFullYear()===now2.getFullYear();
     return d.getFullYear()===now2.getFullYear();
   });
+  const otherExps=exps.filter(o=>{
+    const d=new Date(o.date+'T12:00:00');
+    if(period==='week'){const w=new Date(now2);w.setDate(now2.getDate()-7);return d>=w;}
+    if(period==='month')return d.getMonth()===now2.getMonth()&&d.getFullYear()===now2.getFullYear();
+    return d.getFullYear()===now2.getFullYear();
+  });
   const rev=done.reduce((s,a)=>s+(a.paid||svcs.find(sv=>sv.id===a.serviceId)?.price||0),0);
   const exp=recOps.reduce((s,o)=>s+(o.total||0),0),profit=rev-exp,avg=done.length?rev/done.length:0;
   // Собівартість матеріалів, реально списаних під виконані записи (точний
@@ -1335,6 +1353,11 @@ function drawStats(){
   // рахуються по надходженнях на склад за період.
   const matCostTotal=done.reduce((s,a)=>s+(a.materialCost||0),0);
   const svcMargin=rev-matCostTotal, svcMarginPct=rev>0?(svcMargin/rev*100):0;
+  // Інші (нематеріальні) витрати за період — оренда, податки, подарунки
+  // тощо, введені у вкладці «Витрати». Чистий прибуток — це те, що
+  // фактично залишається після собівартості матеріалів І цих витрат.
+  const otherExpTotal=otherExps.reduce((s,o)=>s+(o.amount||0),0);
+  const netProfit=svcMargin-otherExpTotal;
   // Прив'язка йде по "головній" послузі запису (a.serviceId), як і раніше —
   // для записів з кількома послугами вся собівартість матеріалів і час
   // запису відносяться на першу/головну послугу (той самий спрощений підхід,
@@ -1362,6 +1385,8 @@ function drawStats(){
       <div class="sc"><div class="sv" style="color:var(--acs)">${fmt(avg)} грн</div><div class="sl">Сер. чек</div></div>
       <div class="sc"><div class="sv" style="color:var(--wrn)">${fmt(matCostTotal)} грн</div><div class="sl">Собівартість матеріалів</div></div>
       <div class="sc"><div class="sv" style="color:${svcMargin>=0?'var(--ok)':'var(--err)'}">${fmt(svcMargin)} грн</div><div class="sl">Маржа (${svcMarginPct.toFixed(0)}%)</div></div>
+      <div class="sc"><div class="sv" style="color:var(--err)">${fmt(otherExpTotal)} грн</div><div class="sl">Інші витрати</div></div>
+      <div class="sc"><div class="sv" style="color:${netProfit>=0?'var(--ok)':'var(--err)'}">${fmt(netProfit)} грн</div><div class="sl">Чистий прибуток</div></div>
     </div>
     <div class="card"><div class="sec" style="margin-top:0">По днях тижня</div>
       <div style="display:flex;align-items:flex-end;gap:5px;height:80px">
@@ -1393,8 +1418,107 @@ function drawStats(){
           <div><div style="font-size:13px">${o.matName||'?'}</div><div style="font-size:11px;color:var(--mut)">${o.date} · ${o.qty} шт${o.disc?' · -'+o.disc+'%':''}</div></div>
           <div style="font-weight:700;color:var(--sil);white-space:nowrap">${fmt(o.total)} грн</div>
         </div>`).join('')}
+    </div>
+    <div class="card"><div class="sec" style="margin-top:0">Останні витрати</div>
+      ${otherExps.length===0?'<div style="color:var(--dim);text-align:center;padding:20px 0">Немає</div>':otherExps.slice(0,8).map(o=>`
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--brd)">
+          <div><div style="font-size:13px">${o.name||o.category||'?'}</div><div style="font-size:11px;color:var(--mut)">${o.date} · ${o.category||''}</div></div>
+          <div style="font-weight:700;color:var(--err);white-space:nowrap">${fmt(o.amount)} грн</div>
+        </div>`).join('')}
     </div>`;
   el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{period=b.dataset.p;drawStats();});
+}
+
+// ══════════════════════════════════════════════════
+// EXPENSES (Витрати) — rent, taxes, gifts, and other non-material costs.
+// Entered manually each time (no auto-recurring projection) so the person
+// stays in control of exactly what was actually paid and when.
+// ══════════════════════════════════════════════════
+function drawExp(){
+  const el=$('t-exp'),now=new Date();
+  const inPeriod=o=>{
+    const d=new Date(o.date+'T12:00:00');
+    if(expPeriod==='week'){const w=new Date(now);w.setDate(now.getDate()-7);return d>=w;}
+    if(expPeriod==='month')return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+    if(expPeriod==='year')return d.getFullYear()===now.getFullYear();
+    return true; // 'all'
+  };
+  const cats=getExpCats();
+  const fil=exps.filter(o=>inPeriod(o)&&(expCat==='Всі'||o.category===expCat));
+  const total=fil.reduce((s,o)=>s+(o.amount||0),0);
+  el.innerHTML=`
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <button class="btn bp bs" id="beadd">${svg(ic.plus,14)} Витрата</button>
+    </div>
+    <div class="chips">${[['week','Тиждень'],['month','Місяць'],['year','Рік'],['all','Увесь час']].map(([k,l])=>`<button class="chip ${expPeriod===k?'on':''}" data-ep="${k}">${l}</button>`).join('')}</div>
+    <div class="card" style="text-align:center;margin-bottom:12px">
+      <div class="sv" style="color:var(--err)">${fmt(total)} грн</div>
+      <div class="sl">Разом${expCat==='Всі'?'':' · '+expCat}</div>
+    </div>
+    <div class="chips">${['Всі',...cats].map(c=>`<button class="chip ${expCat===c?'on':''}" data-ec="${c}">${c}</button>`).join('')}</div>
+    ${fil.length===0?'<div class="empty">Витрат немає</div>':fil.map(o=>`
+      <div class="ri">
+        <div class="rl"><div class="rn">${o.name||o.category||'Витрата'}</div><div class="rs">${o.category||''} · ${o.date}${o.note?' · '+o.note:''}</div></div>
+        <div class="rr"><div class="rv" style="color:var(--err)">${fmt(o.amount)} грн</div></div>
+        <div class="rac">
+          <button class="bi bs" data-ee="${o.id}">${svg(ic.edit,13)}</button>
+          <button class="bi bs" data-ed="${o.id}">${svg(ic.del,13,'var(--err)')}</button>
+        </div>
+      </div>`).join('')}`;
+  $('beadd').onclick=()=>expModal(null);
+  el.querySelectorAll('[data-ep]').forEach(b=>b.onclick=()=>{expPeriod=b.dataset.ep;drawExp();});
+  el.querySelectorAll('[data-ec]').forEach(b=>b.onclick=()=>{expCat=b.dataset.ec;drawExp();});
+  el.querySelectorAll('[data-ee]').forEach(b=>b.onclick=()=>expModal(b.dataset.ee));
+  el.querySelectorAll('[data-ed]').forEach(b=>b.onclick=async()=>{if(confirm('Видалити?'))await deleteDoc(doc(db,'expenses',b.dataset.ed));});
+}
+
+function expModal(id){
+  const o=id?exps.find(x=>x.id===id):null;
+  let selCat=o?.category||null;
+  function render(){
+    const cats=getExpCats();
+    if(!selCat||!cats.includes(selCat))selCat=cats[0];
+    $('modal').innerHTML=`
+      <div class="mh"><div class="mt">${id?'Редагувати витрату':'Нова витрата'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <div class="field"><label>Назва</label><input class="fi" id="en" value="${o?.name||''}" placeholder="Оренда за липень, Податок ЄП..."/></div>
+      <div class="field"><label>Категорія</label><select class="fi" id="ecat">
+        ${cats.map(c=>`<option value="${c}" ${selCat===c?'selected':''}>${c}</option>`).join('')}
+        <option value="__new__">+ Нова категорія...</option>
+      </select></div>
+      <div class="field"><label>Сума (грн)</label><input type="number" class="fi" id="eam" value="${o?.amount||0}"/></div>
+      <div class="field"><label>Дата</label><input type="date" class="fi" id="edate" value="${o?.date||today()}"/></div>
+      <div class="field"><label>Примітка</label><textarea class="fi" id="enote">${o?.note||''}</textarea></div>
+      <div class="mf">
+        ${id?`<button class="btn bd bs" id="edel">Видалити</button>`:''}
+        <button class="btn bg" id="ecancel">Скасувати</button>
+        <button class="btn bp" id="esave">Зберегти</button>
+      </div>`;
+    $('mx').onclick=hide;$('ecancel').onclick=hide;
+    $('ecat').onchange=e=>{
+      if(e.target.value==='__new__'){
+        const name=(prompt('Назва нової категорії:')||'').trim();
+        if(name&&!BASE_EXP_CATS.includes(name)&&!customExpCats.includes(name)){
+          customExpCats.push(name);
+          localStorage.setItem('expCats',JSON.stringify(customExpCats));
+        }
+        selCat=name||selCat;
+        render();
+      } else {
+        selCat=e.target.value;
+      }
+    };
+    $('esave').onclick=async()=>{
+      const name=$('en').value.trim();
+      const amount=+$('eam').value||0;
+      if(!name||!amount){alert('Заповніть назву і суму');return;}
+      const data={name,category:selCat,amount,date:$('edate').value,note:$('enote').value};
+      if(id)await updateDoc(doc(db,'expenses',id),data);
+      else await addDoc(collection(db,'expenses'),data);
+      hide();
+    };
+    if(id)$('edel').onclick=async()=>{if(confirm('Видалити?')){await deleteDoc(doc(db,'expenses',id));hide();}};
+  }
+  show('');render();
 }
 
 draw();
