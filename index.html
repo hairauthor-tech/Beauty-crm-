@@ -770,10 +770,10 @@ function apptModal(a,date,time){
           </div>
           <div style="text-align:right;min-width:70px">
             <div style="font-size:10px;color:var(--mut)">Вартість</div>
-            <div style="font-size:14px;font-weight:700;color:var(--sil)">${cost.toFixed(2)} грн</div>
+            <div style="font-size:14px;font-weight:700;color:var(--sil)" data-matcost="${i}">${cost.toFixed(2)} грн</div>
           </div>
         </div>
-        <div style="font-size:10px;color:${over?'var(--err)':'var(--dim)'};margin-top:4px">${over?'⚠️ Перевищує залишок — ':''}Доступно: ${effAvail.toFixed(1)} ${unit}</div>
+        <div style="font-size:10px;color:${over?'var(--err)':'var(--dim)'};margin-top:4px" data-matwarn="${i}">${over?'⚠️ Перевищує залишок — ':''}Доступно: ${effAvail.toFixed(1)} ${unit}</div>
       </div>`;
     }).join('');
     const totalMatCost=selMats.reduce((s,sm)=>{const m=mats.find(x=>x.id===sm.matId);return s+(sm.qty||0)*matUnitInfo(m).ppu;},0);
@@ -789,13 +789,13 @@ function apptModal(a,date,time){
       <div class="mh"><div class="mt">${a?'Редагувати':'Новий запис'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
       <div class="field"><label>Клієнтка</label><input class="fi" id="fc" value="${fClient}" placeholder="Ім'я Прізвище"/></div>
       <div class="field"><label>Телефон</label><input class="fi" id="fp" value="${fPhone}" placeholder="+380..."/></div>
-      <div class="field"><label>Послуги ${selSvcs.length>0?`<span style="color:var(--acc);font-weight:700">${selSvcs.length} · ${fmt(totalPrice)} грн · ${fmtTotalDur(totalDurMin)}</span>`:''}</label>
+      <div class="field"><label>Послуги <span id="svcHeaderInfo" style="color:var(--acc);font-weight:700">${selSvcs.length>0?`${selSvcs.length} · ${fmt(totalPrice)} грн · ${fmtTotalDur(totalDurMin)}`:''}</span></label>
         ${selRows}
         <select class="fi" id="fsadd" style="margin-top:8px">
           <option value="">+ Додати послугу</option>${opts}
         </select>
       </div>
-      <div class="field"><label>Матеріали на запис ${selMats.length>0?`<span style="color:var(--acc);font-weight:700">${selMats.length} · ${totalMatCost.toFixed(2)} грн</span>`:''}</label>
+      <div class="field"><label>Матеріали на запис <span id="matHeaderInfo" style="color:var(--acc);font-weight:700">${selMats.length>0?`${selMats.length} · ${totalMatCost.toFixed(2)} грн`:''}</span></label>
         ${matRows}
         <select class="fi" id="fmadd" style="margin-top:8px">
           <option value="">+ Додати матеріал</option>${matOpts}
@@ -805,7 +805,7 @@ function apptModal(a,date,time){
         <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:var(--mut)">Собівартість матеріалів:</span><span id="fmatcosttxt" style="font-weight:700;color:var(--err)">${totalMatCost.toFixed(2)} грн</span></div>
         <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--mut)">Маржа:</span><span id="fmargintxt" style="font-weight:700;color:${margin>=0?'var(--ok)':'var(--err)'}">${fmt(margin)} грн (${marginPct.toFixed(0)}%)</span></div>
       </div>
-      <div class="field"><label>Тривалість запису в календарі ${durOverride!==null&&durOverride!==totalDurMin?'<span style="color:var(--mut);font-weight:400;text-transform:none">(змінено вручну)</span>':''}</label>
+      <div class="field"><label>Тривалість запису в календарі <span id="durNote" style="color:var(--mut);font-weight:400;text-transform:none">${durOverride!==null&&durOverride!==totalDurMin?'(змінено вручну)':''}</span></label>
         <div class="g2">
           <select class="fi" id="fdh">${Array.from({length:9},(_,i)=>`<option value="${i}" ${curH===i?'selected':''}>${i} год</option>`).join('')}</select>
           <select class="fi" id="fdm">${[0,15,30,45].map(m=>`<option value="${m}" ${curM===m?'selected':''}>${m} хв</option>`).join('')}</select>
@@ -838,8 +838,8 @@ function apptModal(a,date,time){
       $('modal').querySelectorAll('[data-matqty]').forEach(inp=>{if(selMats[+inp.dataset.matqty])selMats[+inp.dataset.matqty].qty=+inp.value||0;});
     };
     const captureDur=()=>{captureLiveInputs();captureFields();};
-    $('fdh').onchange=captureDur;
-    $('fdm').onchange=captureDur;
+    $('fdh').onchange=()=>{captureDur();updateAllLiveDisplays();};
+    $('fdm').onchange=()=>{captureDur();updateAllLiveDisplays();};
     $('fsadd').onchange=e=>{
       if(!e.target.value)return;
       captureDur();
@@ -864,27 +864,52 @@ function apptModal(a,date,time){
       selMats.splice(+b.dataset.rmmat,1);
       renderApptModal();
     });
-    const updateCostMarginDisplay=()=>{
+    // Single source of truth for every number that can change WITHOUT a full
+    // re-render: the "Послуги N · сума · час" header, the "(змінено вручну)"
+    // duration note, each material row's cost/over-limit warning, and the
+    // materials-cost/margin card. Called on every discount, material qty,
+    // and manual-duration edit, so nothing on screen goes stale until the
+    // next add/remove.
+    const fmtDurLive=d=>{const h=Math.floor(d/60),m=d%60;return(h>0?h+'г ':'')+(m>0?m+'хв':'');};
+    function updateAllLiveDisplays(){
       const totalPrice2=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
-      const totalMatCost2=selMats.reduce((s,sm)=>{const m=mats.find(x=>x.id===sm.matId);return s+(sm.qty||0)*matUnitInfo(m).ppu;},0);
-      const margin2=totalPrice2-totalMatCost2,marginPct2=totalPrice2>0?(margin2/totalPrice2*100):0;
+      const totalDurMin2=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.duration||60),0);
+      const hdr=$('svcHeaderInfo');
+      if(hdr)hdr.textContent=selSvcs.length>0?`${selSvcs.length} · ${fmt(totalPrice2)} грн · ${fmtDurLive(totalDurMin2)}`:'';
+      const note=$('durNote');
+      if(note)note.textContent=(durOverride!==null&&durOverride!==totalDurMin2)?'(змінено вручну)':'';
+
+      let totalMatCost2=0;
+      selMats.forEach((sm,i)=>{
+        const m=mats.find(x=>x.id===sm.matId);
+        const{unit,ppu,availUnits}=matUnitInfo(m);
+        const alreadyUsed=(a?.materialsUsed||[]).find(x=>x.matId===sm.matId);
+        const effAvail=availUnits+(alreadyUsed?alreadyUsed.qty:0);
+        const cost=(sm.qty||0)*ppu;
+        totalMatCost2+=cost;
+        const costEl=$('modal').querySelector(`[data-matcost="${i}"]`);
+        if(costEl)costEl.textContent=cost.toFixed(2)+' грн';
+        const over=sm.qty>effAvail;
+        const warnEl=$('modal').querySelector(`[data-matwarn="${i}"]`);
+        if(warnEl){warnEl.style.color=over?'var(--err)':'var(--dim)';warnEl.textContent=(over?'⚠️ Перевищує залишок — ':'')+'Доступно: '+effAvail.toFixed(1)+' '+unit;}
+        const qtyInput=$('modal').querySelector(`[data-matqty="${i}"]`);
+        if(qtyInput)qtyInput.style.borderColor=over?'var(--err)':'var(--brd)';
+      });
+      const mhdr=$('matHeaderInfo');
+      if(mhdr)mhdr.textContent=selMats.length>0?`${selMats.length} · ${totalMatCost2.toFixed(2)} грн`:'';
+
+      const margin2=totalPrice2-totalMatCost2, marginPct2=totalPrice2>0?(margin2/totalPrice2*100):0;
       const mc=$('fmatcosttxt'),mg=$('fmargintxt');
       if(mc)mc.textContent=totalMatCost2.toFixed(2)+' грн';
       if(mg){mg.textContent=fmt(margin2)+' грн ('+marginPct2.toFixed(0)+'%)';mg.style.color=margin2>=0?'var(--ok)':'var(--err)';}
-    };
+    }
     $('modal').querySelectorAll('[data-adj]').forEach(inp=>inp.addEventListener('input',e=>{
       selSvcs[+inp.dataset.adj].adj=+e.target.value||0;
-      // Update total display without re-render
-      const totalPrice2=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
-      const totalDur2=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.duration||60),0);
-      const fmtDur2=d=>{const h=Math.floor(d/60),m=d%60;return(h>0?h+'г ':'')+(m>0?m+'хв':'');};
-      const lbl=$('modal').querySelector('label[for-svc-lbl]');
-      if(lbl)lbl.textContent=`Послуги ${selSvcs.length} · ${fmt(totalPrice2)} грн · ${fmtDur2(totalDur2)}`;
-      updateCostMarginDisplay();
+      updateAllLiveDisplays();
     }));
     $('modal').querySelectorAll('[data-matqty]').forEach(inp=>inp.addEventListener('input',e=>{
       selMats[+inp.dataset.matqty].qty=+e.target.value||0;
-      updateCostMarginDisplay();
+      updateAllLiveDisplays();
     }));
     $('fsave').onclick=async()=>{
       const client=$('fc').value;
@@ -1310,7 +1335,21 @@ function drawStats(){
   // рахуються по надходженнях на склад за період.
   const matCostTotal=done.reduce((s,a)=>s+(a.materialCost||0),0);
   const svcMargin=rev-matCostTotal, svcMarginPct=rev>0?(svcMargin/rev*100):0;
-  const bySvc=svcs.map(sv=>{const cnt=done.filter(a=>a.serviceId===sv.id).length;return{...sv,cnt,rev:cnt*sv.price};}).filter(s=>s.cnt>0).sort((a,b)=>b.rev-a.rev);
+  // Прив'язка йде по "головній" послузі запису (a.serviceId), як і раніше —
+  // для записів з кількома послугами вся собівартість матеріалів і час
+  // запису відносяться на першу/головну послугу (той самий спрощений підхід,
+  // що вже використовувався для виручки та графіка по днях тижня).
+  const bySvc=svcs.map(sv=>{
+    const apptsForSvc=done.filter(a=>a.serviceId===sv.id);
+    const cnt=apptsForSvc.length;
+    const rev=cnt*sv.price;
+    const matCost=apptsForSvc.reduce((s,a)=>s+(a.materialCost||0),0);
+    const margin=rev-matCost;
+    const marginPct=rev>0?(margin/rev*100):0;
+    const totalMins=apptsForSvc.reduce((s,a)=>s+apptDuration(a),0);
+    const marginPerHour=totalMins>0?margin/(totalMins/60):0;
+    return{...sv,cnt,rev,matCost,margin,marginPct,marginPerHour};
+  }).filter(s=>s.cnt>0).sort((a,b)=>b.rev-a.rev);
   const maxS=Math.max(...bySvc.map(s=>s.rev),1);
   const byDay=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map((l,i)=>{const dn=(i+1)%7,r=done.filter(a=>new Date(a.date+'T12:00:00').getDay()===dn).reduce((s,a)=>s+(svcs.find(sv=>sv.id===a.serviceId)?.price||0),0);return{l,r};});
   const maxD=Math.max(...byDay.map(d=>d.r),1);
@@ -1335,12 +1374,17 @@ function drawStats(){
     </div>
     <div class="card"><div class="sec" style="margin-top:0">Послуги</div>
       ${bySvc.length===0?'<div style="color:var(--dim);text-align:center;padding:20px 0">Немає даних</div>':bySvc.map(s=>`
-        <div style="margin-bottom:12px">
+        <div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--brd)">
           <div style="display:flex;justify-content:space-between;margin-bottom:4px">
             <span style="font-size:13px">${s.name} <span style="color:var(--dim)">×${s.cnt}</span></span>
             <span style="font-weight:700;color:var(--sil)">${fmt(s.rev)} грн</span>
           </div>
           <div class="pb"><div class="pf" style="width:${s.rev/maxS*100}%"></div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:7px;font-size:11px;color:var(--mut)">
+            <span>Матеріали: ${fmt(s.matCost)} грн</span>
+            <span style="color:${s.margin>=0?'var(--ok)':'var(--err)'};font-weight:600">Маржа: ${fmt(s.margin)} грн (${s.marginPct.toFixed(0)}%)</span>
+          </div>
+          <div style="text-align:right;font-size:11px;color:var(--acs);margin-top:2px">≈ ${fmt(s.marginPerHour)} грн/год</div>
         </div>`).join('')}
     </div>
     <div class="card"><div class="sec" style="margin-top:0">Останні закупівлі</div>
