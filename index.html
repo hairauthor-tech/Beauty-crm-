@@ -801,7 +801,7 @@ function apptModal(a,date,time){
       <div class="mh"><div class="mt">${a?'Редагувати':'Новий запис'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
       <div class="field"><label>Клієнтка</label><input class="fi" id="fc" value="${fClient}" placeholder="Ім'я Прізвище"/></div>
       <div class="field"><label>Телефон</label><input class="fi" id="fp" value="${fPhone}" placeholder="+380..."/></div>
-      <div class="field"><label>Послуги <span id="svcHeaderInfo" style="color:var(--acc);font-weight:700">${selSvcs.length>0?`${selSvcs.length} · ${fmt(totalPrice)} грн · ${fmtTotalDur(totalDurMin)}`:''}</span></label>
+      <div class="field"><label>Послуги <span id="svcHeaderInfo" style="color:var(--acc);font-weight:700">${selSvcs.length>0?`${selSvcs.length} · ${fmt(totalPrice)} грн · ${fmtTotalDur(shownDur)}`:''}</span></label>
         ${selRows}
         <select class="fi" id="fsadd" style="margin-top:8px">
           <option value="">+ Додати послугу</option>${opts}
@@ -886,8 +886,9 @@ function apptModal(a,date,time){
     function updateAllLiveDisplays(){
       const totalPrice2=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
       const totalDurMin2=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.duration||60),0);
+      const shownDur2=Math.min(durOverride!==null?durOverride:totalDurMin2,480);
       const hdr=$('svcHeaderInfo');
-      if(hdr)hdr.textContent=selSvcs.length>0?`${selSvcs.length} · ${fmt(totalPrice2)} грн · ${fmtDurLive(totalDurMin2)}`:'';
+      if(hdr)hdr.textContent=selSvcs.length>0?`${selSvcs.length} · ${fmt(totalPrice2)} грн · ${fmtDurLive(shownDur2)}`:'';
       const note=$('durNote');
       if(note)note.textContent=(durOverride!==null&&durOverride!==totalDurMin2)?'(змінено вручну)':'';
 
