@@ -334,6 +334,22 @@ function apptDuration(a){
   return Math.min(a.customDuration||totalDur,480);
 }
 
+// The full nominal price of ONE appointment — sum of every selected service
+// with its own discount/markup applied, not just the first/primary service.
+// Used as the fallback when "Оплачено" was left empty, so revenue for a
+// multi-service or discounted visit isn't silently undercounted down to
+// whatever the first service alone costs.
+function apptTotalPrice(a){
+  if(a.services&&Array.isArray(a.services)){
+    return a.services.reduce((s,ss)=>{
+      const sid=typeof ss==='object'?ss.serviceId:ss;
+      const adj=typeof ss==='object'?(ss.adj||0):0;
+      return s+Math.max(0,(svcs.find(sv=>sv.id===sid)?.price||0)+adj);
+    },0);
+  }
+  return svcs.find(sv=>sv.id===a.serviceId)?.price||0;
+}
+
 // Single global gesture manager for drag & resize — avoids stale closures.
 // IMPORTANT: while a gesture is in progress we do NOT write to Firestore and
 // we do NOT let drawCal() rebuild the grid. Previously every touchmove during
@@ -715,7 +731,7 @@ function apptModal(a,date,time){
   // or removing a service) — otherwise anything the user just typed gets
   // thrown away and replaced with the original appointment's values.
   let fClient=a?.client||'', fPhone=a?.phone||'', fDate=a?.date||date||today(),
-      fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fPaid=a?.paid||0, fNote=a?.note||'';
+      fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fNote=a?.note||'';
   let matSearchQ='';
   const captureFields=()=>{
     if($('fc'))fClient=$('fc').value;
@@ -723,7 +739,6 @@ function apptModal(a,date,time){
     if($('fd'))fDate=$('fd').value;
     if($('ft'))fTime=$('ft').value;
     if($('fst'))fStatus=$('fst').value;
-    if($('fm'))fPaid=+$('fm').value||0;
     if($('fn'))fNote=$('fn').value;
     if($('fmsearch'))matSearchQ=$('fmsearch').value;
     const hEl=$('fdh'),mEl=$('fdm');if(hEl&&mEl)durOverride=+hEl.value*60+ +mEl.value;
@@ -843,12 +858,6 @@ function apptModal(a,date,time){
         <option value="done" ${fStatus==='done'?'selected':''}>Виконано</option>
         <option value="cancelled" ${fStatus==='cancelled'?'selected':''}>Скасовано</option>
       </select></div>
-      <div class="field"><label>Оплачено (грн)</label>
-        <div style="display:flex;gap:8px">
-          <input type="number" class="fi" id="fm" value="${fPaid}" style="flex:1"/>
-          <button type="button" class="btn bp bs" id="fpaidBtn" style="white-space:nowrap">${svg('M20 6L9 17l-5-5',13)} Оплачено</button>
-        </div>
-      </div>
       <div class="field"><label>Примітка</label><textarea class="fi" id="fn">${fNote}</textarea></div>
       <div class="mf">
         ${a?`<button class="btn bd bs" id="fdel">Видалити</button>`:''}
@@ -948,25 +957,12 @@ function apptModal(a,date,time){
       selMats[+inp.dataset.matqty].qty=+e.target.value||0;
       updateAllLiveDisplays();
     }));
-    $('fpaidBtn').onclick=()=>{
-      // Read the freshest discount values straight from the inputs — not the
-      // possibly-stale selSvcs snapshot — so "Оплачено" always fills in
-      // exactly what's shown on screen right now.
-      $('modal').querySelectorAll('[data-adj]').forEach(inp=>{if(selSvcs[+inp.dataset.adj])selSvcs[+inp.dataset.adj].adj=+inp.value||0;});
-      const totalNow=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
-      $('fm').value=totalNow;
-      // Only "done" appointments count as revenue in Аналітика, so marking
-      // paid also marks the visit complete — otherwise the payment would be
-      // recorded but silently excluded from every revenue/margin card.
-      $('fst').value='done';
-    };
     $('fsave').onclick=async()=>{
       const client=$('fc').value;
       if(!client||selSvcs.length===0){alert("Заповніть ім'я та оберіть послугу");return;}
       // Read current adj + material qty values before saving
       $('modal').querySelectorAll('[data-adj]').forEach(inp=>{selSvcs[+inp.dataset.adj].adj=+inp.value||0;});
       $('modal').querySelectorAll('[data-matqty]').forEach(inp=>{selMats[+inp.dataset.matqty].qty=+inp.value||0;});
-      const totalPaid=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
       const finalDuration=+$('fdh').value*60 + +$('fdm').value;
       const newStatus=$('fst').value;
       const materialsUsedFinal=selMats.filter(sm=>sm.matId&&sm.qty>0).map(sm=>({matId:sm.matId,qty:sm.qty}));
@@ -991,12 +987,15 @@ function apptModal(a,date,time){
         await updateDoc(doc(db,'materials',mid),{qty:+Math.max(0,(m.qty||0)-deltaSht).toFixed(4)});
       }
 
+      // No separate "Оплачено" amount — revenue for a "Виконано" appointment
+      // is simply its full service total (apptTotalPrice), computed live in
+      // the analytics tab. Nothing to persist here beyond the visit itself.
       const data={client,phone:$('fp').value,serviceId:selSvcs[0].serviceId,
         services:selSvcs.map(s=>({serviceId:s.serviceId,adj:s.adj||0})),
         date:$('fd').value,time:$('ft').value,status:newStatus,
         customDuration:finalDuration,
         materialsUsed:materialsUsedFinal,materialCost:materialCostFinal,
-        paid:+$('fm').value||(newStatus==='done'?totalPaid:0),note:$('fn').value};
+        note:$('fn').value};
       if(a)await updateDoc(doc(db,'appointments',a.id),data);
       else await addDoc(collection(db,'appointments'),data);
       hide();
@@ -1382,7 +1381,7 @@ function drawStats(){
     if(period==='month')return d.getMonth()===now2.getMonth()&&d.getFullYear()===now2.getFullYear();
     return d.getFullYear()===now2.getFullYear();
   });
-  const rev=done.reduce((s,a)=>s+(a.paid||svcs.find(sv=>sv.id===a.serviceId)?.price||0),0);
+  const rev=done.reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);
   const exp=recOps.reduce((s,o)=>s+(o.total||0),0),profit=rev-exp,avg=done.length?rev/done.length:0;
   // Собівартість матеріалів, реально списаних під виконані записи (точний
   // варіант — сума materialCost, збереженого на кожному запису), і маржа
@@ -1402,7 +1401,7 @@ function drawStats(){
   const bySvc=svcs.map(sv=>{
     const apptsForSvc=done.filter(a=>a.serviceId===sv.id);
     const cnt=apptsForSvc.length;
-    const rev=cnt*sv.price;
+    const rev=apptsForSvc.reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);
     const matCost=apptsForSvc.reduce((s,a)=>s+(a.materialCost||0),0);
     const margin=rev-matCost;
     const marginPct=rev>0?(margin/rev*100):0;
@@ -1411,7 +1410,7 @@ function drawStats(){
     return{...sv,cnt,rev,matCost,margin,marginPct,marginPerHour};
   }).filter(s=>s.cnt>0).sort((a,b)=>b.rev-a.rev);
   const maxS=Math.max(...bySvc.map(s=>s.rev),1);
-  const byDay=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map((l,i)=>{const dn=(i+1)%7,r=done.filter(a=>new Date(a.date+'T12:00:00').getDay()===dn).reduce((s,a)=>s+(svcs.find(sv=>sv.id===a.serviceId)?.price||0),0);return{l,r};});
+  const byDay=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map((l,i)=>{const dn=(i+1)%7,r=done.filter(a=>new Date(a.date+'T12:00:00').getDay()===dn).reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);return{l,r};});
   const maxD=Math.max(...byDay.map(d=>d.r),1);
   el.innerHTML=`
     <div class="chips">${[['week','Тиждень'],['month','Місяць'],['year','Рік']].map(([k,l])=>`<button class="chip ${period===k?'on':''}" data-p="${k}">${l}</button>`).join('')}</div>
