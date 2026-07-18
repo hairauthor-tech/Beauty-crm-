@@ -731,7 +731,7 @@ function apptModal(a,date,time){
   // or removing a service) — otherwise anything the user just typed gets
   // thrown away and replaced with the original appointment's values.
   let fClient=a?.client||'', fPhone=a?.phone||'', fDate=a?.date||date||today(),
-      fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fNote=a?.note||'';
+      fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fPaid=a?.paid||0, fNote=a?.note||'';
   let matSearchQ='';
   const captureFields=()=>{
     if($('fc'))fClient=$('fc').value;
@@ -739,6 +739,7 @@ function apptModal(a,date,time){
     if($('fd'))fDate=$('fd').value;
     if($('ft'))fTime=$('ft').value;
     if($('fst'))fStatus=$('fst').value;
+    if($('fm'))fPaid=+$('fm').value||0;
     if($('fn'))fNote=$('fn').value;
     if($('fmsearch'))matSearchQ=$('fmsearch').value;
     const hEl=$('fdh'),mEl=$('fdm');if(hEl&&mEl)durOverride=+hEl.value*60+ +mEl.value;
@@ -858,6 +859,7 @@ function apptModal(a,date,time){
         <option value="done" ${fStatus==='done'?'selected':''}>Виконано</option>
         <option value="cancelled" ${fStatus==='cancelled'?'selected':''}>Скасовано</option>
       </select></div>
+      <div class="field"><label>Оплачено (грн)</label><input type="number" class="fi" id="fm" value="${fPaid}"/></div>
       <div class="field"><label>Примітка</label><textarea class="fi" id="fn">${fNote}</textarea></div>
       <div class="mf">
         ${a?`<button class="btn bd bs" id="fdel">Видалити</button>`:''}
@@ -987,15 +989,15 @@ function apptModal(a,date,time){
         await updateDoc(doc(db,'materials',mid),{qty:+Math.max(0,(m.qty||0)-deltaSht).toFixed(4)});
       }
 
-      // No separate "Оплачено" amount — revenue for a "Виконано" appointment
-      // is simply its full service total (apptTotalPrice), computed live in
-      // the analytics tab. Nothing to persist here beyond the visit itself.
+      // Manual "Оплачено" amount, exactly as typed — no button, no auto
+      // status changes. If left empty/0, analytics falls back to the full
+      // service total (apptTotalPrice) for "Виконано" visits.
       const data={client,phone:$('fp').value,serviceId:selSvcs[0].serviceId,
         services:selSvcs.map(s=>({serviceId:s.serviceId,adj:s.adj||0})),
         date:$('fd').value,time:$('ft').value,status:newStatus,
         customDuration:finalDuration,
         materialsUsed:materialsUsedFinal,materialCost:materialCostFinal,
-        note:$('fn').value};
+        paid:+$('fm').value||0,note:$('fn').value};
       if(a)await updateDoc(doc(db,'appointments',a.id),data);
       else await addDoc(collection(db,'appointments'),data);
       hide();
