@@ -731,7 +731,7 @@ function apptModal(a,date,time){
   // or removing a service) — otherwise anything the user just typed gets
   // thrown away and replaced with the original appointment's values.
   let fClient=a?.client||'', fPhone=a?.phone||'', fDate=a?.date||date||today(),
-      fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fPaid=a?.paid||0, fNote=a?.note||'';
+      fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fPaid=a?.paid||0, fTips=a?.tips||0, fNote=a?.note||'';
   let matSearchQ='';
   const captureFields=()=>{
     if($('fc'))fClient=$('fc').value;
@@ -740,6 +740,7 @@ function apptModal(a,date,time){
     if($('ft'))fTime=$('ft').value;
     if($('fst'))fStatus=$('fst').value;
     if($('fm'))fPaid=+$('fm').value||0;
+    if($('ftip'))fTips=+$('ftip').value||0;
     if($('fn'))fNote=$('fn').value;
     if($('fmsearch'))matSearchQ=$('fmsearch').value;
     const hEl=$('fdh'),mEl=$('fdm');if(hEl&&mEl)durOverride=+hEl.value*60+ +mEl.value;
@@ -860,6 +861,7 @@ function apptModal(a,date,time){
         <option value="cancelled" ${fStatus==='cancelled'?'selected':''}>Скасовано</option>
       </select></div>
       <div class="field"><label>Оплачено (грн)</label><input type="number" class="fi" id="fm" value="${fPaid}"/></div>
+      <div class="field"><label>Чайові (грн)</label><input type="number" class="fi" id="ftip" value="${fTips}" placeholder="0"/></div>
       <div class="field"><label>Примітка</label><textarea class="fi" id="fn">${fNote}</textarea></div>
       <div class="mf">
         ${a?`<button class="btn bd bs" id="fdel">Видалити</button>`:''}
@@ -882,7 +884,20 @@ function apptModal(a,date,time){
     $('fsadd').onchange=e=>{
       if(!e.target.value)return;
       captureDur();
-      selSvcs.push({serviceId:e.target.value,adj:0});
+      const svcId=e.target.value;
+      selSvcs.push({serviceId:svcId,adj:0});
+      // Auto-carry the service's standard "recipe" materials into this
+      // appointment — this is exactly what lets shampoo/conditioner count
+      // toward the margin without being typed in every single visit.
+      // Existing lines for the same material get topped up rather than
+      // duplicated (e.g. two services in one visit that both use the same
+      // conditioner).
+      const svc=svcs.find(sv=>sv.id===svcId);
+      (svc?.defaultMaterials||[]).forEach(dm=>{
+        const existing=selMats.find(sm=>sm.matId===dm.matId);
+        if(existing)existing.qty=(existing.qty||0)+(dm.qty||0);
+        else selMats.push({matId:dm.matId,qty:dm.qty||0});
+      });
       e.target.value='';
       renderApptModal();
     };
@@ -997,7 +1012,7 @@ function apptModal(a,date,time){
         date:$('fd').value,time:$('ft').value,status:newStatus,
         customDuration:finalDuration,
         materialsUsed:materialsUsedFinal,materialCost:materialCostFinal,
-        paid:+$('fm').value||0,note:$('fn').value};
+        paid:+$('fm').value||0,tips:+$('ftip').value||0,note:$('fn').value};
       if(a)await updateDoc(doc(db,'appointments',a.id),data);
       else await addDoc(collection(db,'appointments'),data);
       hide();
@@ -1338,24 +1353,107 @@ function drawSvc(){
 }
 
 function svcModal(id){
-  const s=id?svcs.find(x=>x.id===id):{},dur=s?.duration||60,hh=Math.floor(dur/60),mm=dur%60;
-  show(`
-    <div class="mh"><div class="mt">${id?'Редагувати':'Нова послуга'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-    <div class="field"><label>Назва</label><input class="fi" id="sn" value="${s?.name||''}" placeholder="Стрижка, Фарбування..."/></div>
-    <div class="field"><label>Ціна (грн)</label><input type="number" class="fi" id="sp" value="${s?.price||0}"/></div>
-    <div class="field"><label>Тривалість</label>
-      <div class="g2">
-        <select class="fi" id="sdh">${Array.from({length:9},(_,i)=>`<option value="${i}" ${hh===i?'selected':''}>${i} год</option>`).join('')}</select>
-        <select class="fi" id="sdm">${[0,15,30,45].map(m=>`<option value="${m}" ${mm===m?'selected':''}>${m} хв</option>`).join('')}</select>
-      </div>
-    </div>
-    <div class="mf"><button class="btn bg" id="mc">Скасувати</button><button class="btn bp" id="ms">Зберегти</button></div>`);
-  $('mx').onclick=hide;$('mc').onclick=hide;
-  $('ms').onclick=async()=>{
-    const d={name:$('sn').value,price:+$('sp').value,duration:+$('sdh').value*60 + +$('sdm').value};
-    if(!d.name||!d.price){alert('Заповніть поля');return;}
-    if(id)await updateDoc(doc(db,'services',id),d);else await addDoc(collection(db,'services'),d);hide();
+  const s=id?svcs.find(x=>x.id===id):{};
+  const dur=s?.duration||60,hh=Math.floor(dur/60),mm=dur%60;
+  // The service's standard "recipe" — materials + quantities that get
+  // auto-added to every appointment that includes this service, so shampoo/
+  // conditioner etc. don't need to be typed in by hand each visit but still
+  // count toward that service's material cost and margin.
+  let selMats=(s&&Array.isArray(s.defaultMaterials))?s.defaultMaterials.map(m=>({matId:m.matId,qty:m.qty})):[];
+  let matSearchQ='';
+  const matListSorted=[...mats].sort((x,y)=>x.name.localeCompare(y.name));
+  const renderPickList=q=>{
+    const ql=(q||'').toLowerCase();
+    const filtered=matListSorted.filter(m=>!ql||m.name.toLowerCase().includes(ql));
+    return filtered.length?filtered.map(m=>{
+      const{unit}=matUnitInfo(m);
+      return`<div style="padding:9px 12px;border-bottom:1px solid var(--brd);cursor:pointer;display:flex;justify-content:space-between" data-pickmat="${m.id}">
+        <span style="font-size:13px">${m.name}</span><span style="font-size:11px;color:var(--mut)">${unit}</span>
+      </div>`;
+    }).join(''):'<div style="padding:12px;color:var(--dim);text-align:center;font-size:12px">Нічого не знайдено</div>';
   };
+  function render(){
+    const matRows=selMats.map((sm,i)=>{
+      const m=mats.find(x=>x.id===sm.matId);
+      const{unit,ppu}=m?matUnitInfo(m):{unit:'шт',ppu:0};
+      const cost=(sm.qty||0)*ppu;
+      return`<div style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+          <div style="font-size:13px;font-weight:600">${m?.name||'?'}</div>
+          <button class="bi bs" data-rmmat="${i}">${svg(ic.x,12,'var(--err)')}</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="flex:1">
+            <div style="font-size:10px;color:var(--mut);margin-bottom:3px">Кількість (${unit}) на 1 послугу</div>
+            <input type="number" step="0.1" value="${sm.qty||0}" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px 8px;color:var(--txt);font-size:13px;outline:none" data-matqty="${i}" placeholder="0"/>
+          </div>
+          <div style="text-align:right;min-width:70px">
+            <div style="font-size:10px;color:var(--mut)">Вартість</div>
+            <div style="font-size:14px;font-weight:700;color:var(--sil)" data-matcost="${i}">${cost.toFixed(2)} грн</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    const totalMatCost=selMats.reduce((s2,sm)=>{const m=mats.find(x=>x.id===sm.matId);return s2+(sm.qty||0)*matUnitInfo(m).ppu;},0);
+    $('modal').innerHTML=`
+      <div class="mh"><div class="mt">${id?'Редагувати':'Нова послуга'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <div class="field"><label>Назва</label><input class="fi" id="sn" value="${s?.name||''}" placeholder="Стрижка, Фарбування..."/></div>
+      <div class="field"><label>Ціна (грн)</label><input type="number" class="fi" id="sp" value="${s?.price||0}"/></div>
+      <div class="field"><label>Тривалість</label>
+        <div class="g2">
+          <select class="fi" id="sdh">${Array.from({length:9},(_,i)=>`<option value="${i}" ${hh===i?'selected':''}>${i} год</option>`).join('')}</select>
+          <select class="fi" id="sdm">${[0,15,30,45].map(m=>`<option value="${m}" ${mm===m?'selected':''}>${m} хв</option>`).join('')}</select>
+        </div>
+      </div>
+      <div class="field"><label>Стандартні матеріали на послугу ${selMats.length>0?`<span style="color:var(--acc);font-weight:700">${selMats.length} · ${totalMatCost.toFixed(2)} грн</span>`:''}</label>
+        <div style="font-size:11px;color:var(--dim);margin-bottom:8px">Автоматично додаватимуться в кожен новий запис із цією послугою — вписувати шампунь/кондиціонер вручну щоразу не треба. Кількість можна буде підкоригувати прямо в записі.</div>
+        ${matRows}
+        <input class="fi" id="smsearch" style="margin-top:8px" placeholder="🔍 Пошук матеріалу..." value="${matSearchQ}"/>
+        <div id="matPickList" style="max-height:160px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px;margin-top:6px">${renderPickList(matSearchQ)}</div>
+      </div>
+      <div class="mf"><button class="btn bg" id="mc">Скасувати</button><button class="btn bp" id="ms">Зберегти</button></div>`;
+    $('mx').onclick=hide;$('mc').onclick=hide;
+    const capture=()=>{
+      $('modal').querySelectorAll('[data-matqty]').forEach(inp=>{if(selMats[+inp.dataset.matqty])selMats[+inp.dataset.matqty].qty=+inp.value||0;});
+      if($('smsearch'))matSearchQ=$('smsearch').value;
+    };
+    const bindPick=()=>{
+      $('modal').querySelectorAll('[data-pickmat]').forEach(el2=>{
+        el2.onclick=()=>{
+          capture();
+          selMats.push({matId:el2.dataset.pickmat,qty:0});
+          matSearchQ='';
+          render();
+        };
+      });
+    };
+    bindPick();
+    $('smsearch').addEventListener('input',e=>{
+      $('matPickList').innerHTML=renderPickList(e.target.value);
+      bindPick();
+    });
+    $('modal').querySelectorAll('[data-rmmat]').forEach(b=>b.onclick=()=>{
+      capture();
+      selMats.splice(+b.dataset.rmmat,1);
+      render();
+    });
+    $('modal').querySelectorAll('[data-matqty]').forEach(inp=>inp.addEventListener('input',e=>{
+      const idx=+inp.dataset.matqty;
+      selMats[idx].qty=+e.target.value||0;
+      const m=mats.find(x=>x.id===selMats[idx].matId);
+      const costEl=$('modal').querySelector(`[data-matcost="${idx}"]`);
+      if(costEl)costEl.textContent=(selMats[idx].qty*matUnitInfo(m).ppu).toFixed(2)+' грн';
+    }));
+    $('ms').onclick=async()=>{
+      capture();
+      const d={name:$('sn').value,price:+$('sp').value,duration:+$('sdh').value*60 + +$('sdm').value,
+        defaultMaterials:selMats.filter(sm=>sm.matId&&sm.qty>0).map(sm=>({matId:sm.matId,qty:sm.qty}))};
+      if(!d.name||!d.price){alert('Заповніть поля');return;}
+      if(id)await updateDoc(doc(db,'services',id),d);else await addDoc(collection(db,'services'),d);
+      hide();
+    };
+  }
+  render();
 }
 
 // ══════════════════════════════════════════════════
@@ -1395,7 +1493,10 @@ function drawStats(){
   // тощо, введені у вкладці «Витрати». Чистий прибуток — це те, що
   // фактично залишається після собівартості матеріалів І цих витрат.
   const otherExpTotal=otherExps.reduce((s,o)=>s+(o.amount||0),0);
-  const netProfit=svcMargin-otherExpTotal;
+  // Чайові — окремі від "Виручки" (яка відображає ціну послуг), але це
+  // реальні гроші в кишені, тож враховуються в "Чистому прибутку".
+  const tipsTotal=done.reduce((s,a)=>s+(a.tips||0),0);
+  const netProfit=svcMargin-otherExpTotal+tipsTotal;
   // Прив'язка йде по "головній" послузі запису (a.serviceId), як і раніше —
   // для записів з кількома послугами вся собівартість матеріалів і час
   // запису відносяться на першу/головну послугу (той самий спрощений підхід,
@@ -1424,6 +1525,7 @@ function drawStats(){
       <div class="sc"><div class="sv" style="color:var(--wrn)">${fmt(matCostTotal)} грн</div><div class="sl">Собівартість матеріалів</div></div>
       <div class="sc"><div class="sv" style="color:${svcMargin>=0?'var(--ok)':'var(--err)'}">${fmt(svcMargin)} грн</div><div class="sl">Маржа (${svcMarginPct.toFixed(0)}%)</div></div>
       <div class="sc"><div class="sv" style="color:var(--err)">${fmt(otherExpTotal)} грн</div><div class="sl">Інші витрати</div></div>
+      <div class="sc"><div class="sv" style="color:var(--ok)">${fmt(tipsTotal)} грн</div><div class="sl">Чайові</div></div>
       <div class="sc"><div class="sv" style="color:${netProfit>=0?'var(--ok)':'var(--err)'}">${fmt(netProfit)} грн</div><div class="sl">Чистий прибуток</div></div>
     </div>
     <div class="card"><div class="sec" style="margin-top:0">По днях тижня</div>
