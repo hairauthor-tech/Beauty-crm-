@@ -716,6 +716,7 @@ function apptModal(a,date,time){
   // thrown away and replaced with the original appointment's values.
   let fClient=a?.client||'', fPhone=a?.phone||'', fDate=a?.date||date||today(),
       fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fPaid=a?.paid||0, fNote=a?.note||'';
+  let matSearchQ='';
   const captureFields=()=>{
     if($('fc'))fClient=$('fc').value;
     if($('fp'))fPhone=$('fp').value;
@@ -724,6 +725,7 @@ function apptModal(a,date,time){
     if($('fst'))fStatus=$('fst').value;
     if($('fm'))fPaid=+$('fm').value||0;
     if($('fn'))fNote=$('fn').value;
+    if($('fmsearch'))matSearchQ=$('fmsearch').value;
     const hEl=$('fdh'),mEl=$('fdm');if(hEl&&mEl)durOverride=+hEl.value*60+ +mEl.value;
   };
 
@@ -759,7 +761,17 @@ function apptModal(a,date,time){
     const fmtTotalDur=d=>{const h=Math.floor(d/60),m=d%60;return(h>0?h+'г ':'')+( m>0?m+'хв':'');};
 
     // ── Materials used on this appointment ──────────────────────────
-    const matOpts=mats.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+    const matListSorted=[...mats].sort((x,y)=>x.name.localeCompare(y.name));
+    const renderMatPickList=q=>{
+      const ql=(q||'').toLowerCase();
+      const filtered=matListSorted.filter(m=>!ql||m.name.toLowerCase().includes(ql));
+      return filtered.length?filtered.map(m=>{
+        const{unit}=matUnitInfo(m);
+        return`<div style="padding:9px 12px;border-bottom:1px solid var(--brd);cursor:pointer;display:flex;justify-content:space-between" data-pickmat="${m.id}">
+          <span style="font-size:13px">${m.name}</span><span style="font-size:11px;color:var(--mut)">${unit}</span>
+        </div>`;
+      }).join(''):'<div style="padding:12px;color:var(--dim);text-align:center;font-size:12px">Нічого не знайдено</div>';
+    };
     const matRows=selMats.map((sm,i)=>{
       const m=mats.find(x=>x.id===sm.matId);
       const{unit,ppu,availUnits}=matUnitInfo(m);
@@ -809,9 +821,8 @@ function apptModal(a,date,time){
       </div>
       <div class="field"><label>Матеріали на запис <span id="matHeaderInfo" style="color:var(--acc);font-weight:700">${selMats.length>0?`${selMats.length} · ${totalMatCost.toFixed(2)} грн`:''}</span></label>
         ${matRows}
-        <select class="fi" id="fmadd" style="margin-top:8px">
-          <option value="">+ Додати матеріал</option>${matOpts}
-        </select>
+        <input class="fi" id="fmsearch" style="margin-top:8px" placeholder="🔍 Пошук матеріалу..." value="${matSearchQ}"/>
+        <div id="matPickList" style="max-height:160px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px;margin-top:6px">${renderMatPickList(matSearchQ)}</div>
       </div>
       <div class="card" style="margin-bottom:13px;padding:12px 14px">
         <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px"><span style="color:var(--mut)">Собівартість матеріалів:</span><span id="fmatcosttxt" style="font-weight:700;color:var(--err)">${totalMatCost.toFixed(2)} грн</span></div>
@@ -832,7 +843,12 @@ function apptModal(a,date,time){
         <option value="done" ${fStatus==='done'?'selected':''}>Виконано</option>
         <option value="cancelled" ${fStatus==='cancelled'?'selected':''}>Скасовано</option>
       </select></div>
-      <div class="field"><label>Оплачено (грн)</label><input type="number" class="fi" id="fm" value="${fPaid}"/></div>
+      <div class="field"><label>Оплачено (грн)</label>
+        <div style="display:flex;gap:8px">
+          <input type="number" class="fi" id="fm" value="${fPaid}" style="flex:1"/>
+          <button type="button" class="btn bp bs" id="fpaidBtn" style="white-space:nowrap">${svg('M20 6L9 17l-5-5',13)} Оплачено</button>
+        </div>
+      </div>
       <div class="field"><label>Примітка</label><textarea class="fi" id="fn">${fNote}</textarea></div>
       <div class="mf">
         ${a?`<button class="btn bd bs" id="fdel">Видалити</button>`:''}
@@ -864,13 +880,21 @@ function apptModal(a,date,time){
       selSvcs.splice(+b.dataset.rmsvc,1);
       renderApptModal();
     });
-    $('fmadd').onchange=e=>{
-      if(!e.target.value)return;
-      captureDur();
-      selMats.push({matId:e.target.value,qty:0});
-      e.target.value='';
-      renderApptModal();
-    };
+    function bindMatPickHandlers(){
+      $('modal').querySelectorAll('[data-pickmat]').forEach(el2=>{
+        el2.onclick=()=>{
+          captureDur();
+          selMats.push({matId:el2.dataset.pickmat,qty:0});
+          matSearchQ='';
+          renderApptModal();
+        };
+      });
+    }
+    bindMatPickHandlers();
+    $('fmsearch').addEventListener('input',e=>{
+      $('matPickList').innerHTML=renderMatPickList(e.target.value);
+      bindMatPickHandlers();
+    });
     $('modal').querySelectorAll('[data-rmmat]').forEach(b=>b.onclick=()=>{
       captureDur();
       selMats.splice(+b.dataset.rmmat,1);
@@ -924,6 +948,18 @@ function apptModal(a,date,time){
       selMats[+inp.dataset.matqty].qty=+e.target.value||0;
       updateAllLiveDisplays();
     }));
+    $('fpaidBtn').onclick=()=>{
+      // Read the freshest discount values straight from the inputs — not the
+      // possibly-stale selSvcs snapshot — so "Оплачено" always fills in
+      // exactly what's shown on screen right now.
+      $('modal').querySelectorAll('[data-adj]').forEach(inp=>{if(selSvcs[+inp.dataset.adj])selSvcs[+inp.dataset.adj].adj=+inp.value||0;});
+      const totalNow=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
+      $('fm').value=totalNow;
+      // Only "done" appointments count as revenue in Аналітика, so marking
+      // paid also marks the visit complete — otherwise the payment would be
+      // recorded but silently excluded from every revenue/margin card.
+      $('fst').value='done';
+    };
     $('fsave').onclick=async()=>{
       const client=$('fc').value;
       if(!client||selSvcs.length===0){alert("Заповніть ім'я та оберіть послугу");return;}
