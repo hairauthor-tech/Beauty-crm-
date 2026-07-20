@@ -138,6 +138,8 @@ catch(e){ /* multiple tabs open, or browser doesn't support it — app still wor
 let svcs=[], mats=[], appts=[], ops=[], exps=[];
 let tab='cal', calView=1;
 let stockCat='Всі', stockQ='', period='month';
+let periodFrom='', periodTo='';
+let histType='Всі', histQ='';
 let expCat='Всі', expPeriod='month';
 let customExpCats=JSON.parse(localStorage.getItem('expCats')||'[]');
 let theme=localStorage.getItem('theme')||'dark';
@@ -1321,26 +1323,51 @@ function spendModal(id){
 }
 
 function historyModal(){
-  const rec=ops.slice(-40).reverse();
-  const rows=rec.map(o=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
-      <div style="flex:1"><div style="font-size:11px;font-weight:700;color:${o.type==='receive'?'var(--ok)':'var(--err)'}">${o.type==='receive'?'📦 Прихід':'📉 Витрата'}</div>
-        <div style="font-size:13px;margin:2px 0">${o.matName||'?'}</div>
-        <div style="font-size:11px;color:var(--mut)">${o.date} · ${o.qty} ${o.unit||'шт'}${o.disc?' · -'+o.disc+'%':''}</div>
-        ${o.note?`<div style="font-size:11px;color:var(--dim)">${o.note}</div>`:''}
-      </div>
-      <div style="text-align:right"><div style="font-weight:700;font-size:13px;color:var(--sil)">${fmt(o.total)} грн</div>
-        <button class="bi bs" style="margin-top:4px" data-oid="${o.id}" data-omid="${o.matId}" data-otype="${o.type}" data-oqty="${o.qty}">${svg(ic.x,12,'var(--err)')}</button>
-      </div>
-    </div>`).join('');
-  show(`<div class="mh"><div class="mt">Історія операцій</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>${rec.length===0?'<div class="empty">Операцій немає</div>':rows}`);
-  $('mx').onclick=hide;
-  $('modal').querySelectorAll('[data-oid]').forEach(b=>b.onclick=async()=>{
-    if(!confirm('Скасувати?'))return;
-    const m=mats.find(x=>x.id===b.dataset.omid);
-    if(m){const q=+b.dataset.oqty,nq=b.dataset.otype==='receive'?Math.max(0,m.qty-q):m.qty+q;await updateDoc(doc(db,'materials',b.dataset.omid),{qty:+nq.toFixed(4)});}
-    await deleteDoc(doc(db,'purchases',b.dataset.oid));hide();
-  });
+  function render(){
+    // Sorted by the operation's OWN date (descending) — not by the order it
+    // happened to be added to Firestore — which is what made the list look
+    // chaotic when dates were backfilled or entered out of order.
+    const filtered=ops.filter(o=>
+      (histType==='Всі'||(histType==='Прихід'?o.type==='receive':o.type==='spend'))&&
+      (!histQ||(o.matName||'').toLowerCase().includes(histQ.toLowerCase()))
+    ).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.id||'').localeCompare(a.id||''));
+
+    let lastDate=null,rows='';
+    for(const o of filtered){
+      if(o.date!==lastDate){
+        lastDate=o.date;
+        rows+=`<div style="font-size:11px;font-weight:700;color:var(--mut);letter-spacing:.05em;text-transform:uppercase;margin:14px 0 6px">${fmtL(o.date)}</div>`;
+      }
+      rows+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
+        <div style="flex:1"><div style="font-size:11px;font-weight:700;color:${o.type==='receive'?'var(--ok)':'var(--err)'}">${o.type==='receive'?'📦 Прихід':'📉 Витрата'}</div>
+          <div style="font-size:13px;margin:2px 0">${o.matName||'?'}</div>
+          <div style="font-size:11px;color:var(--mut)">${o.qty} ${o.unit||'шт'}${o.disc?' · -'+o.disc+'%':''}</div>
+          ${o.note?`<div style="font-size:11px;color:var(--dim)">${o.note}</div>`:''}
+        </div>
+        <div style="text-align:right"><div style="font-weight:700;font-size:13px;color:var(--sil)">${fmt(o.total)} грн</div>
+          <button class="bi bs" style="margin-top:4px" data-oid="${o.id}" data-omid="${o.matId}" data-otype="${o.type}" data-oqty="${o.qty}">${svg(ic.x,12,'var(--err)')}</button>
+        </div>
+      </div>`;
+    }
+    $('modal').innerHTML=`
+      <div class="mh"><div class="mt">Історія операцій</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <div class="chips">${['Всі','Прихід','Витрата'].map(t=>`<button class="chip ${histType===t?'on':''}" data-ht="${t}">${t}</button>`).join('')}</div>
+      <input class="fi" id="hq" style="margin-bottom:10px" placeholder="🔍 Пошук за назвою..." value="${histQ}"/>
+      ${filtered.length===0?'<div class="empty">Нічого не знайдено</div>':rows}`;
+    $('mx').onclick=hide;
+    $('modal').querySelectorAll('[data-ht]').forEach(b=>b.onclick=()=>{histType=b.dataset.ht;render();});
+    $('hq').addEventListener('input',e=>{
+      histQ=e.target.value;render();
+      setTimeout(()=>{const el2=$('hq');if(el2){el2.focus();el2.setSelectionRange(el2.value.length,el2.value.length);}},10);
+    });
+    $('modal').querySelectorAll('[data-oid]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('Скасувати?'))return;
+      const m=mats.find(x=>x.id===b.dataset.omid);
+      if(m){const q=+b.dataset.oqty,nq=b.dataset.otype==='receive'?Math.max(0,m.qty-q):m.qty+q;await updateDoc(doc(db,'materials',b.dataset.omid),{qty:+nq.toFixed(4)});}
+      await deleteDoc(doc(db,'purchases',b.dataset.oid));hide();
+    });
+  }
+  show("");render();
 }
 
 // ══════════════════════════════════════════════════
@@ -1477,26 +1504,28 @@ function svcModal(id){
 // ══════════════════════════════════════════════════
 function drawStats(){
   const el=$('t-stats'),now2=new Date();
-  const done=appts.filter(a=>{
-    if(a.status!=='done')return false;
-    const d=new Date(a.date+'T12:00:00');
+  // Default the custom range to today the first time it's needed, without
+  // touching the module-load-time state (today() isn't defined yet at that
+  // point in the file, so this has to happen lazily, at render time).
+  if(!periodFrom)periodFrom=today();
+  if(!periodTo)periodTo=today();
+  // Single shared predicate for "is this date inside the selected period" —
+  // used for appointments, purchases, and other expenses alike, so День /
+  // Тиждень / Місяць / Рік / Період (довільний діапазон) all behave
+  // consistently everywhere in this tab.
+  const inSelPeriod=dateStr=>{
+    if(!dateStr)return false;
+    const d=new Date(dateStr+'T12:00:00');
+    if(period==='day')return dateStr===today();
     if(period==='week'){const w=new Date(now2);w.setDate(now2.getDate()-7);return d>=w;}
     if(period==='month')return d.getMonth()===now2.getMonth()&&d.getFullYear()===now2.getFullYear();
-    return d.getFullYear()===now2.getFullYear();
-  });
-  const recOps=ops.filter(o=>{
-    if(o.type!=='receive')return false;
-    const d=new Date(o.date+'T12:00:00');
-    if(period==='week'){const w=new Date(now2);w.setDate(now2.getDate()-7);return d>=w;}
-    if(period==='month')return d.getMonth()===now2.getMonth()&&d.getFullYear()===now2.getFullYear();
-    return d.getFullYear()===now2.getFullYear();
-  });
-  const otherExps=exps.filter(o=>{
-    const d=new Date(o.date+'T12:00:00');
-    if(period==='week'){const w=new Date(now2);w.setDate(now2.getDate()-7);return d>=w;}
-    if(period==='month')return d.getMonth()===now2.getMonth()&&d.getFullYear()===now2.getFullYear();
-    return d.getFullYear()===now2.getFullYear();
-  });
+    if(period==='year')return d.getFullYear()===now2.getFullYear();
+    if(period==='custom')return dateStr>=periodFrom&&dateStr<=periodTo;
+    return true;
+  };
+  const done=appts.filter(a=>a.status==='done'&&inSelPeriod(a.date));
+  const recOps=ops.filter(o=>o.type==='receive'&&inSelPeriod(o.date));
+  const otherExps=exps.filter(o=>inSelPeriod(o.date));
   const rev=done.reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);
   const exp=recOps.reduce((s,o)=>s+(o.total||0),0),profit=rev-exp,avg=done.length?rev/done.length:0;
   // Собівартість матеріалів, реально списаних під виконані записи (точний
@@ -1532,15 +1561,19 @@ function drawStats(){
   const byDay=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map((l,i)=>{const dn=(i+1)%7,r=done.filter(a=>new Date(a.date+'T12:00:00').getDay()===dn).reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);return{l,r};});
   const maxD=Math.max(...byDay.map(d=>d.r),1);
   el.innerHTML=`
-    <div class="chips">${[['week','Тиждень'],['month','Місяць'],['year','Рік']].map(([k,l])=>`<button class="chip ${period===k?'on':''}" data-p="${k}">${l}</button>`).join('')}</div>
+    <div class="chips">${[['day','День'],['week','Тиждень'],['month','Місяць'],['year','Рік'],['custom','Період']].map(([k,l])=>`<button class="chip ${period===k?'on':''}" data-p="${k}">${l}</button>`).join('')}</div>
+    ${period==='custom'?`<div class="g2" style="margin-bottom:12px">
+      <div class="field" style="margin-bottom:0"><label>Від</label><input type="date" class="fi" id="pdfrom" value="${periodFrom}"/></div>
+      <div class="field" style="margin-bottom:0"><label>До</label><input type="date" class="fi" id="pdto" value="${periodTo}"/></div>
+    </div>`:''}
     <div class="sg">
-      <div class="sc"><div class="sv" style="color:var(--sil)">${fmt(rev)} грн</div><div class="sl">Виручка</div><div style="color:var(--mut);font-size:11px">${done.length} послуг</div></div>
-      <div class="sc"><div class="sv" style="color:var(--err)">${fmt(exp)} грн</div><div class="sl">Витрати</div></div>
+      <div class="sc" id="cardRev" style="cursor:pointer"><div class="sv" style="color:var(--sil)">${fmt(rev)} грн</div><div class="sl">Виручка</div><div style="color:var(--mut);font-size:11px">${done.length} послуг</div></div>
+      <div class="sc" id="cardExp" style="cursor:pointer"><div class="sv" style="color:var(--err)">${fmt(exp)} грн</div><div class="sl">Витрати</div></div>
       <div class="sc"><div class="sv" style="color:${profit>=0?'var(--ok)':'var(--err)'}">${fmt(profit)} грн</div><div class="sl">Прибуток</div></div>
       <div class="sc"><div class="sv" style="color:var(--acs)">${fmt(avg)} грн</div><div class="sl">Сер. чек</div></div>
-      <div class="sc"><div class="sv" style="color:var(--wrn)">${fmt(matCostTotal)} грн</div><div class="sl">Собівартість матеріалів</div></div>
+      <div class="sc" id="cardMatCost" style="cursor:pointer"><div class="sv" style="color:var(--wrn)">${fmt(matCostTotal)} грн</div><div class="sl">Собівартість матеріалів</div></div>
       <div class="sc"><div class="sv" style="color:${svcMargin>=0?'var(--ok)':'var(--err)'}">${fmt(svcMargin)} грн</div><div class="sl">Маржа (${svcMarginPct.toFixed(0)}%)</div></div>
-      <div class="sc"><div class="sv" style="color:var(--err)">${fmt(otherExpTotal)} грн</div><div class="sl">Інші витрати</div></div>
+      <div class="sc" id="cardOtherExp" style="cursor:pointer"><div class="sv" style="color:var(--err)">${fmt(otherExpTotal)} грн</div><div class="sl">Інші витрати</div></div>
       <div class="sc"><div class="sv" style="color:var(--ok)">${fmt(tipsTotal)} грн</div><div class="sl">Чайові</div></div>
       <div class="sc"><div class="sv" style="color:${netProfit>=0?'var(--ok)':'var(--err)'}">${fmt(netProfit)} грн</div><div class="sl">Чистий прибуток</div></div>
     </div>
@@ -1583,6 +1616,87 @@ function drawStats(){
         </div>`).join('')}
     </div>`;
   el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{period=b.dataset.p;drawStats();});
+  const pf=$('pdfrom'),pt=$('pdto');
+  if(pf)pf.onchange=()=>{periodFrom=pf.value;drawStats();};
+  if(pt)pt.onchange=()=>{periodTo=pt.value;drawStats();};
+  // Tap-to-drill-down: each of these cards opens a modal listing exactly
+  // which appointments/purchases/expenses make up that number for the
+  // currently selected period, so the totals are auditable rather than
+  // just trusted at face value.
+  $('cardRev').onclick=()=>revenueDetailModal(done);
+  $('cardExp').onclick=()=>purchasesDetailModal(recOps);
+  $('cardMatCost').onclick=()=>materialsDetailModal(done);
+  $('cardOtherExp').onclick=()=>expensesDetailModal(otherExps);
+}
+
+// Drill-down modals for the clickable Аналітика cards ───────────────────
+function revenueDetailModal(list){
+  const sorted=[...list].sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
+  const total=sorted.reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);
+  const rows=sorted.map(a=>{
+    const svcNames=a.services?a.services.map(s=>{const sid=typeof s==='object'?s.serviceId:s;return svcs.find(sv=>sv.id===sid)?.name||'';}).filter(Boolean).join('+'):(svcs.find(sv=>sv.id===a.serviceId)?.name||'');
+    const amt=a.paid||apptTotalPrice(a);
+    return`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--brd)">
+      <div><div style="font-size:13px;font-weight:600">${a.client||'—'}</div><div style="font-size:11px;color:var(--mut)">${fmtS(a.date)} ${a.time||''} · ${svcNames}</div></div>
+      <div style="font-weight:700;color:var(--sil);white-space:nowrap">${fmt(amt)} грн</div>
+    </div>`;
+  }).join('');
+  show(`<div class="mh"><div class="mt">Виручка — деталізація</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    <div style="text-align:right;font-weight:700;font-size:15px;color:var(--sil);margin-bottom:8px">Разом: ${fmt(total)} грн · ${sorted.length} записів</div>
+    ${sorted.length===0?'<div class="empty">Немає записів за цей період</div>':rows}`);
+  $('mx').onclick=hide;
+}
+
+function materialsDetailModal(list){
+  const agg={};
+  list.forEach(a=>(a.materialsUsed||[]).forEach(mu=>{
+    if(!agg[mu.matId])agg[mu.matId]=0;
+    agg[mu.matId]+=mu.qty||0;
+  }));
+  const rows=Object.entries(agg).map(([matId,qty])=>{
+    const m=mats.find(x=>x.id===matId);
+    const{unit,ppu}=m?matUnitInfo(m):{unit:'шт',ppu:0};
+    return{name:m?.name||'?',qty,unit,cost:qty*ppu};
+  }).sort((a,b)=>b.cost-a.cost);
+  const total=rows.reduce((s,r)=>s+r.cost,0);
+  const rowsHtml=rows.map(r=>`
+    <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--brd)">
+      <div><div style="font-size:13px;font-weight:600">${r.name}</div><div style="font-size:11px;color:var(--mut)">${fmt(r.qty)} ${r.unit}</div></div>
+      <div style="font-weight:700;color:var(--wrn);white-space:nowrap">${fmt(r.cost)} грн</div>
+    </div>`).join('');
+  show(`<div class="mh"><div class="mt">Собівартість матеріалів — деталізація</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">Порахована за поточними цінами матеріалів — може трохи відрізнятись від збереженої на момент запису, якщо ціни відтоді змінювались.</div>
+    <div style="text-align:right;font-weight:700;font-size:15px;color:var(--sil);margin-bottom:8px">Разом: ${fmt(total)} грн</div>
+    ${rows.length===0?'<div class="empty">Матеріали не використовувались</div>':rowsHtml}`);
+  $('mx').onclick=hide;
+}
+
+function purchasesDetailModal(list){
+  const sorted=[...list].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const total=sorted.reduce((s,o)=>s+(o.total||0),0);
+  const rows=sorted.map(o=>`
+    <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--brd)">
+      <div><div style="font-size:13px">${o.matName||'?'}</div><div style="font-size:11px;color:var(--mut)">${fmtS(o.date)} · ${o.qty} шт${o.disc?' · -'+o.disc+'%':''}</div></div>
+      <div style="font-weight:700;color:var(--sil);white-space:nowrap">${fmt(o.total)} грн</div>
+    </div>`).join('');
+  show(`<div class="mh"><div class="mt">Витрати на закупівлі — деталізація</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    <div style="text-align:right;font-weight:700;font-size:15px;color:var(--sil);margin-bottom:8px">Разом: ${fmt(total)} грн</div>
+    ${sorted.length===0?'<div class="empty">Немає закупівель за цей період</div>':rows}`);
+  $('mx').onclick=hide;
+}
+
+function expensesDetailModal(list){
+  const sorted=[...list].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const total=sorted.reduce((s,o)=>s+(o.amount||0),0);
+  const rows=sorted.map(o=>`
+    <div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--brd)">
+      <div><div style="font-size:13px">${o.name||o.category||'Витрата'}</div><div style="font-size:11px;color:var(--mut)">${fmtS(o.date)} · ${o.category||''}</div></div>
+      <div style="font-weight:700;color:var(--err);white-space:nowrap">${fmt(o.amount)} грн</div>
+    </div>`).join('');
+  show(`<div class="mh"><div class="mt">Інші витрати — деталізація</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    <div style="text-align:right;font-weight:700;font-size:15px;color:var(--sil);margin-bottom:8px">Разом: ${fmt(total)} грн</div>
+    ${sorted.length===0?'<div class="empty">Немає витрат за цей період</div>':rows}`);
+  $('mx').onclick=hide;
 }
 
 // ══════════════════════════════════════════════════
