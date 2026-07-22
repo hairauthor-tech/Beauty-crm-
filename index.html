@@ -135,7 +135,7 @@ try{ await enableIndexedDbPersistence(db); }
 catch(e){ /* multiple tabs open, or browser doesn't support it — app still works, just without the cache cushion */ }
 
 // ── State ──────────────────────────────────────────
-let svcs=[], mats=[], appts=[], ops=[], exps=[];
+let svcs=[], mats=[], appts=[], ops=[], exps=[], drafts=[];
 let tab='cal', calView=1;
 let stockCat='Всі', stockQ='', period='month';
 let periodFrom='', periodTo='';
@@ -255,6 +255,7 @@ onSnapshot(collection(db,'appointments'),s=>{
 },onErr);
 onSnapshot(collection(db,'purchases'),s=>{ops=s.docs.map(d=>({id:d.id,...d.data()}));setConnBanner(false);scheduleDraw();},onErr);
 onSnapshot(collection(db,'expenses'),s=>{exps=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.date||'').localeCompare(a.date||''));setConnBanner(false);scheduleDraw();},onErr);
+onSnapshot(collection(db,'drafts'),s=>{drafts=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));setConnBanner(false);scheduleDraw();},onErr);
 
 $('hdate').textContent=fmtL(today());
 
@@ -1095,6 +1096,7 @@ function drawStock(){
       <button class="btn bp bs" id="breceive">${svg(ic.h,14)} Прихід</button>
       <button class="btn bg bs" id="bnewmat">${svg(ic.plus,14)} Новий</button>
       <button class="btn bg bs" id="bhistory">📋 Історія</button>
+      <button class="btn bg bs" id="bdrafts">📝 Чернетки${drafts.length?` (${drafts.length})`:''}</button>
     </div>
     <input class="fi" id="sq" style="margin-bottom:10px" placeholder="🔍 Пошук..." value="${stockQ}"/>
     ${low.length?`<div class="alert alert-d">${svg(ic.w,15,'var(--err)')} Закінчується: ${low.map(m=>m.name).join(', ')}</div>`:''}
@@ -1119,6 +1121,7 @@ function drawStock(){
   $('breceive').onclick=()=>receiveModal();
   $('bnewmat').onclick=()=>matModal(null);
   $('bhistory').onclick=()=>historyModal();
+  $('bdrafts').onclick=()=>draftsListModal();
   // Search without losing focus
   $('sq').addEventListener('input',e=>{stockQ=e.target.value;
     const fil2=mats.filter(m=>(stockCat==='Всі'||m.category===stockCat)&&(!stockQ||m.name.toLowerCase().includes(stockQ.toLowerCase())));
@@ -1135,8 +1138,14 @@ function drawStock(){
 
 // Receive Modal — multi-item with search, no keyboard close
 let rcvItems=[];
-function receiveModal(){
-  rcvItems=[];
+function receiveModal(draftId){
+  const draft=draftId?drafts.find(x=>x.id===draftId):null;
+  rcvItems=draft?draft.items.map(it=>({...it})):[];
+  // Kept in JS (not just read from the DOM each time) so a full re-render —
+  // triggered every time an item is added/removed — doesn't reset the date
+  // back to today or wipe out a typed-in supplier note.
+  let rDate=draft?.date||today(), rNote=draft?.note||'';
+  let curDraftId=draftId||null;
   function render(searchVal=''){
     const fil2=mats.filter(m=>!searchVal||m.name.toLowerCase().includes(searchVal.toLowerCase()));
     const itemsHtml=rcvItems.map((it,idx)=>{
@@ -1165,19 +1174,23 @@ function receiveModal(){
 
     const prevSearch=searchVal;
     $('modal').innerHTML=`
-      <div class="mh"><div class="mt">📦 Прихід товару</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-      <div class="field"><label>Дата</label><input type="date" class="fi" id="rdate" value="${today()}"/></div>
-      <div class="field"><label>Примітка</label><input class="fi" id="rnote" placeholder="Постачальник..."/></div>
+      <div class="mh"><div class="mt">📦 Прихід товару${draftId||curDraftId?' (чернетка)':''}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <div class="field"><label>Дата</label><input type="date" class="fi" id="rdate" value="${rDate}"/></div>
+      <div class="field"><label>Примітка</label><input class="fi" id="rnote" placeholder="Постачальник..." value="${rNote}"/></div>
       ${rcvItems.length?`<div style="margin-bottom:10px">${itemsHtml}<div style="text-align:right;font-weight:700;font-size:14px;color:var(--sil)" data-grandtotal>Загалом: ${total.toFixed(2)} грн</div></div>`:''}
       <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Оберіть товари:</div>
       <input class="fi" id="rsearch" style="margin-bottom:8px" placeholder="🔍 Пошук..." value="${prevSearch}"/>
       <div style="max-height:180px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px;margin-bottom:14px">${listHtml||'<div style="padding:14px;color:var(--dim);text-align:center">Нічого не знайдено</div>'}</div>
       <div class="mf">
         <button class="btn bg" id="rcancel">Скасувати</button>
+        <button class="btn bg" id="rdraft">📝 Чернетка</button>
         <button class="btn bp" id="rsave">Оприбуткувати (${rcvItems.length})</button>
       </div>`;
 
     $('mx').onclick=hide;$('rcancel').onclick=hide;
+    const captureHeader=()=>{if($('rdate'))rDate=$('rdate').value;if($('rnote'))rNote=$('rnote').value;};
+    $('rdate').addEventListener('change',captureHeader);
+    $('rnote').addEventListener('input',captureHeader);
     // Search WITHOUT re-rendering whole modal — just update list
     $('rsearch').addEventListener('input',e=>{
       const v=e.target.value;
@@ -1192,6 +1205,7 @@ function receiveModal(){
     function bindAddBtns(){
       $('modal').querySelectorAll('[data-add]').forEach(el2=>{
         el2.onclick=()=>{
+          captureHeader();
           const m=mats.find(x=>x.id===el2.dataset.add);
           rcvItems.push({matId:el2.dataset.add,qty:1,price:m?.price||0,disc:0});
           render($('rsearch').value);
@@ -1199,7 +1213,7 @@ function receiveModal(){
       });
     }
     bindAddBtns();
-    $('modal').querySelectorAll('[data-rem]').forEach(b=>b.onclick=()=>{rcvItems.splice(+b.dataset.rem,1);render($('rsearch')?.value||'');});
+    $('modal').querySelectorAll('[data-rem]').forEach(b=>b.onclick=()=>{captureHeader();rcvItems.splice(+b.dataset.rem,1);render($('rsearch')?.value||'');});
     function updateItemSum(idx){
       const it=rcvItems[idx];
       const dp2=(it.price||0)*(1-(it.disc||0)/100);
@@ -1213,20 +1227,52 @@ function receiveModal(){
     $('modal').querySelectorAll('[data-qty]').forEach(inp=>inp.addEventListener('input',()=>{rcvItems[+inp.dataset.qty].qty=+inp.value||0;updateItemSum(+inp.dataset.qty);}));
     $('modal').querySelectorAll('[data-price]').forEach(inp=>inp.addEventListener('input',()=>{rcvItems[+inp.dataset.price].price=+inp.value||0;updateItemSum(+inp.dataset.price);}));
     $('modal').querySelectorAll('[data-disc]').forEach(inp=>inp.addEventListener('input',()=>{rcvItems[+inp.dataset.disc].disc=+inp.value||0;updateItemSum(+inp.dataset.disc);}));
+    $('rdraft').onclick=async()=>{
+      captureHeader();
+      if(rcvItems.length===0){alert('Додайте хоча б один товар, щоб зберегти чернетку');return;}
+      const draftData={date:rDate,note:rNote,items:rcvItems,updatedAt:new Date().toISOString()};
+      if(curDraftId)await updateDoc(doc(db,'drafts',curDraftId),draftData);
+      else{const ref=await addDoc(collection(db,'drafts'),draftData);curDraftId=ref.id;}
+      hide();
+    };
     $('rsave').onclick=async()=>{
+      captureHeader();
       if(rcvItems.length===0){alert('Додайте товари');return;}
-      const date=$('rdate').value,note=$('rnote').value;
+      const date=rDate,note=rNote;
+      // One shared id per "накладна" (invoice) — every item entered together
+      // in this session carries it, so history can group them back into one
+      // invoice card instead of one row per unit.
+      const batchId='b'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
       for(const it of rcvItems){
         const m=mats.find(x=>x.id===it.matId);if(!m)continue;
         const dp=(it.price||0)*(1-(it.disc||0)/100),oldQ=m.qty||0,oldAvg=m.avgPrice||m.price||dp;
         const newQ=oldQ+it.qty,newAvg=(oldQ*oldAvg+it.qty*dp)/newQ,newPPU=m.volPerUnit>0?newAvg/m.volPerUnit:0;
         await updateDoc(doc(db,'materials',it.matId),{qty:newQ,avgPrice:newAvg,avgPricePerUnit:newPPU});
-        await addDoc(collection(db,'purchases'),{matId:it.matId,matName:m.name,type:'receive',qty:it.qty,unit:'шт',price:dp,origPrice:it.price,disc:it.disc||0,total:it.qty*dp,date,note});
+        await addDoc(collection(db,'purchases'),{matId:it.matId,matName:m.name,type:'receive',qty:it.qty,unit:'шт',price:dp,origPrice:it.price,disc:it.disc||0,total:it.qty*dp,date,note,batchId});
       }
+      if(curDraftId)await deleteDoc(doc(db,'drafts',curDraftId));
       hide();
     };
   }
   show('');render();
+}
+
+function draftsListModal(){
+  const rows=drafts.map(d=>{
+    const total=(d.items||[]).reduce((s,it)=>s+it.qty*(it.price||0)*(1-(it.disc||0)/100),0);
+    return`<div class="ri">
+      <div class="rl"><div class="rn">${d.note||'Без примітки'}</div><div class="rs">${d.date||''} · ${(d.items||[]).length} поз. · ${total.toFixed(2)} грн</div></div>
+      <div class="rac">
+        <button class="btn bp bs" data-resume="${d.id}">Продовжити</button>
+        <button class="bi bs" data-delDraft="${d.id}">${svg(ic.del,13,'var(--err)')}</button>
+      </div>
+    </div>`;
+  }).join('');
+  show(`<div class="mh"><div class="mt">📝 Чернетки приходу</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    ${drafts.length===0?'<div class="empty">Чернеток немає</div>':rows}`);
+  $('mx').onclick=hide;
+  $('modal').querySelectorAll('[data-resume]').forEach(b=>b.onclick=()=>receiveModal(b.dataset.resume));
+  $('modal').querySelectorAll('[data-delDraft]').forEach(b=>b.onclick=async()=>{if(confirm('Видалити чернетку?')){await deleteDoc(doc(db,'drafts',b.dataset.delDraft));hide();}});
 }
 
 function matModal(id){
@@ -1324,36 +1370,76 @@ function spendModal(id){
 
 function historyModal(){
   function render(){
-    // Sorted by the operation's OWN date (descending) — not by the order it
-    // happened to be added to Firestore — which is what made the list look
-    // chaotic when dates were backfilled or entered out of order.
-    const filtered=ops.filter(o=>
-      (histType==='Всі'||(histType==='Прихід'?o.type==='receive':o.type==='spend'))&&
-      (!histQ||(o.matName||'').toLowerCase().includes(histQ.toLowerCase()))
-    ).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.id||'').localeCompare(a.id||''));
+    const q=(histQ||'').toLowerCase();
+    // Receive-type purchases are grouped back into one "накладна" card per
+    // batchId (everything entered together in one receiveModal session) —
+    // legacy entries saved before batchId existed fall back to one card per
+    // document, so nothing old disappears. Spend entries stay individual,
+    // since each one is tied to a specific piece of work, not an invoice.
+    const receiveOps=ops.filter(o=>o.type==='receive');
+    const spendOps=ops.filter(o=>o.type==='spend');
+    const batches={};
+    receiveOps.forEach(o=>{
+      const key=o.batchId||('legacy-'+o.id);
+      if(!batches[key])batches[key]={key,date:o.date,note:o.note,items:[]};
+      batches[key].items.push(o);
+      if(o.date>batches[key].date)batches[key].date=o.date;
+    });
+    let entries=[];
+    if(histType==='Всі'||histType==='Прихід'){
+      Object.values(batches).forEach(b=>{
+        const matches=!q||(b.note||'').toLowerCase().includes(q)||b.items.some(it=>(it.matName||'').toLowerCase().includes(q));
+        if(matches)entries.push({kind:'receive',date:b.date,batch:b});
+      });
+    }
+    if(histType==='Всі'||histType==='Витрата'){
+      spendOps.forEach(o=>{
+        if(!q||(o.matName||'').toLowerCase().includes(q))entries.push({kind:'spend',date:o.date,op:o});
+      });
+    }
+    entries.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
 
     let lastDate=null,rows='';
-    for(const o of filtered){
-      if(o.date!==lastDate){
-        lastDate=o.date;
-        rows+=`<div style="font-size:11px;font-weight:700;color:var(--mut);letter-spacing:.05em;text-transform:uppercase;margin:14px 0 6px">${fmtL(o.date)}</div>`;
+    for(const e of entries){
+      if(e.date!==lastDate){
+        lastDate=e.date;
+        rows+=`<div style="font-size:11px;font-weight:700;color:var(--mut);letter-spacing:.05em;text-transform:uppercase;margin:14px 0 6px">${fmtL(e.date)}</div>`;
       }
-      rows+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
-        <div style="flex:1"><div style="font-size:11px;font-weight:700;color:${o.type==='receive'?'var(--ok)':'var(--err)'}">${o.type==='receive'?'📦 Прихід':'📉 Витрата'}</div>
-          <div style="font-size:13px;margin:2px 0">${o.matName||'?'}</div>
-          <div style="font-size:11px;color:var(--mut)">${o.qty} ${o.unit||'шт'}${o.disc?' · -'+o.disc+'%':''}</div>
-          ${o.note?`<div style="font-size:11px;color:var(--dim)">${o.note}</div>`:''}
-        </div>
-        <div style="text-align:right"><div style="font-weight:700;font-size:13px;color:var(--sil)">${fmt(o.total)} грн</div>
-          <button class="bi bs" style="margin-top:4px" data-oid="${o.id}" data-omid="${o.matId}" data-otype="${o.type}" data-oqty="${o.qty}">${svg(ic.x,12,'var(--err)')}</button>
-        </div>
-      </div>`;
+      if(e.kind==='receive'){
+        const b=e.batch,total=b.items.reduce((s,it)=>s+(it.total||0),0);
+        rows+=`<div style="border:1px solid var(--brd);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--card)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+            <div><div style="font-size:11px;font-weight:700;color:var(--ok)">📦 Прихід${b.note?' · '+b.note:''}</div>
+            <div style="font-size:11px;color:var(--mut)">${b.items.length} поз.</div></div>
+            <div style="text-align:right">
+              <div style="font-weight:700;font-size:14px;color:var(--sil)">${fmt(total)} грн</div>
+              <button class="bi bs" style="margin-top:4px" data-delbatch="${b.key}">${svg(ic.del,12,'var(--err)')}</button>
+            </div>
+          </div>
+          ${b.items.map(it=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--brd);font-size:12px">
+            <span>${it.matName||'?'} · ${it.qty} ${it.unit||'шт'}${it.disc?' -'+it.disc+'%':''}</span>
+            <span style="color:var(--mut)">${fmt(it.total)} грн</span>
+          </div>`).join('')}
+        </div>`;
+      } else {
+        const o=e.op;
+        rows+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
+          <div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--err)">📉 Витрата</div>
+            <div style="font-size:13px;margin:2px 0">${o.matName||'?'}</div>
+            <div style="font-size:11px;color:var(--mut)">${o.qty} ${o.unit||'шт'}${o.disc?' · -'+o.disc+'%':''}</div>
+            ${o.note?`<div style="font-size:11px;color:var(--dim)">${o.note}</div>`:''}
+          </div>
+          <div style="text-align:right"><div style="font-weight:700;font-size:13px;color:var(--sil)">${fmt(o.total)} грн</div>
+            <button class="bi bs" style="margin-top:4px" data-oid="${o.id}" data-omid="${o.matId}" data-otype="${o.type}" data-oqty="${o.qty}">${svg(ic.x,12,'var(--err)')}</button>
+          </div>
+        </div>`;
+      }
     }
     $('modal').innerHTML=`
       <div class="mh"><div class="mt">Історія операцій</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
       <div class="chips">${['Всі','Прихід','Витрата'].map(t=>`<button class="chip ${histType===t?'on':''}" data-ht="${t}">${t}</button>`).join('')}</div>
-      <input class="fi" id="hq" style="margin-bottom:10px" placeholder="🔍 Пошук за назвою..." value="${histQ}"/>
-      ${filtered.length===0?'<div class="empty">Нічого не знайдено</div>':rows}`;
+      <input class="fi" id="hq" style="margin-bottom:10px" placeholder="🔍 Пошук за назвою чи постачальником..." value="${histQ}"/>
+      ${entries.length===0?'<div class="empty">Нічого не знайдено</div>':rows}`;
     $('mx').onclick=hide;
     $('modal').querySelectorAll('[data-ht]').forEach(b=>b.onclick=()=>{histType=b.dataset.ht;render();});
     $('hq').addEventListener('input',e=>{
@@ -1363,8 +1449,18 @@ function historyModal(){
     $('modal').querySelectorAll('[data-oid]').forEach(b=>b.onclick=async()=>{
       if(!confirm('Скасувати?'))return;
       const m=mats.find(x=>x.id===b.dataset.omid);
-      if(m){const q=+b.dataset.oqty,nq=b.dataset.otype==='receive'?Math.max(0,m.qty-q):m.qty+q;await updateDoc(doc(db,'materials',b.dataset.omid),{qty:+nq.toFixed(4)});}
+      if(m){const q2=+b.dataset.oqty,nq=b.dataset.otype==='receive'?Math.max(0,m.qty-q2):m.qty+q2;await updateDoc(doc(db,'materials',b.dataset.omid),{qty:+nq.toFixed(4)});}
       await deleteDoc(doc(db,'purchases',b.dataset.oid));hide();
+    });
+    $('modal').querySelectorAll('[data-delbatch]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('Скасувати всю накладну? Це поверне залишки по всіх позиціях у ній.'))return;
+      const batch=batches[b.dataset.delbatch];
+      for(const it of batch.items){
+        const m=mats.find(x=>x.id===it.matId);
+        if(m){const nq=Math.max(0,m.qty-(it.qty||0));await updateDoc(doc(db,'materials',it.matId),{qty:+nq.toFixed(4)});}
+        await deleteDoc(doc(db,'purchases',it.id));
+      }
+      hide();
     });
   }
   show("");render();
