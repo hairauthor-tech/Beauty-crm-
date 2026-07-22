@@ -114,7 +114,7 @@ input[type=date],input[type=time]{color-scheme:dark;}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore,collection,addDoc,updateDoc,deleteDoc,doc,onSnapshot,query,orderBy,enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore,collection,addDoc,updateDoc,deleteDoc,doc,setDoc,onSnapshot,query,orderBy,enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const db = getFirestore(initializeApp({
   apiKey:"AIzaSyBtEcQ69spy8Lp8R6ttJOX8krl1iH2j8X4",
@@ -985,8 +985,22 @@ function apptModal(a,date,time){
       $('modal').querySelectorAll('[data-matqty]').forEach(inp=>{selMats[+inp.dataset.matqty].qty=+inp.value||0;});
       const finalDuration=+$('fdh').value*60 + +$('fdm').value;
       const newStatus=$('fst').value;
+      const apptDate=$('fd').value;
       const materialsUsedFinal=selMats.filter(sm=>sm.matId&&sm.qty>0).map(sm=>({matId:sm.matId,qty:sm.qty}));
       const materialCostFinal=materialsUsedFinal.reduce((s,sm)=>{const m=mats.find(x=>x.id===sm.matId);return s+sm.qty*matUnitInfo(m).ppu;},0);
+
+      // Manual "Оплачено" amount, exactly as typed — no button, no auto
+      // status changes. If left empty/0, analytics falls back to the full
+      // service total (apptTotalPrice) for "Виконано" visits.
+      const data={client,phone:$('fp').value,serviceId:selSvcs[0].serviceId,
+        services:selSvcs.map(s=>({serviceId:s.serviceId,adj:s.adj||0})),
+        date:apptDate,time:$('ft').value,status:newStatus,
+        customDuration:finalDuration,
+        materialsUsed:materialsUsedFinal,materialCost:materialCostFinal,
+        paid:+$('fm').value||0,tips:+$('ftip').value||0,note:$('fn').value};
+      let apptId;
+      if(a){await updateDoc(doc(db,'appointments',a.id),data);apptId=a.id;}
+      else{const ref=await addDoc(collection(db,'appointments'),data);apptId=ref.id;}
 
       // Stock correction: compare what was actually deducted before
       // ("effective old" — empty if the appointment was cancelled, since a
@@ -1005,19 +1019,16 @@ function apptModal(a,date,time){
         if(deltaUnits===0)continue;
         const deltaSht=unitsToSht(m,deltaUnits);
         await updateDoc(doc(db,'materials',mid),{qty:+Math.max(0,(m.qty||0)-deltaSht).toFixed(4)});
+        // Log net-new consumption into the same purchases/history trail as
+        // a manual "Списати" — so material used via an appointment now
+        // shows up in Історія операцій too, with the client's name as the
+        // note. Only the increase is logged; reductions/cancellations
+        // just quietly return stock, same as they always did.
+        if(deltaUnits>0){
+          const{unit,ppu}=matUnitInfo(m);
+          await addDoc(collection(db,'purchases'),{matId:mid,matName:m.name,type:'spend',qty:deltaUnits,unit,total:deltaUnits*ppu,date:apptDate,note:client,apptId});
+        }
       }
-
-      // Manual "Оплачено" amount, exactly as typed — no button, no auto
-      // status changes. If left empty/0, analytics falls back to the full
-      // service total (apptTotalPrice) for "Виконано" visits.
-      const data={client,phone:$('fp').value,serviceId:selSvcs[0].serviceId,
-        services:selSvcs.map(s=>({serviceId:s.serviceId,adj:s.adj||0})),
-        date:$('fd').value,time:$('ft').value,status:newStatus,
-        customDuration:finalDuration,
-        materialsUsed:materialsUsedFinal,materialCost:materialCostFinal,
-        paid:+$('fm').value||0,tips:+$('ftip').value||0,note:$('fn').value};
-      if(a)await updateDoc(doc(db,'appointments',a.id),data);
-      else await addDoc(collection(db,'appointments'),data);
       hide();
     };
     if(a)$('fdel').onclick=async()=>{
