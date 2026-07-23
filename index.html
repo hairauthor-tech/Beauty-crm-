@@ -1018,7 +1018,13 @@ function apptModal(a,date,time){
         const deltaUnits=newQ-oldQ;
         if(deltaUnits===0)continue;
         const deltaSht=unitsToSht(m,deltaUnits);
-        await updateDoc(doc(db,'materials',mid),{qty:+Math.max(0,(m.qty||0)-deltaSht).toFixed(4)});
+        // No Math.max(0, …) clamp here on purpose: if a write-off happens
+        // before its matching "Прихід" is entered (spend first, receive
+        // later — a normal real-world order), the stock temporarily goes
+        // negative and self-corrects the moment the receive arrives. If we
+        // floored it at 0 instead, the deduction would just be silently
+        // lost and never recovered once new stock came in.
+        await updateDoc(doc(db,'materials',mid),{qty:+((m.qty||0)-deltaSht).toFixed(4)});
         // Log net-new consumption into the same purchases/history trail as
         // a manual "Списати" — so material used via an appointment now
         // shows up in Історія операцій too, with the client's name as the
@@ -1115,13 +1121,13 @@ function drawStock(){
     ${fil.length===0?'<div class="empty">Нічого не знайдено</div>':grp.map(({c,items})=>`
       <div class="sec">${c}</div>
       ${items.map(m=>{
-        const isLow=m.qty<=m.minQty,byG=m.spendUnit&&m.spendUnit!=='шт'&&m.volPerUnit>0;
+        const isNeg=m.qty<0,isLow=!isNeg&&m.qty<=m.minQty,byG=m.spendUnit&&m.spendUnit!=='шт'&&m.volPerUnit>0;
         const tu=byG?fmt(m.qty*m.volPerUnit)+' '+m.spendUnit:'';
         const ppu=byG?(m.avgPricePerUnit||m.pricePerUnit||0).toFixed(2)+' грн/'+m.spendUnit:(m.avgPrice||m.price||0).toFixed(2)+' грн/шт';
-        return`<div class="ri" style="border-left:3px solid ${isLow?'var(--err)':'var(--brd)'}">
-          <div class="rl"><div class="rn">${m.name} ${isLow?'<span style="background:rgba(184,112,112,.15);color:var(--err);padding:2px 7px;border-radius:10px;font-size:10px">Мало</span>':''}</div>
+        return`<div class="ri" style="border-left:3px solid ${isNeg?'var(--err)':isLow?'var(--err)':'var(--brd)'}">
+          <div class="rl"><div class="rn">${m.name} ${isNeg?'<span style="background:rgba(184,112,112,.15);color:var(--err);padding:2px 7px;border-radius:10px;font-size:10px">⚠️ Очікує приходу</span>':isLow?'<span style="background:rgba(184,112,112,.15);color:var(--err);padding:2px 7px;border-radius:10px;font-size:10px">Мало</span>':''}</div>
           <div class="rs">${tu?tu+' · ':''}${ppu}</div></div>
-          <div class="rr"><div class="rv" style="color:${isLow?'var(--err)':'var(--acs)'}">${Number.isInteger(m.qty)?m.qty:m.qty.toFixed(2)} шт</div><div class="ra">мін. ${m.minQty}</div></div>
+          <div class="rr"><div class="rv" style="color:${isNeg||isLow?'var(--err)':'var(--acs)'}">${Number.isInteger(m.qty)?m.qty:m.qty.toFixed(2)} шт</div><div class="ra">мін. ${m.minQty}</div></div>
           <div class="rac">
             <button class="bi bs" data-sp="${m.id}">${svg('M5 12h14',13)}</button>
             <button class="bi bs" data-em="${m.id}">${svg(ic.edit,13)}</button>
@@ -1366,12 +1372,15 @@ function spendModal(id){
   $('mx').onclick=hide;$('mc').onclick=hide;
   $('sqa').addEventListener('input',e=>{
     const q=+e.target.value||0;
-    if(q>0){const cost=byG?q*ppu:q*(m.avgPrice||m.price||0),remU=Math.max(0,totalU-q);$('scalc').style.display='';$('scost').textContent=cost.toFixed(2)+' грн';const remShts=byG?remU/m.volPerUnit:remU;$('srem').textContent=remU.toFixed(1)+' '+unit+' ('+remShts.toFixed(2)+' шт)';}
+    if(q>0){const cost=byG?q*ppu:q*(m.avgPrice||m.price||0),remU=totalU-q;$('scalc').style.display='';$('scost').textContent=cost.toFixed(2)+' грн';const remShts=byG?remU/m.volPerUnit:remU;$('srem').textContent=remU.toFixed(1)+' '+unit+' ('+remShts.toFixed(2)+' шт)';$('srem').style.color=remU<0?'var(--err)':'var(--acs)';}
     else $('scalc').style.display='none';
   });
   $('ms').onclick=async()=>{
     const q=+$('sqa').value;if(!q){alert('Введіть кількість');return;}
-    const newQty=byG?Math.max(0,(totalU-q)/m.volPerUnit):Math.max(0,m.qty-q);
+    // No floor at 0 here either — same reasoning as appointment write-offs:
+    // spending ahead of a receive should show up as a temporary shortfall
+    // that a later "Прихід" corrects, not a deduction that just vanishes.
+    const newQty=byG?(totalU-q)/m.volPerUnit:m.qty-q;
     const total=byG?q*ppu:q*(m.avgPrice||m.price||0);
     await updateDoc(doc(db,'materials',id),{qty:+newQty.toFixed(4)});
     await addDoc(collection(db,'purchases'),{matId:id,matName:m.name,type:'spend',qty:q,unit,total,date:$('sdate').value,note:$('snote').value});
@@ -1460,7 +1469,7 @@ function historyModal(){
     $('modal').querySelectorAll('[data-oid]').forEach(b=>b.onclick=async()=>{
       if(!confirm('Скасувати?'))return;
       const m=mats.find(x=>x.id===b.dataset.omid);
-      if(m){const q2=+b.dataset.oqty,nq=b.dataset.otype==='receive'?Math.max(0,m.qty-q2):m.qty+q2;await updateDoc(doc(db,'materials',b.dataset.omid),{qty:+nq.toFixed(4)});}
+      if(m){const q2=+b.dataset.oqty,nq=b.dataset.otype==='receive'?m.qty-q2:m.qty+q2;await updateDoc(doc(db,'materials',b.dataset.omid),{qty:+nq.toFixed(4)});}
       await deleteDoc(doc(db,'purchases',b.dataset.oid));hide();
     });
     $('modal').querySelectorAll('[data-delbatch]').forEach(b=>b.onclick=async()=>{
@@ -1468,7 +1477,7 @@ function historyModal(){
       const batch=batches[b.dataset.delbatch];
       for(const it of batch.items){
         const m=mats.find(x=>x.id===it.matId);
-        if(m){const nq=Math.max(0,m.qty-(it.qty||0));await updateDoc(doc(db,'materials',it.matId),{qty:+nq.toFixed(4)});}
+        if(m){const nq=m.qty-(it.qty||0);await updateDoc(doc(db,'materials',it.matId),{qty:+nq.toFixed(4)});}
         await deleteDoc(doc(db,'purchases',it.id));
       }
       hide();
