@@ -1455,12 +1455,29 @@ function historyModal(){
         </div>`;
       }
     }
+    const pendingBackfill=appts.filter(a=>Array.isArray(a.materialsUsed)&&a.materialsUsed.length>0&&a.status!=='cancelled'&&!a.materialsHistoryBackfilled);
     $('modal').innerHTML=`
       <div class="mh"><div class="mt">Історія операцій</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
       <div class="chips">${['Всі','Прихід','Витрата'].map(t=>`<button class="chip ${histType===t?'on':''}" data-ht="${t}">${t}</button>`).join('')}</div>
+      ${pendingBackfill.length?`<button class="btn bg bs" id="hbackfill" style="margin-bottom:10px;width:100%;justify-content:center">🔄 Підтягнути старі списання з записів (${pendingBackfill.length})</button>`:''}
       <input class="fi" id="hq" style="margin-bottom:10px" placeholder="🔍 Пошук за назвою чи постачальником..." value="${histQ}"/>
       ${entries.length===0?'<div class="empty">Нічого не знайдено</div>':rows}`;
     $('mx').onclick=hide;
+    if($('hbackfill'))$('hbackfill').onclick=async()=>{
+      if(!confirm(`Додати в Історію ${pendingBackfill.length} старих запис(ів) списання матеріалів з карток клієнтів? Це НЕ вплине на поточні залишки — лише додасть записи в історію.`))return;
+      let count=0;
+      for(const a of pendingBackfill){
+        for(const mu of a.materialsUsed){
+          const m=mats.find(x=>x.id===mu.matId);if(!m||!mu.qty)continue;
+          const{unit,ppu}=matUnitInfo(m);
+          await addDoc(collection(db,'purchases'),{matId:mu.matId,matName:m.name,type:'spend',qty:mu.qty,unit,total:mu.qty*ppu,date:a.date,note:a.client,apptId:a.id,backfilled:true});
+          count++;
+        }
+        await updateDoc(doc(db,'appointments',a.id),{materialsHistoryBackfilled:true});
+      }
+      alert(`Додано ${count} записів в історію.`);
+      render();
+    };
     $('modal').querySelectorAll('[data-ht]').forEach(b=>b.onclick=()=>{histType=b.dataset.ht;render();});
     $('hq').addEventListener('input',e=>{
       histQ=e.target.value;render();
