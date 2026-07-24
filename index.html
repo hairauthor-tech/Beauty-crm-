@@ -1115,6 +1115,7 @@ function drawStock(){
       <button class="btn bg bs" id="bnewmat">${svg(ic.plus,14)} Новий</button>
       <button class="btn bg bs" id="bhistory">📋 Історія</button>
       <button class="btn bg bs" id="bdrafts">📝 Чернетки${drafts.length?` (${drafts.length})`:''}</button>
+      <button class="btn bg bs" id="binv">⚖️ Інвентаризація</button>
     </div>
     <input class="fi" id="sq" style="margin-bottom:10px" placeholder="🔍 Пошук..." value="${stockQ}"/>
     ${low.length?`<div class="alert alert-d">${svg(ic.w,15,'var(--err)')} Закінчується: ${low.map(m=>m.name).join(', ')}</div>`:''}
@@ -1140,6 +1141,7 @@ function drawStock(){
   $('bnewmat').onclick=()=>matModal(null);
   $('bhistory').onclick=()=>historyModal();
   $('bdrafts').onclick=()=>draftsListModal();
+  $('binv').onclick=()=>inventoryModal();
   // Search without losing focus
   $('sq').addEventListener('input',e=>{stockQ=e.target.value;
     const fil2=mats.filter(m=>(stockCat==='Всі'||m.category===stockCat)&&(!stockQ||m.name.toLowerCase().includes(stockQ.toLowerCase())));
@@ -1293,6 +1295,95 @@ function draftsListModal(){
   $('modal').querySelectorAll('[data-delDraft]').forEach(b=>b.onclick=async()=>{if(confirm('Видалити чернетку?')){await deleteDoc(doc(db,'drafts',b.dataset.delDraft));hide();}});
 }
 
+// ── Inventory (звірка фактичних залишків) ───────────────────────────────
+// For г/мл matherials with a tare weight configured, ticking "з тарою" lets
+// the person type the raw scale reading (product + container) and the tare
+// is subtracted automatically — no manual math needed every time.
+function inventoryModal(){
+  let invCat='Всі', invQ='';
+  const entries={}; // matId -> {value, tare}
+  const captureInputs=()=>{
+    $('modal').querySelectorAll('[data-invval]').forEach(inp=>{entries[inp.dataset.invval]={...entries[inp.dataset.invval],value:inp.value};});
+    $('modal').querySelectorAll('[data-invtare]').forEach(cb=>{entries[cb.dataset.invtare]={...entries[cb.dataset.invtare],tare:cb.checked};});
+  };
+  function updateDiff(matId){
+    const m=mats.find(x=>x.id===matId);if(!m)return;
+    const{byG,unit,ppu,availUnits}=matUnitInfo(m);
+    const inp=$('modal').querySelector(`[data-invval="${matId}"]`);
+    const tareBox=$('modal').querySelector(`[data-invtare="${matId}"]`);
+    const diffEl=$('modal').querySelector(`[data-invdiff="${matId}"]`);
+    if(!inp||!diffEl)return;
+    if(!inp.value){diffEl.textContent='';return;}
+    const raw=+inp.value;
+    const actualNatural=(byG&&tareBox&&tareBox.checked)?Math.max(0,raw-(m.tare||0)):raw;
+    const curNatural=byG?availUnits:m.qty;
+    const delta=actualNatural-curNatural;
+    if(Math.abs(delta)<0.001){diffEl.textContent='Збігається';diffEl.style.color='var(--mut)';}
+    else{
+      const cost=Math.abs(delta)*ppu;
+      diffEl.textContent=(delta>0?'+':'−')+Math.abs(delta).toFixed(1)+' '+unit+' · '+(delta>0?'лишок':'нестача')+' · '+fmt(cost)+' грн';
+      diffEl.style.color=delta>0?'var(--ok)':'var(--err)';
+    }
+  }
+  function render(){
+    const fil=mats.filter(m=>(invCat==='Всі'||m.category===invCat)&&(!invQ||m.name.toLowerCase().includes(invQ.toLowerCase())));
+    const rows=fil.map(m=>{
+      const{byG,unit,availUnits}=matUnitInfo(m);
+      const cur=entries[m.id]||{};
+      return`<div class="ri" style="flex-direction:column;align-items:stretch;gap:6px">
+        <div style="display:flex;justify-content:space-between">
+          <div class="rn">${m.name}</div>
+          <div class="rs">Система: ${byG?fmt(availUnits)+' '+unit:(Number.isInteger(m.qty)?m.qty:m.qty.toFixed(2))+' шт'}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" step="0.1" class="fi" data-invval="${m.id}" placeholder="Фактично (${unit})" value="${cur.value!==undefined?cur.value:''}" style="flex:1"/>
+          ${byG&&m.tare>0?`<label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--mut);white-space:nowrap"><input type="checkbox" data-invtare="${m.id}" ${cur.tare?'checked':''}/> з тарою (−${m.tare}г)</label>`:''}
+        </div>
+        <div style="font-size:11px" data-invdiff="${m.id}"></div>
+      </div>`;
+    }).join('');
+    $('modal').innerHTML=`
+      <div class="mh"><div class="mt">⚖️ Інвентаризація</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:10px">Вписуйте фактично виміряну кількість лише для того, що звіряєте зараз — решту лишіть порожнім. Для товарів з тарою: увімкніть «з тарою», якщо зважували разом з упаковкою — тара віднімається автоматично.</div>
+      <input class="fi" id="invq" style="margin-bottom:8px" placeholder="🔍 Пошук..." value="${invQ}"/>
+      <div class="chips">${['Всі',...CATS].map(c=>`<button class="chip ${invCat===c?'on':''}" data-ic="${c}">${c}</button>`).join('')}</div>
+      ${rows||'<div class="empty">Нічого не знайдено</div>'}
+      <div class="mf"><button class="btn bg" id="invcancel">Скасувати</button><button class="btn bp" id="invsave">Зберегти звірку</button></div>`;
+    $('mx').onclick=hide;$('invcancel').onclick=hide;
+    $('modal').querySelectorAll('[data-ic]').forEach(b=>b.onclick=()=>{captureInputs();invCat=b.dataset.ic;render();});
+    $('invq').addEventListener('input',e=>{
+      captureInputs();invQ=e.target.value;render();
+      setTimeout(()=>{const el2=$('invq');if(el2){el2.focus();el2.setSelectionRange(el2.value.length,el2.value.length);}},10);
+    });
+    $('modal').querySelectorAll('[data-invval]').forEach(inp=>inp.addEventListener('input',()=>updateDiff(inp.dataset.invval)));
+    $('modal').querySelectorAll('[data-invtare]').forEach(cb=>cb.addEventListener('change',()=>updateDiff(cb.dataset.invtare)));
+    fil.forEach(m=>updateDiff(m.id));
+    $('invsave').onclick=async()=>{
+      captureInputs();
+      const changed=Object.entries(entries).filter(([,v])=>v.value!==undefined&&v.value!=='');
+      if(changed.length===0){alert('Впишіть хоча б одну фактичну кількість');return;}
+      if(!confirm(`Зберегти звірку для ${changed.length} товар(ів)?`))return;
+      let count=0;
+      for(const[matId,v]of changed){
+        const m=mats.find(x=>x.id===matId);if(!m)continue;
+        const{byG,unit,ppu,availUnits}=matUnitInfo(m);
+        const raw=+v.value;
+        const actualNatural=(byG&&v.tare)?Math.max(0,raw-(m.tare||0)):raw;
+        const curNatural=byG?availUnits:m.qty;
+        const delta=actualNatural-curNatural;
+        if(Math.abs(delta)<0.001)continue;
+        const newQtySht=byG?actualNatural/m.volPerUnit:actualNatural;
+        await updateDoc(doc(db,'materials',matId),{qty:+newQtySht.toFixed(4)});
+        await addDoc(collection(db,'purchases'),{matId,matName:m.name,type:'adjustment',qty:delta,unit,total:delta*ppu,date:today(),note:'Інвентаризація'});
+        count++;
+      }
+      alert(`Скориговано ${count} товар(ів).`);
+      hide();
+    };
+  }
+  show('');render();
+}
+
 function matModal(id){
   const m=id?mats.find(x=>x.id===id):{};
   show(`
@@ -1399,6 +1490,7 @@ function historyModal(){
     // since each one is tied to a specific piece of work, not an invoice.
     const receiveOps=ops.filter(o=>o.type==='receive');
     const spendOps=ops.filter(o=>o.type==='spend');
+    const adjOps=ops.filter(o=>o.type==='adjustment');
     const batches={};
     receiveOps.forEach(o=>{
       const key=o.batchId||('legacy-'+o.id);
@@ -1416,6 +1508,11 @@ function historyModal(){
     if(histType==='Всі'||histType==='Витрата'){
       spendOps.forEach(o=>{
         if(!q||(o.matName||'').toLowerCase().includes(q))entries.push({kind:'spend',date:o.date,op:o});
+      });
+    }
+    if(histType==='Всі'||histType==='Коригування'){
+      adjOps.forEach(o=>{
+        if(!q||(o.matName||'').toLowerCase().includes(q))entries.push({kind:'adjustment',date:o.date,op:o});
       });
     }
     entries.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
@@ -1442,7 +1539,7 @@ function historyModal(){
             <span style="color:var(--mut)">${fmt(it.total)} грн</span>
           </div>`).join('')}
         </div>`;
-      } else {
+      } else if(e.kind==='spend'){
         const o=e.op;
         rows+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
           <div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--err)">📉 Витрата</div>
@@ -1454,12 +1551,23 @@ function historyModal(){
             <button class="bi bs" style="margin-top:4px" data-oid="${o.id}" data-omid="${o.matId}" data-otype="${o.type}" data-oqty="${o.qty}" data-obackfilled="${o.backfilled?1:0}">${svg(ic.x,12,'var(--err)')}</button>
           </div>
         </div>`;
+      } else {
+        const o=e.op,isSurplus=o.qty>=0;
+        rows+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
+          <div style="flex:1"><div style="font-size:11px;font-weight:700;color:${isSurplus?'var(--ok)':'var(--err)'}">⚖️ Інвентаризація · ${isSurplus?'лишок':'нестача'}</div>
+            <div style="font-size:13px;margin:2px 0">${o.matName||'?'}</div>
+            <div style="font-size:11px;color:var(--mut)">${isSurplus?'+':'−'}${Math.abs(o.qty).toFixed(1)} ${o.unit||'шт'}</div>
+          </div>
+          <div style="text-align:right"><div style="font-weight:700;font-size:13px;color:${isSurplus?'var(--ok)':'var(--err)'}">${isSurplus?'+':'−'}${fmt(Math.abs(o.total))} грн</div>
+            <button class="bi bs" style="margin-top:4px" data-oid="${o.id}" data-omid="${o.matId}" data-otype="${o.type}" data-oqty="${o.qty}" data-obackfilled="1">${svg(ic.x,12,'var(--err)')}</button>
+          </div>
+        </div>`;
       }
     }
     const pendingBackfill=appts.filter(a=>Array.isArray(a.materialsUsed)&&a.materialsUsed.length>0&&a.status!=='cancelled'&&!a.materialsHistoryBackfilled);
     $('modal').innerHTML=`
       <div class="mh"><div class="mt">Історія операцій</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-      <div class="chips">${['Всі','Прихід','Витрата'].map(t=>`<button class="chip ${histType===t?'on':''}" data-ht="${t}">${t}</button>`).join('')}</div>
+      <div class="chips">${['Всі','Прихід','Витрата','Коригування'].map(t=>`<button class="chip ${histType===t?'on':''}" data-ht="${t}">${t}</button>`).join('')}</div>
       ${pendingBackfill.length?`<button class="btn bg bs" id="hbackfill" style="margin-bottom:10px;width:100%;justify-content:center">🔄 Підтягнути старі списання з записів (${pendingBackfill.length})</button>`:''}
       <input class="fi" id="hq" style="margin-bottom:10px" placeholder="🔍 Пошук за назвою чи постачальником..." value="${histQ}"/>
       ${entries.length===0?'<div class="empty">Нічого не знайдено</div>':rows}`;
