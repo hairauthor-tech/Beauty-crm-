@@ -998,7 +998,15 @@ function apptModal(a,date,time){
         date:apptDate,time:$('ft').value,status:newStatus,
         customDuration:finalDuration,
         materialsUsed:materialsUsedFinal,materialCost:materialCostFinal,
-        paid:+$('fm').value||0,tips:+$('ftip').value||0,note:$('fn').value};
+        paid:+$('fm').value||0,tips:+$('ftip').value||0,note:$('fn').value,
+        // Every save through this modal already logs material changes live
+        // (see the delta loop below) — so this appointment never needs to
+        // go through "🔄 Підтягнути" in Історія. Without this flag, brand
+        // new appointments would sit in that backfill queue forever (it was
+        // never set on regular saves, only by the backfill button itself),
+        // and re-running the backfill would duplicate what was already
+        // logged live — exactly what caused the duplicate entries.
+        materialsHistoryBackfilled:true};
       let apptId;
       if(a){await updateDoc(doc(db,'appointments',a.id),data);apptId=a.id;}
       else{const ref=await addDoc(collection(db,'appointments'),data);apptId=ref.id;}
@@ -1542,7 +1550,7 @@ function historyModal(){
       } else if(e.kind==='spend'){
         const o=e.op;
         rows+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
-          <div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--err)">📉 Витрата</div>
+          <div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--err)">📉 Витрата ${o.backfilled?'<span style="color:var(--dim);font-weight:400">· підтягнуто ⓘ</span>':''}</div>
             <div style="font-size:13px;margin:2px 0">${o.matName||'?'}</div>
             <div style="font-size:11px;color:var(--mut)">${o.qty} ${o.unit||'шт'}${o.disc?' · -'+o.disc+'%':''}</div>
             ${o.note?`<div style="font-size:11px;color:var(--dim)">${o.note}</div>`:''}
