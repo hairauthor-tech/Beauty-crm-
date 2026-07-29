@@ -1829,6 +1829,23 @@ function drawStats(){
     return{...sv,cnt,rev,matCost,margin,marginPct,marginPerHour};
   }).filter(s=>s.cnt>0).sort((a,b)=>b.rev-a.rev);
   const maxS=Math.max(...bySvc.map(s=>s.rev),1);
+  // Топ фарб у використанні за обраний період — рахуємо і кількість разів
+  // (скільки записів клієнтів її використовували, тобто "частота"), і сумарну
+  // витрачену кількість/вартість, по матеріалах категорії "Фарби".
+  const dyeAgg={};
+  done.forEach(a=>(a.materialsUsed||[]).forEach(mu=>{
+    const m=mats.find(x=>x.id===mu.matId);
+    if(!m||m.category!=='Фарби')return;
+    if(!dyeAgg[mu.matId])dyeAgg[mu.matId]={name:m.name,cnt:0,qty:0};
+    dyeAgg[mu.matId].cnt+=1;
+    dyeAgg[mu.matId].qty+=mu.qty||0;
+  }));
+  const topDyesArr=Object.entries(dyeAgg).map(([matId,d])=>{
+    const m=mats.find(x=>x.id===matId);
+    const{unit,ppu}=m?matUnitInfo(m):{unit:'г',ppu:0};
+    return{...d,unit,cost:d.qty*ppu};
+  }).sort((a,b)=>b.cnt-a.cnt).slice(0,8);
+  const maxDyeCnt=Math.max(...topDyesArr.map(d=>d.cnt),1);
   const byDay=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map((l,i)=>{const dn=(i+1)%7,r=done.filter(a=>new Date(a.date+'T12:00:00').getDay()===dn).reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);return{l,r};});
   const maxD=Math.max(...byDay.map(d=>d.r),1);
   el.innerHTML=`
@@ -1870,6 +1887,17 @@ function drawStats(){
             <span style="color:${s.margin>=0?'var(--ok)':'var(--err)'};font-weight:600">Маржа: ${fmt(s.margin)} грн (${s.marginPct.toFixed(0)}%)</span>
           </div>
           <div style="text-align:right;font-size:11px;color:var(--acs);margin-top:2px">≈ ${fmt(s.marginPerHour)} грн/год</div>
+        </div>`).join('')}
+    </div>
+    <div class="card"><div class="sec" style="margin-top:0">🎨 Топ фарб у використанні</div>
+      ${topDyesArr.length===0?'<div style="color:var(--dim);text-align:center;padding:20px 0">Немає даних за цей період</div>':topDyesArr.map(d=>`
+        <div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:13px">${d.name} <span style="color:var(--dim)">×${d.cnt}</span></span>
+            <span style="font-weight:700;color:var(--sil)">${fmt(d.qty)} ${d.unit}</span>
+          </div>
+          <div class="pb"><div class="pf" style="width:${d.cnt/maxDyeCnt*100}%;background:linear-gradient(to right,#8A6D5C,#D8B48A)"></div></div>
+          <div style="text-align:right;font-size:11px;color:var(--mut);margin-top:3px">${fmt(d.cost)} грн</div>
         </div>`).join('')}
     </div>
     <div class="card"><div class="sec" style="margin-top:0">Останні закупівлі</div>
