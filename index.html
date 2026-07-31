@@ -1120,6 +1120,7 @@ function drawStock(){
   el.innerHTML=`
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <button class="btn bp bs" id="breceive">${svg(ic.h,14)} Прихід</button>
+      <button class="btn bg bs" id="bsale">🛍️ Продаж</button>
       <button class="btn bg bs" id="bnewmat">${svg(ic.plus,14)} Новий</button>
       <button class="btn bg bs" id="bhistory">📋 Історія</button>
       <button class="btn bg bs" id="bdrafts">📝 Чернетки${drafts.length?` (${drafts.length})`:''}</button>
@@ -1146,6 +1147,7 @@ function drawStock(){
         </div>`;
       }).join('')}`).join('')}`;
   $('breceive').onclick=()=>receiveModal();
+  $('bsale').onclick=()=>saleModal();
   $('bnewmat').onclick=()=>matModal(null);
   $('bhistory').onclick=()=>historyModal();
   $('bdrafts').onclick=()=>draftsListModal();
@@ -1279,6 +1281,136 @@ function receiveModal(draftId){
         await addDoc(collection(db,'purchases'),{matId:it.matId,matName:m.name,type:'receive',qty:it.qty,unit:'шт',price:dp,origPrice:it.price,disc:it.disc||0,total:it.qty*dp,date,note,batchId});
       }
       if(curDraftId)await deleteDoc(doc(db,'drafts',curDraftId));
+      hide();
+    };
+  }
+  show('');render();
+}
+
+// Sale Modal — retail sale of goods to a client, separate from material
+// spent on a service. Multi-item cart (same shape as the Прихід modal):
+// pick a material, set qty + sale price per item (defaults to the
+// material's saved retail price, falling back to its cost so nothing is
+// ever blank), see cost/margin live, then confirm. Stock is deducted in
+// шт just like a manual "Списати", and every item is logged into the same
+// 'purchases' history collection with type:'sale' so Історія та Аналітика
+// can pick it up without needing a separate collection or listener.
+let saleItems=[];
+function saleModal(){
+  saleItems=[];
+  let sDate=today(), sClient='';
+  function render(searchVal=''){
+    const fil2=mats.filter(m=>!searchVal||m.name.toLowerCase().includes(searchVal.toLowerCase()));
+    const itemsHtml=saleItems.map((it,idx)=>{
+      const m=mats.find(x=>x.id===it.matId);
+      const cost=m?.avgPrice||m?.price||0;
+      const lineSell=it.qty*(it.price||0),lineCost=it.qty*cost,margin=lineSell-lineCost;
+      return`<div style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:13px;font-weight:600">${m?.name||'?'}</span>
+          <button class="bi bs" data-rem="${idx}">${svg(ic.x,12,'var(--err)')}</button>
+        </div>
+        <div class="g2">
+          <div><div style="font-size:10px;color:var(--mut);margin-bottom:3px">К-сть (шт)</div>
+            <input type="number" step="1" min="0" value="${it.qty}" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px;color:var(--txt);font-size:13px;outline:none" data-qty="${idx}"/></div>
+          <div><div style="font-size:10px;color:var(--mut);margin-bottom:3px">Ціна продажу (грн/шт)</div>
+            <input type="number" step="0.01" value="${it.price}" style="width:100%;background:var(--bg);border:1px solid var(--brd);border-radius:6px;padding:6px;color:var(--txt);font-size:13px;outline:none" data-price="${idx}"/></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-top:6px" data-sum="${idx}">
+          <span>Собівартість: ${lineCost.toFixed(2)} грн</span>
+          <span style="color:${margin>=0?'var(--ok)':'var(--err)'};font-weight:600">Маржа: ${margin.toFixed(2)} грн</span>
+        </div>
+      </div>`;
+    }).join('');
+    const totalSell=saleItems.reduce((s,it)=>s+it.qty*(it.price||0),0);
+    const totalCost=saleItems.reduce((s,it)=>{const m=mats.find(x=>x.id===it.matId);return s+it.qty*(m?.avgPrice||m?.price||0);},0);
+    const totalMargin=totalSell-totalCost;
+    const listHtml=fil2.map(m=>`<div style="padding:10px 14px;border-bottom:1px solid var(--brd);cursor:pointer;display:flex;justify-content:space-between" data-add="${m.id}">
+      <span style="font-size:13px">${m.name}</span>
+      <span style="font-size:12px;color:var(--mut)">${m.qty} шт</span>
+    </div>`).join('');
+
+    const prevSearch=searchVal;
+    $('modal').innerHTML=`
+      <div class="mh"><div class="mt">🛍️ Продаж товару</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <div class="field"><label>Дата</label><input type="date" class="fi" id="sdate2" value="${sDate}"/></div>
+      <div class="field"><label>Клієнт</label><input class="fi" id="sclient" placeholder="Ім'я клієнта..." value="${sClient}"/></div>
+      ${saleItems.length?`<div style="margin-bottom:10px">${itemsHtml}
+        <div style="text-align:right;font-size:11px;color:var(--mut);margin-top:2px">Собівартість разом: ${totalCost.toFixed(2)} грн</div>
+        <div style="text-align:right;font-weight:700;font-size:14px;color:var(--sil)" data-grandtotal>Разом продаж: ${totalSell.toFixed(2)} грн</div>
+        <div style="text-align:right;font-size:12px;font-weight:600;color:${totalMargin>=0?'var(--ok)':'var(--err)'}" data-grandmargin>Маржа: ${totalMargin.toFixed(2)} грн</div>
+      </div>`:''}
+      <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Оберіть товари:</div>
+      <input class="fi" id="ssearch" style="margin-bottom:8px" placeholder="🔍 Пошук..." value="${prevSearch}"/>
+      <div style="max-height:180px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px;margin-bottom:14px">${listHtml||'<div style="padding:14px;color:var(--dim);text-align:center">Нічого не знайдено</div>'}</div>
+      <div class="mf">
+        <button class="btn bg" id="scancel">Скасувати</button>
+        <button class="btn bp" id="ssave">Продати (${saleItems.length})</button>
+      </div>`;
+
+    $('mx').onclick=hide;$('scancel').onclick=hide;
+    const captureHeader=()=>{if($('sdate2'))sDate=$('sdate2').value;if($('sclient'))sClient=$('sclient').value;};
+    $('sdate2').addEventListener('change',captureHeader);
+    $('sclient').addEventListener('input',captureHeader);
+    $('ssearch').addEventListener('input',e=>{
+      const v=e.target.value;
+      const fil3=mats.filter(m=>!v||m.name.toLowerCase().includes(v.toLowerCase()));
+      document.querySelector('#modal [style*="max-height:180px"]').innerHTML=
+        fil3.map(m=>`<div style="padding:10px 14px;border-bottom:1px solid var(--brd);cursor:pointer;display:flex;justify-content:space-between" data-add="${m.id}">
+          <span style="font-size:13px">${m.name}</span><span style="font-size:12px;color:var(--mut)">${m.qty} шт</span>
+        </div>`).join('') || '<div style="padding:14px;color:var(--dim);text-align:center">Нічого не знайдено</div>';
+      bindAddBtns();
+    });
+    function bindAddBtns(){
+      $('modal').querySelectorAll('[data-add]').forEach(el2=>{
+        el2.onclick=()=>{
+          captureHeader();
+          const m=mats.find(x=>x.id===el2.dataset.add);
+          // Retail price defaults to the material's saved sale price; if
+          // none was set yet, fall back to its cost so the field is never
+          // blank/zero by surprise — the person can still edit it inline.
+          const defPrice=m?.sellPrice||m?.avgPrice||m?.price||0;
+          saleItems.push({matId:el2.dataset.add,qty:1,price:defPrice});
+          render($('ssearch').value);
+        };
+      });
+    }
+    bindAddBtns();
+    $('modal').querySelectorAll('[data-rem]').forEach(b=>b.onclick=()=>{captureHeader();saleItems.splice(+b.dataset.rem,1);render($('ssearch')?.value||'');});
+    function updateItemSum(idx){
+      const it=saleItems[idx],m=mats.find(x=>x.id===it.matId);
+      const cost=m?.avgPrice||m?.price||0,lineSell=it.qty*(it.price||0),lineCost=it.qty*cost,margin=lineSell-lineCost;
+      const sumEl=$('modal').querySelector(`[data-sum="${idx}"]`);
+      if(sumEl)sumEl.innerHTML=`<span>Собівартість: ${lineCost.toFixed(2)} грн</span><span style="color:${margin>=0?'var(--ok)':'var(--err)'};font-weight:600">Маржа: ${margin.toFixed(2)} грн</span>`;
+      const totalSell2=saleItems.reduce((s,x)=>s+x.qty*(x.price||0),0);
+      const totalCost2=saleItems.reduce((s,x)=>{const mm=mats.find(y=>y.id===x.matId);return s+x.qty*(mm?.avgPrice||mm?.price||0);},0);
+      const totalEl=$('modal').querySelector('[data-grandtotal]');
+      const marginEl=$('modal').querySelector('[data-grandmargin]');
+      if(totalEl)totalEl.textContent='Разом продаж: '+totalSell2.toFixed(2)+' грн';
+      if(marginEl){marginEl.textContent='Маржа: '+(totalSell2-totalCost2).toFixed(2)+' грн';marginEl.style.color=(totalSell2-totalCost2)>=0?'var(--ok)':'var(--err)';}
+    }
+    $('modal').querySelectorAll('[data-qty]').forEach(inp=>inp.addEventListener('input',()=>{saleItems[+inp.dataset.qty].qty=+inp.value||0;updateItemSum(+inp.dataset.qty);}));
+    $('modal').querySelectorAll('[data-price]').forEach(inp=>inp.addEventListener('input',()=>{saleItems[+inp.dataset.price].price=+inp.value||0;updateItemSum(+inp.dataset.price);}));
+    $('ssave').onclick=async()=>{
+      captureHeader();
+      if(saleItems.length===0){alert('Додайте товари');return;}
+      for(const it of saleItems){
+        const m=mats.find(x=>x.id===it.matId);
+        if(!m)continue;
+        if(it.qty>m.qty&&!confirm(`«${m.name}»: на складі лише ${m.qty} шт, а продається ${it.qty}. Продовжити (залишок піде в мінус)?`))return;
+      }
+      const date=sDate,note=sClient;
+      // One shared id per "чек" (receipt) — same grouping pattern as the
+      // Прихід накладна, so Історія can show one card per sale instead of
+      // one row per item.
+      const batchId='b'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+      for(const it of saleItems){
+        const m=mats.find(x=>x.id===it.matId);if(!m)continue;
+        const cost=m.avgPrice||m.price||0;
+        const newQ=(m.qty||0)-it.qty;
+        await updateDoc(doc(db,'materials',it.matId),{qty:+newQ.toFixed(4)});
+        await addDoc(collection(db,'purchases'),{matId:it.matId,matName:m.name,type:'sale',qty:it.qty,unit:'шт',price:it.price,cost,total:it.qty*it.price,costTotal:it.qty*cost,margin:it.qty*(it.price-cost),date,note,batchId});
+      }
       hide();
     };
   }
@@ -1431,6 +1563,7 @@ function matModal(id){
       </div>
     </div>
     <div class="field"><label>Ціна за упаковку (грн/шт)</label><input type="number" step="0.01" class="fi" id="mp" value="${m?.price?Number(m.price.toFixed(2)):0}"/></div>
+    <div class="field"><label>Роздрібна ціна продажу (грн/шт) <span style="color:var(--dim);font-weight:400">— опційно, для «🛍️ Продаж»</span></label><input type="number" step="0.01" class="fi" id="msp" value="${m?.sellPrice?Number(m.sellPrice.toFixed(2)):''}" placeholder="напр. 250"/></div>
     <div id="mcalc" style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:13px;${m?.spendUnit&&m?.spendUnit!=='шт'&&m?.volPerUnit>0?'':'display:none'}">
       <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--mut)">Ціна за г/мл:</span><span id="mpg" style="font-weight:700;color:var(--acs)">${m?.pricePerUnit?m.pricePerUnit.toFixed(2)+' грн':'—'}</span></div>
     </div>
@@ -1452,11 +1585,11 @@ function matModal(id){
   });
   $('mx').onclick=hide;$('mc').onclick=hide;
   $('ms').onclick=async()=>{
-    const name=$('mn').value,su=$('msu').value,vol=+($('mvol')?.value||0),tare=+($('mtare')?.value||0),price=+$('mp').value,qty=+$('mq').value;
+    const name=$('mn').value,su=$('msu').value,vol=+($('mvol')?.value||0),tare=+($('mtare')?.value||0),price=+$('mp').value,qty=+$('mq').value,sellPrice=+($('msp').value||0);
     if(!name){alert('Введіть назву');return;}
     if(!id){const dup=mats.find(x=>x.name.toLowerCase()===name.toLowerCase());if(dup){alert('Товар "'+name+'" вже існує!');return;}}
     const ppu=su!=='шт'&&vol>0?price/vol:0;
-    const data={name,category:$('mcat').value,qty,minQty:+$('mm').value,price,avgPrice:price,spendUnit:su,volPerUnit:vol,tare,pricePerUnit:ppu,avgPricePerUnit:ppu};
+    const data={name,category:$('mcat').value,qty,minQty:+$('mm').value,price,avgPrice:price,spendUnit:su,volPerUnit:vol,tare,pricePerUnit:ppu,avgPricePerUnit:ppu,sellPrice};
     if(id)await updateDoc(doc(db,'materials',id),data);else await addDoc(collection(db,'materials'),data);
     hide();
   };
@@ -1508,6 +1641,7 @@ function historyModal(){
     // document, so nothing old disappears. Spend entries stay individual,
     // since each one is tied to a specific piece of work, not an invoice.
     const receiveOps=ops.filter(o=>o.type==='receive');
+    const saleOps=ops.filter(o=>o.type==='sale');
     const spendOps=ops.filter(o=>o.type==='spend');
     const adjOps=ops.filter(o=>o.type==='adjustment');
     const batches={};
@@ -1517,11 +1651,26 @@ function historyModal(){
       batches[key].items.push(o);
       if(o.date>batches[key].date)batches[key].date=o.date;
     });
+    // Sale-type purchases are grouped the same way, into one "чек" (receipt)
+    // card per batchId — mirrors the Прихід накладна grouping above.
+    const saleBatches={};
+    saleOps.forEach(o=>{
+      const key=o.batchId||('legacy-'+o.id);
+      if(!saleBatches[key])saleBatches[key]={key,date:o.date,note:o.note,items:[]};
+      saleBatches[key].items.push(o);
+      if(o.date>saleBatches[key].date)saleBatches[key].date=o.date;
+    });
     let entries=[];
     if(histType==='Всі'||histType==='Прихід'){
       Object.values(batches).forEach(b=>{
         const matches=!q||(b.note||'').toLowerCase().includes(q)||b.items.some(it=>(it.matName||'').toLowerCase().includes(q));
         if(matches)entries.push({kind:'receive',date:b.date,batch:b});
+      });
+    }
+    if(histType==='Всі'||histType==='Продаж'){
+      Object.values(saleBatches).forEach(b=>{
+        const matches=!q||(b.note||'').toLowerCase().includes(q)||b.items.some(it=>(it.matName||'').toLowerCase().includes(q));
+        if(matches)entries.push({kind:'sale',date:b.date,batch:b});
       });
     }
     if(histType==='Всі'||histType==='Витрата'){
@@ -1558,6 +1707,22 @@ function historyModal(){
             <span style="color:var(--mut)">${fmt(it.total)} грн</span>
           </div>`).join('')}
         </div>`;
+      } else if(e.kind==='sale'){
+        const b=e.batch,total=b.items.reduce((s,it)=>s+(it.total||0),0),margin=b.items.reduce((s,it)=>s+(it.margin!==undefined?it.margin:(it.total||0)-(it.costTotal||0)),0);
+        rows+=`<div style="border:1px solid var(--brd);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--card)">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+            <div><div style="font-size:11px;font-weight:700;color:var(--acs)">🛍️ Продаж${b.note?' · '+b.note:''}</div>
+            <div style="font-size:11px;color:var(--mut)">${b.items.length} поз. · маржа ${fmt(margin)} грн</div></div>
+            <div style="text-align:right">
+              <div style="font-weight:700;font-size:14px;color:var(--sil)">${fmt(total)} грн</div>
+              <button class="bi bs" style="margin-top:4px" data-delsalebatch="${b.key}">${svg(ic.del,12,'var(--err)')}</button>
+            </div>
+          </div>
+          ${b.items.map(it=>`<div style="display:flex;justify-content:space-between;padding:5px 0;border-top:1px solid var(--brd);font-size:12px">
+            <span>${it.matName||'?'} · ${it.qty} ${it.unit||'шт'}</span>
+            <span style="color:var(--mut)">${fmt(it.total)} грн</span>
+          </div>`).join('')}
+        </div>`;
       } else if(e.kind==='spend'){
         const o=e.op;
         rows+=`<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--brd)">
@@ -1586,7 +1751,7 @@ function historyModal(){
     const pendingBackfill=appts.filter(a=>Array.isArray(a.materialsUsed)&&a.materialsUsed.length>0&&a.status!=='cancelled'&&!a.materialsHistoryBackfilled);
     $('modal').innerHTML=`
       <div class="mh"><div class="mt">Історія операцій</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-      <div class="chips">${['Всі','Прихід','Витрата','Коригування'].map(t=>`<button class="chip ${histType===t?'on':''}" data-ht="${t}">${t}</button>`).join('')}</div>
+      <div class="chips">${['Всі','Прихід','Продаж','Витрата','Коригування'].map(t=>`<button class="chip ${histType===t?'on':''}" data-ht="${t}">${t}</button>`).join('')}</div>
       ${pendingBackfill.length?`<button class="btn bg bs" id="hbackfill" style="margin-bottom:10px;width:100%;justify-content:center">🔄 Підтягнути старі списання з записів (${pendingBackfill.length})</button>`:''}
       <input class="fi" id="hq" style="margin-bottom:10px" placeholder="🔍 Пошук за назвою чи постачальником..." value="${histQ}"/>
       ${entries.length===0?'<div class="empty">Нічого не знайдено</div>':rows}`;
@@ -1633,6 +1798,19 @@ function historyModal(){
       for(const it of batch.items){
         const m=mats.find(x=>x.id===it.matId);
         if(m){const nq=m.qty-(it.qty||0);await updateDoc(doc(db,'materials',it.matId),{qty:+nq.toFixed(4)});}
+        await deleteDoc(doc(db,'purchases',it.id));
+      }
+      hide();
+    });
+    // Cancelling a sale returns the sold items to stock (opposite sign
+    // from cancelling a Прихід, since a sale subtracted stock rather than
+    // adding it).
+    $('modal').querySelectorAll('[data-delsalebatch]').forEach(b=>b.onclick=async()=>{
+      if(!confirm('Скасувати весь чек продажу? Це поверне товари на склад.'))return;
+      const batch=saleBatches[b.dataset.delsalebatch];
+      for(const it of batch.items){
+        const m=mats.find(x=>x.id===it.matId);
+        if(m){const nq=m.qty+(it.qty||0);await updateDoc(doc(db,'materials',it.matId),{qty:+nq.toFixed(4)});}
         await deleteDoc(doc(db,'purchases',it.id));
       }
       hide();
@@ -1796,6 +1974,7 @@ function drawStats(){
   };
   const done=appts.filter(a=>a.status==='done'&&inSelPeriod(a.date));
   const recOps=ops.filter(o=>o.type==='receive'&&inSelPeriod(o.date));
+  const saleOps=ops.filter(o=>o.type==='sale'&&inSelPeriod(o.date));
   const otherExps=exps.filter(o=>inSelPeriod(o.date));
   const rev=done.reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);
   const exp=recOps.reduce((s,o)=>s+(o.total||0),0),profit=rev-exp,avg=done.length?rev/done.length:0;
@@ -1812,7 +1991,13 @@ function drawStats(){
   // Чайові — окремі від "Виручки" (яка відображає ціну послуг), але це
   // реальні гроші в кишені, тож враховуються в "Чистому прибутку".
   const tipsTotal=done.reduce((s,a)=>s+(a.tips||0),0);
-  const netProfit=svcMargin-otherExpTotal+tipsTotal;
+  // Роздрібний продаж товарів — виручка й маржа, окремі від виручки за
+  // послуги (щоб не змішувати «зробили послугу» з «продали засіб»), але
+  // маржа з продажів так само реальний прибуток і йде в Чистий прибуток.
+  const salesRevenue=saleOps.reduce((s,o)=>s+(o.total||0),0);
+  const salesCost=saleOps.reduce((s,o)=>s+(o.costTotal||0),0);
+  const salesMargin=saleOps.reduce((s,o)=>s+(o.margin!==undefined?o.margin:(o.total||0)-(o.costTotal||0)),0);
+  const netProfit=svcMargin-otherExpTotal+tipsTotal+salesMargin;
   // Прив'язка йде по "головній" послузі запису (a.serviceId), як і раніше —
   // для записів з кількома послугами вся собівартість матеріалів і час
   // запису відносяться на першу/головну послугу (той самий спрощений підхід,
@@ -1863,6 +2048,7 @@ function drawStats(){
       <div class="sc"><div class="sv" style="color:${svcMargin>=0?'var(--ok)':'var(--err)'}">${fmt(svcMargin)} грн</div><div class="sl">Маржа (${svcMarginPct.toFixed(0)}%)</div></div>
       <div class="sc" id="cardOtherExp" style="cursor:pointer"><div class="sv" style="color:var(--err)">${fmt(otherExpTotal)} грн</div><div class="sl">Інші витрати</div></div>
       <div class="sc"><div class="sv" style="color:var(--ok)">${fmt(tipsTotal)} грн</div><div class="sl">Чайові</div></div>
+      <div class="sc" id="cardSales" style="cursor:pointer"><div class="sv" style="color:var(--acs)">${fmt(salesRevenue)} грн</div><div class="sl">🛍️ Продаж товарів</div><div style="color:${salesMargin>=0?'var(--ok)':'var(--err)'};font-size:11px">маржа ${fmt(salesMargin)} грн</div></div>
       <div class="sc"><div class="sv" style="color:${netProfit>=0?'var(--ok)':'var(--err)'}">${fmt(netProfit)} грн</div><div class="sl">Чистий прибуток</div></div>
     </div>
     <div class="card"><div class="sec" style="margin-top:0">По днях тижня</div>
@@ -1913,6 +2099,14 @@ function drawStats(){
           <div><div style="font-size:13px">${o.name||o.category||'?'}</div><div style="font-size:11px;color:var(--mut)">${o.date} · ${o.category||''}</div></div>
           <div style="font-weight:700;color:var(--err);white-space:nowrap">${fmt(o.amount)} грн</div>
         </div>`).join('')}
+    </div>
+    <div class="card"><div class="sec" style="margin-top:0">🛍️ Останні продажі</div>
+      ${saleOps.length===0?'<div style="color:var(--dim);text-align:center;padding:20px 0">Немає</div>':saleOps.slice(-8).reverse().map(o=>`
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--brd)">
+          <div><div style="font-size:13px">${o.matName||'?'}${o.note?' · '+o.note:''}</div><div style="font-size:11px;color:var(--mut)">${o.date} · ${o.qty} шт</div></div>
+          <div style="text-align:right"><div style="font-weight:700;color:var(--sil);white-space:nowrap">${fmt(o.total)} грн</div>
+          <div style="font-size:11px;color:${(o.margin!==undefined?o.margin:(o.total||0)-(o.costTotal||0))>=0?'var(--ok)':'var(--err)'}">маржа ${fmt(o.margin!==undefined?o.margin:(o.total||0)-(o.costTotal||0))} грн</div></div>
+        </div>`).join('')}
     </div>`;
   el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{period=b.dataset.p;drawStats();});
   const pf=$('pdfrom'),pt=$('pdto');
@@ -1926,6 +2120,7 @@ function drawStats(){
   $('cardExp').onclick=()=>purchasesDetailModal(recOps);
   $('cardMatCost').onclick=()=>materialsDetailModal(done);
   $('cardOtherExp').onclick=()=>expensesDetailModal(otherExps);
+  $('cardSales').onclick=()=>salesDetailModal(saleOps);
 }
 
 // Drill-down modals for the clickable Аналітика cards ───────────────────
@@ -1967,6 +2162,25 @@ function materialsDetailModal(list){
     <div style="font-size:11px;color:var(--dim);margin-bottom:8px">Порахована за поточними цінами матеріалів — може трохи відрізнятись від збереженої на момент запису, якщо ціни відтоді змінювались.</div>
     <div style="text-align:right;font-weight:700;font-size:15px;color:var(--sil);margin-bottom:8px">Разом: ${fmt(total)} грн</div>
     ${rows.length===0?'<div class="empty">Матеріали не використовувались</div>':rowsHtml}`);
+  $('mx').onclick=hide;
+}
+
+function salesDetailModal(list){
+  const sorted=[...list].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const total=sorted.reduce((s,o)=>s+(o.total||0),0);
+  const margin=sorted.reduce((s,o)=>s+(o.margin!==undefined?o.margin:(o.total||0)-(o.costTotal||0)),0);
+  const rows=sorted.map(o=>{
+    const m=o.margin!==undefined?o.margin:(o.total||0)-(o.costTotal||0);
+    return`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--brd)">
+      <div><div style="font-size:13px">${o.matName||'?'}${o.note?' · '+o.note:''}</div><div style="font-size:11px;color:var(--mut)">${fmtS(o.date)} · ${o.qty} шт · ${(o.price||0).toFixed(2)} грн/шт</div></div>
+      <div style="text-align:right"><div style="font-weight:700;color:var(--sil);white-space:nowrap">${fmt(o.total)} грн</div>
+      <div style="font-size:11px;color:${m>=0?'var(--ok)':'var(--err)'}">маржа ${fmt(m)} грн</div></div>
+    </div>`;
+  }).join('');
+  show(`<div class="mh"><div class="mt">Продаж товарів — деталізація</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    <div style="text-align:right;font-weight:700;font-size:15px;color:var(--sil);margin-bottom:2px">Разом: ${fmt(total)} грн</div>
+    <div style="text-align:right;font-size:13px;font-weight:600;color:${margin>=0?'var(--ok)':'var(--err)'};margin-bottom:8px">Маржа: ${fmt(margin)} грн</div>
+    ${sorted.length===0?'<div class="empty">Немає продажів за цей період</div>':rows}`);
   $('mx').onclick=hide;
 }
 
