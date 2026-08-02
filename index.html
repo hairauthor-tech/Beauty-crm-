@@ -141,6 +141,7 @@ let stockCat='Всі', stockQ='', period='month';
 let periodFrom='', periodTo='';
 let histType='Всі', histQ='';
 let backfillRunning=false;
+let svcSort='rev', prodSort='rev';
 let expCat='Всі', expPeriod='month';
 let customExpCats=JSON.parse(localStorage.getItem('expCats')||'[]');
 let theme=localStorage.getItem('theme')||'dark';
@@ -724,7 +725,14 @@ function apptModal(a,date,time){
   }
   // Materials actually used for this appointment — {matId, qty} where qty is
   // expressed in that material's spend-unit (шт, or г/мл if configured).
-  let selMats = a?.materialsUsed ? a.materialsUsed.map(m=>({matId:m.matId,qty:m.qty})) : [];
+  // For a brand-new appointment (no existing materialsUsed yet), start from
+  // whatever materials are flagged "autoInclude" (e.g. shampoo/conditioner
+  // used on nearly every visit) so that per-client cost is counted without
+  // having to attach it to every individual service's recipe. Added once
+  // per appointment, not once per service — a visit only needs one wash
+  // regardless of how many services happen during it.
+  let selMats = a?.materialsUsed ? a.materialsUsed.map(m=>({matId:m.matId,qty:m.qty}))
+    : mats.filter(m=>m.autoInclude&&m.autoQty>0).map(m=>({matId:m.id,qty:m.autoQty}));
   // Effective duration in minutes shown/edited in the modal. Starts from
   // whatever is actually saved on the appointment (customDuration, e.g. set
   // by dragging the resize handle on the calendar) or, failing that, the sum
@@ -1564,6 +1572,14 @@ function matModal(id){
     </div>
     <div class="field"><label>Ціна за упаковку (грн/шт)</label><input type="number" step="0.01" class="fi" id="mp" value="${m?.price?Number(m.price.toFixed(2)):0}"/></div>
     <div class="field"><label>Роздрібна ціна продажу (грн/шт) <span style="color:var(--dim);font-weight:400">— опційно, для «🛍️ Продаж»</span></label><input type="number" step="0.01" class="fi" id="msp" value="${m?.sellPrice?Number(m.sellPrice.toFixed(2)):''}" placeholder="напр. 250"/></div>
+    <div class="field" style="display:flex;align-items:center;gap:8px;background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <input type="checkbox" id="mauto" ${m?.autoInclude?'checked':''} style="width:16px;height:16px;flex-shrink:0;accent-color:var(--acc)"/>
+      <label for="mauto" style="margin:0;text-transform:none;font-weight:600;font-size:13px;color:var(--txt);letter-spacing:0;cursor:pointer">Додавати автоматично до кожного нового запису</label>
+    </div>
+    <div id="mautoqty" style="${m?.autoInclude?'':'display:none'}">
+      <div style="font-size:11px;color:var(--dim);margin-bottom:8px">Для витрат «на кожного клієнта» — миючих засобів, серветок тощо, — які не хочеться вписувати вручну в кожну послугу окремо. З'явиться в кожному новому запису одразу, і кількість там можна буде підкоригувати.</div>
+      <div class="field"><label id="maqlbl">Типовий розхід на 1 візит (${m?.spendUnit&&m?.spendUnit!=='шт'?m.spendUnit:'шт'})</label><input type="number" step="0.1" class="fi" id="maq" value="${m?.autoQty||0}" placeholder="напр. 15"/></div>
+    </div>
     <div id="mcalc" style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:13px;${m?.spendUnit&&m?.spendUnit!=='шт'&&m?.volPerUnit>0?'':'display:none'}">
       <div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--mut)">Ціна за г/мл:</span><span id="mpg" style="font-weight:700;color:var(--acs)">${m?.pricePerUnit?m.pricePerUnit.toFixed(2)+' грн':'—'}</span></div>
     </div>
@@ -1574,8 +1590,10 @@ function matModal(id){
     if(su!=='шт')$('vlbl').textContent='Об\'єм упаковки ('+su+' в 1 шт)';
     if(su!=='шт'&&vol>0&&p>0){$('mcalc').style.display='';$('mpg').textContent=(p/vol).toFixed(2)+' грн/'+su;}
     else $('mcalc').style.display='none';
+    if($('maqlbl'))$('maqlbl').textContent='Типовий розхід на 1 візит ('+su+')';
   };
   $('msu').onchange=upd;$('mvol')&&$('mvol').addEventListener('input',upd);$('mp').addEventListener('input',upd);
+  $('mauto').onchange=()=>{$('mautoqty').style.display=$('mauto').checked?'':'none';};
   $('mgrosscalc')&&($('mgrosscalc').onclick=()=>{
     const gross=+$('mgrossw').value||0,tare=+$('mtare').value||0;
     if(gross<=0){alert('Введіть загальну вагу');return;}
@@ -1585,11 +1603,11 @@ function matModal(id){
   });
   $('mx').onclick=hide;$('mc').onclick=hide;
   $('ms').onclick=async()=>{
-    const name=$('mn').value,su=$('msu').value,vol=+($('mvol')?.value||0),tare=+($('mtare')?.value||0),price=+$('mp').value,qty=+$('mq').value,sellPrice=+($('msp').value||0);
+    const name=$('mn').value,su=$('msu').value,vol=+($('mvol')?.value||0),tare=+($('mtare')?.value||0),price=+$('mp').value,qty=+$('mq').value,sellPrice=+($('msp').value||0),autoInclude=$('mauto').checked,autoQty=+($('maq')?.value||0);
     if(!name){alert('Введіть назву');return;}
     if(!id){const dup=mats.find(x=>x.name.toLowerCase()===name.toLowerCase());if(dup){alert('Товар "'+name+'" вже існує!');return;}}
     const ppu=su!=='шт'&&vol>0?price/vol:0;
-    const data={name,category:$('mcat').value,qty,minQty:+$('mm').value,price,avgPrice:price,spendUnit:su,volPerUnit:vol,tare,pricePerUnit:ppu,avgPricePerUnit:ppu,sellPrice};
+    const data={name,category:$('mcat').value,qty,minQty:+$('mm').value,price,avgPrice:price,spendUnit:su,volPerUnit:vol,tare,pricePerUnit:ppu,avgPricePerUnit:ppu,sellPrice,autoInclude,autoQty};
     if(id)await updateDoc(doc(db,'materials',id),data);else await addDoc(collection(db,'materials'),data);
     hide();
   };
@@ -1945,7 +1963,7 @@ function svcModal(id){
       hide();
     };
   }
-  render();
+  show('');render();
 }
 
 // ══════════════════════════════════════════════════
@@ -2014,6 +2032,44 @@ function drawStats(){
     return{...sv,cnt,rev,matCost,margin,marginPct,marginPerHour};
   }).filter(s=>s.cnt>0).sort((a,b)=>b.rev-a.rev);
   const maxS=Math.max(...bySvc.map(s=>s.rev),1);
+  // Структура продажу послуг — попит (частка к-сті записів) і рентабельність
+  // (маржа %) поруч із виручкою, щоб бачити не лише "що приносить гроші",
+  // а й "що часто замовляють" та "що вигідно робити" — це три різні речі.
+  const svcTotalRev=bySvc.reduce((s,x)=>s+x.rev,0)||1;
+  const svcTotalCnt=bySvc.reduce((s,x)=>s+x.cnt,0)||1;
+  const bySvcStruct=bySvc.map(s=>({...s,revPct:s.rev/svcTotalRev*100,cntPct:s.cnt/svcTotalCnt*100}));
+  const svcSorted=[...bySvcStruct].sort((a,b)=>{
+    if(svcSort==='cnt')return b.cnt-a.cnt;
+    if(svcSort==='margin')return b.marginPct-a.marginPct;
+    return b.rev-a.rev;
+  });
+  // Donut завжди будується у фіксованому порядку (за виручкою), незалежно
+  // від обраного сортування списку нижче — інакше кольори "стрибали" б при
+  // перемиканні чіпів.
+  const palette=['#A89BC2','#8A6D5C','#D4A853','#7BAF8A','#E07B39','#6B6380','#B87070','#5C8AA8','#C28FA8','#9CA85C'];
+  let svcCum=0;
+  const svcDonutStops=bySvcStruct.map((s,i)=>{
+    const start=svcCum;svcCum+=s.revPct;
+    return`${palette[i%palette.length]} ${start.toFixed(2)}% ${svcCum.toFixed(2)}%`;
+  }).join(', ');
+  const rentColor=pct=>pct>=50?'var(--ok)':pct>=25?'var(--wrn)':'var(--err)';
+  // Структура продажу товарів (роздріб) — та сама логіка: попит (скільки
+  // разів/скільки одиниць продано) і рентабельність (маржа %) по товару.
+  const prodAgg={};
+  saleOps.forEach(o=>{
+    if(!prodAgg[o.matId])prodAgg[o.matId]={matId:o.matId,name:o.matName,cnt:0,qty:0,rev:0,margin:0};
+    const p=prodAgg[o.matId];
+    p.cnt+=1;p.qty+=o.qty||0;p.rev+=o.total||0;
+    p.margin+=(o.margin!==undefined?o.margin:(o.total||0)-(o.costTotal||0));
+  });
+  const byProduct=Object.values(prodAgg).map(p=>({...p,marginPct:p.rev>0?(p.margin/p.rev*100):0}));
+  const prodTotalRev=byProduct.reduce((s,p)=>s+p.rev,0)||1;
+  const prodSorted=[...byProduct].sort((a,b)=>{
+    if(prodSort==='cnt')return b.qty-a.qty;
+    if(prodSort==='margin')return b.marginPct-a.marginPct;
+    return b.rev-a.rev;
+  });
+  const maxProdRev=Math.max(...byProduct.map(p=>p.rev),1);
   // Топ фарб у використанні за обраний період — рахуємо і кількість разів
   // (скільки записів клієнтів її використовували, тобто "частота"), і сумарну
   // витрачену кількість/вартість, по матеріалах категорії "Фарби".
@@ -2075,6 +2131,54 @@ function drawStats(){
           <div style="text-align:right;font-size:11px;color:var(--acs);margin-top:2px">≈ ${fmt(s.marginPerHour)} грн/год</div>
         </div>`).join('')}
     </div>
+    <div class="card"><div class="sec" style="margin-top:0">📊 Структура продажу — попит і рентабельність</div>
+      ${bySvcStruct.length===0?'<div style="color:var(--dim);text-align:center;padding:20px 0">Немає даних</div>':`
+      <div style="display:flex;gap:16px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
+        <div style="position:relative;width:120px;height:120px;flex-shrink:0">
+          <div style="width:120px;height:120px;border-radius:50%;background:conic-gradient(${svcDonutStops})"></div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:64px;height:64px;border-radius:50%;background:var(--card);display:flex;flex-direction:column;align-items:center;justify-content:center">
+            <div style="font-size:13px;font-weight:700;color:var(--sil)">${fmt(svcTotalRev)}</div>
+            <div style="font-size:9px;color:var(--dim)">грн</div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:140px;display:flex;flex-direction:column;gap:5px">
+          ${bySvcStruct.map((s,i)=>`<div style="display:flex;align-items:center;gap:6px;font-size:11px">
+            <span style="width:8px;height:8px;border-radius:50%;background:${palette[i%palette.length]};flex-shrink:0"></span>
+            <span style="color:var(--mut);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</span>
+            <span style="color:var(--sil);font-weight:600">${s.revPct.toFixed(0)}%</span>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div class="chips" style="margin-bottom:10px">${[['rev','За виручкою'],['cnt','За попитом'],['margin','За рентабельністю']].map(([k,l])=>`<button class="chip ${svcSort===k?'on':''}" data-ssort="${k}">${l}</button>`).join('')}</div>
+      ${svcSorted.map(s=>`
+        <div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--brd)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+            <span style="font-size:13px;font-weight:600">${s.name}</span>
+            <span style="font-size:11px;font-weight:700;color:${rentColor(s.marginPct)}">${s.marginPct.toFixed(0)}%</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mut)">
+            <span>Попит: ×${s.cnt} (${s.cntPct.toFixed(0)}% записів)</span>
+            <span>Виручка: ${fmt(s.rev)} грн (${s.revPct.toFixed(0)}%)</span>
+          </div>
+          <div class="pb" style="margin-top:5px"><div class="pf" style="width:${s.cntPct}%;background:${rentColor(s.marginPct)}"></div></div>
+        </div>`).join('')}
+      `}
+    </div>
+    ${byProduct.length>0?`<div class="card"><div class="sec" style="margin-top:0">📊 Структура продажу товарів</div>
+      <div class="chips" style="margin-bottom:10px">${[['rev','За виручкою'],['cnt','За попитом'],['margin','За рентабельністю']].map(([k,l])=>`<button class="chip ${prodSort===k?'on':''}" data-psort="${k}">${l}</button>`).join('')}</div>
+      ${prodSorted.map(p=>`
+        <div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--brd)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+            <span style="font-size:13px;font-weight:600">${p.name}</span>
+            <span style="font-size:11px;font-weight:700;color:${rentColor(p.marginPct)}">${p.marginPct.toFixed(0)}%</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--mut)">
+            <span>Продано: ${fmt(p.qty)} шт · ${p.cnt} раз(ів)</span>
+            <span>Виручка: ${fmt(p.rev)} грн (${(p.rev/prodTotalRev*100).toFixed(0)}%)</span>
+          </div>
+          <div class="pb" style="margin-top:5px"><div class="pf" style="width:${p.rev/maxProdRev*100}%;background:${rentColor(p.marginPct)}"></div></div>
+        </div>`).join('')}
+    </div>`:''}
     <div class="card"><div class="sec" style="margin-top:0">🎨 Топ фарб у використанні</div>
       ${topDyesArr.length===0?'<div style="color:var(--dim);text-align:center;padding:20px 0">Немає даних за цей період</div>':topDyesArr.map(d=>`
         <div style="margin-bottom:12px">
@@ -2109,6 +2213,8 @@ function drawStats(){
         </div>`).join('')}
     </div>`;
   el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{period=b.dataset.p;drawStats();});
+  el.querySelectorAll('[data-ssort]').forEach(b=>b.onclick=()=>{svcSort=b.dataset.ssort;drawStats();});
+  el.querySelectorAll('[data-psort]').forEach(b=>b.onclick=()=>{prodSort=b.dataset.psort;drawStats();});
   const pf=$('pdfrom'),pt=$('pdto');
   if(pf)pf.onchange=()=>{periodFrom=pf.value;drawStats();};
   if(pt)pt.onchange=()=>{periodTo=pt.value;drawStats();};
