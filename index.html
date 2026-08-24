@@ -733,6 +733,75 @@ function apptModal(a,date,time){
   // regardless of how many services happen during it.
   let selMats = a?.materialsUsed ? a.materialsUsed.map(m=>({matId:m.matId,qty:m.qty}))
     : mats.filter(m=>m.autoInclude&&m.autoQty>0).map(m=>({matId:m.id,qty:m.autoQty}));
+  // ── Live-save for materials (draft only — stock untouched) ──────
+  // Materials are typically typed in DURING the service, before it's
+  // marked "Виконано" — often before the person even knows the final
+  // amount, since they may still add more. So every add/remove/qty edit
+  // is saved to Firestore as a DRAFT a moment later, purely so nothing
+  // gets lost if the modal is closed early. This draft save never touches
+  // stock or logs a purchase/history entry — that only happens once, at
+  // the moment the appointment is actually saved with status "Виконано"
+  // (see the Save button handler below). deductedMaterialsUsed tracks
+  // what's REALLY been subtracted from stock so far for this appointment
+  // (empty until it's first marked done), so the delta math at Save time
+  // is always correct regardless of how many draft edits happened while
+  // it was still pending.
+  let apptId = a?.id || null;
+  let deductedMaterialsUsed = Array.isArray(a?.materialsDeducted)
+    ? a.materialsDeducted.map(m=>({matId:m.matId,qty:m.qty}))
+    // Older appointments saved before this draft/deduct split existed
+    // always deducted stock immediately regardless of status (unless
+    // cancelled, which already returned it) — so for those, whatever is
+    // on materialsUsed right now IS what's already reflected in stock.
+    : (a&&a.status!=='cancelled' ? (a.materialsUsed||[]).map(m=>({matId:m.matId,qty:m.qty})) : []);
+  let matSaveTimer=null;
+  // Creates the appointment record itself the moment there's enough to
+  // save (a client name + at least one service) — so materials typed in
+  // before the person has hit "Зберегти" even once still have somewhere
+  // to be saved to. Does nothing (and any not-yet-persisted edits simply
+  // wait) if those two aren't filled in yet.
+  async function ensureApptExists(){
+    if(apptId)return apptId;
+    const client=($('fc')?.value||'').trim();
+    if(!client||selSvcs.length===0)return null;
+    const totalDurMin0=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.duration||60),0);
+    const finalDuration=Math.min(durOverride!==null?durOverride:totalDurMin0,480);
+    const data={client,phone:$('fp')?.value||'',serviceId:selSvcs[0].serviceId,
+      services:selSvcs.map(s=>({serviceId:s.serviceId,adj:s.adj||0})),
+      date:$('fd')?.value||fDate,time:$('ft')?.value||fTime,status:$('fst')?.value||fStatus,
+      customDuration:finalDuration,materialsUsed:[],materialCost:0,materialsDeducted:[],
+      paid:+($('fm')?.value||0),tips:+($('ftip')?.value||0),note:$('fn')?.value||'',
+      materialsHistoryBackfilled:true};
+    const ref=await addDoc(collection(db,'appointments'),data);
+    apptId=ref.id;
+    return apptId;
+  }
+  // Writes only the materials DRAFT (materialsUsed + materialCost) — no
+  // stock changes, no history log. Safe to call as often as needed.
+  async function persistMaterialsDraft(){
+    const id=await ensureApptExists();
+    if(!id)return; // client/service not filled in yet — nothing to save to
+    const materialsUsedFinal=selMats.filter(sm=>sm.matId&&sm.qty>0).map(sm=>({matId:sm.matId,qty:sm.qty}));
+    const materialCostFinal=materialsUsedFinal.reduce((s,sm)=>{const m=mats.find(x=>x.id===sm.matId);return s+sm.qty*matUnitInfo(m).ppu;},0);
+    await updateDoc(doc(db,'appointments',id),{materialsUsed:materialsUsedFinal,materialCost:materialCostFinal});
+  }
+  // Debounced trigger — called after every material edit. Waits a beat so
+  // rapid edits (typing a quantity digit by digit) collapse into one write
+  // instead of one per keystroke, and shows a small status note so the
+  // person can see it actually saved.
+  function queueMaterialsAutosave(){
+    if(matSaveTimer)clearTimeout(matSaveTimer);
+    const st=$('matSaveStatus');if(st)st.textContent='Зберігається…';
+    matSaveTimer=setTimeout(async()=>{
+      try{
+        await persistMaterialsDraft();
+        const st2=$('matSaveStatus');if(st2)st2.textContent='✓ Чернетка збережена (склад не чіпається)';
+      }catch(e){
+        console.warn('Material autosave failed:',e);
+        const st2=$('matSaveStatus');if(st2)st2.textContent='⚠️ Не збереглось — спробуйте ще раз';
+      }
+    },700);
+  }
   // Effective duration in minutes shown/edited in the modal. Starts from
   // whatever is actually saved on the appointment (customDuration, e.g. set
   // by dragging the resize handle on the calendar) or, failing that, the sum
@@ -807,7 +876,7 @@ function apptModal(a,date,time){
       // When editing an existing appointment, whatever this line already
       // consumed is still "available" to re-allocate (it was already
       // deducted once), so add it back for the purposes of this warning.
-      const alreadyUsed=(a?.materialsUsed||[]).find(x=>x.matId===sm.matId);
+      const alreadyUsed=deductedMaterialsUsed.find(x=>x.matId===sm.matId);
       const effAvail=availUnits+(alreadyUsed?alreadyUsed.qty:0);
       const cost=(sm.qty||0)*ppu;
       const over=sm.qty>effAvail;
@@ -848,7 +917,7 @@ function apptModal(a,date,time){
           <option value="">+ Додати послугу</option>${opts}
         </select>
       </div>
-      <div class="field"><label>Матеріали на запис <span id="matHeaderInfo" style="color:var(--acc);font-weight:700">${selMats.length>0?`${selMats.length} · ${totalMatCost.toFixed(2)} грн`:''}</span></label>
+      <div class="field"><label>Матеріали на запис <span id="matHeaderInfo" style="color:var(--acc);font-weight:700">${selMats.length>0?`${selMats.length} · ${totalMatCost.toFixed(2)} грн`:''}</span> <span id="matSaveStatus" style="color:var(--dim);font-weight:400;text-transform:none;font-size:11px"></span></label>
         ${matRows}
         <input class="fi" id="fmsearch" style="margin-top:8px" placeholder="🔍 Пошук матеріалу..." value="${matSearchQ}"/>
         <div id="matPickList" style="max-height:160px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px;margin-top:6px">${renderMatPickList(matSearchQ)}</div>
@@ -912,6 +981,7 @@ function apptModal(a,date,time){
       });
       e.target.value='';
       renderApptModal();
+      queueMaterialsAutosave();
     };
     $('modal').querySelectorAll('[data-rmsvc]').forEach(b=>b.onclick=()=>{
       captureDur();
@@ -925,6 +995,10 @@ function apptModal(a,date,time){
           selMats.push({matId:el2.dataset.pickmat,qty:0});
           matSearchQ='';
           renderApptModal();
+          // No autosave call here on purpose — qty is still 0 right after
+          // picking a material, and persistMaterialsLive() filters out
+          // qty<=0 lines anyway, so it'd be a no-op write. The qty input
+          // below triggers the actual save once a number is typed.
         };
       });
     }
@@ -937,6 +1011,7 @@ function apptModal(a,date,time){
       captureDur();
       selMats.splice(+b.dataset.rmmat,1);
       renderApptModal();
+      queueMaterialsAutosave();
     });
     // Single source of truth for every number that can change WITHOUT a full
     // re-render: the "Послуги N · сума · час" header, the "(змінено вручну)"
@@ -958,7 +1033,7 @@ function apptModal(a,date,time){
       selMats.forEach((sm,i)=>{
         const m=mats.find(x=>x.id===sm.matId);
         const{unit,ppu,availUnits}=matUnitInfo(m);
-        const alreadyUsed=(a?.materialsUsed||[]).find(x=>x.matId===sm.matId);
+        const alreadyUsed=deductedMaterialsUsed.find(x=>x.matId===sm.matId);
         const effAvail=availUnits+(alreadyUsed?alreadyUsed.qty:0);
         const cost=(sm.qty||0)*ppu;
         totalMatCost2+=cost;
@@ -985,6 +1060,7 @@ function apptModal(a,date,time){
     $('modal').querySelectorAll('[data-matqty]').forEach(inp=>inp.addEventListener('input',e=>{
       selMats[+inp.dataset.matqty].qty=+e.target.value||0;
       updateAllLiveDisplays();
+      queueMaterialsAutosave();
     }));
     $('fsave').onclick=async()=>{
       const client=$('fc').value;
@@ -1007,26 +1083,25 @@ function apptModal(a,date,time){
         customDuration:finalDuration,
         materialsUsed:materialsUsedFinal,materialCost:materialCostFinal,
         paid:+$('fm').value||0,tips:+$('ftip').value||0,note:$('fn').value,
-        // Every save through this modal already logs material changes live
-        // (see the delta loop below) — so this appointment never needs to
-        // go through "🔄 Підтягнути" in Історія. Without this flag, brand
-        // new appointments would sit in that backfill queue forever (it was
-        // never set on regular saves, only by the backfill button itself),
-        // and re-running the backfill would duplicate what was already
-        // logged live — exactly what caused the duplicate entries.
+        // Every save through this modal already logs material changes at
+        // the moment they're actually deducted (see the delta loop below)
+        // -- so this appointment never needs to go through the backfill
+        // button in Історія. Without this flag, brand new appointments
+        // would sit in that backfill queue forever (it was never set on
+        // regular saves, only by the backfill button itself), and
+        // re-running the backfill would duplicate what was already logged
+        // -- exactly what caused the duplicate entries before.
         materialsHistoryBackfilled:true};
-      let apptId;
-      if(a){await updateDoc(doc(db,'appointments',a.id),data);apptId=a.id;}
-      else{const ref=await addDoc(collection(db,'appointments'),data);apptId=ref.id;}
 
-      // Stock correction: compare what was actually deducted before
-      // ("effective old" — empty if the appointment was cancelled, since a
-      // cancelled record's materials are already back on the shelf) against
-      // what should be deducted now ("effective new" — also empty if the
-      // record is being saved as cancelled). The difference per material is
-      // subtracted from stock (positive delta = using more than before).
-      const oldEffective=(a&&a.status!=='cancelled')?(a.materialsUsed||[]):[];
-      const newEffective=(newStatus==='cancelled')?[]:materialsUsedFinal;
+      // Stock is deducted (or returned) ONLY here, and ONLY based on
+      // whether the appointment IS or WAS marked "Виконано" --
+      // deductedMaterialsUsed is what's actually reflected in stock right
+      // now; "effective new" is the full list if this save marks it done,
+      // otherwise empty (nothing should be held against stock while it's
+      // just "Очікує", no matter how many materials were typed in and
+      // draft-saved along the way).
+      const oldEffective=deductedMaterialsUsed;
+      const newEffective=(newStatus==='done')?materialsUsedFinal:[];
       const matIds=[...new Set([...oldEffective.map(x=>x.matId),...newEffective.map(x=>x.matId)])];
       for(const mid of matIds){
         const m=mats.find(x=>x.id===mid);if(!m)continue;
@@ -1035,32 +1110,38 @@ function apptModal(a,date,time){
         const deltaUnits=newQ-oldQ;
         if(deltaUnits===0)continue;
         const deltaSht=unitsToSht(m,deltaUnits);
-        // No Math.max(0, …) clamp here on purpose: if a write-off happens
+        // No Math.max(0, ...) clamp here on purpose: if a write-off happens
         // before its matching "Прихід" is entered (spend first, receive
-        // later — a normal real-world order), the stock temporarily goes
+        // later -- a normal real-world order), the stock temporarily goes
         // negative and self-corrects the moment the receive arrives. If we
         // floored it at 0 instead, the deduction would just be silently
         // lost and never recovered once new stock came in.
         await updateDoc(doc(db,'materials',mid),{qty:+((m.qty||0)-deltaSht).toFixed(4)});
         // Log net-new consumption into the same purchases/history trail as
-        // a manual "Списати" — so material used via an appointment now
+        // a manual "Списати" -- so material used via an appointment now
         // shows up in Історія операцій too, with the client's name as the
-        // note. Only the increase is logged; reductions/cancellations
-        // just quietly return stock, same as they always did.
+        // note. Only the increase is logged; reductions (e.g. un-marking
+        // "Виконано" back to "Очікує") just quietly return stock.
         if(deltaUnits>0){
           const{unit,ppu}=matUnitInfo(m);
           await addDoc(collection(db,'purchases'),{matId:mid,matName:m.name,type:'spend',qty:deltaUnits,unit,total:deltaUnits*ppu,date:apptDate,note:client,apptId});
         }
       }
+      deductedMaterialsUsed=newEffective;
+      data.materialsDeducted=newEffective;
+      if(apptId){await updateDoc(doc(db,'appointments',apptId),data);}
+      else{const ref=await addDoc(collection(db,'appointments'),data);apptId=ref.id;}
+      if(matSaveTimer)clearTimeout(matSaveTimer);
       hide();
     };
     if(a)$('fdel').onclick=async()=>{
       if(!confirm('Видалити?'))return;
-      // Return materials to stock — but only what's actually still "out":
-      // if the appointment was already cancelled, its materials were
-      // already restored when it was cancelled, so there's nothing left to
-      // return here.
-      const effective=a.status!=='cancelled'?(a.materialsUsed||[]):[];
+      // Return materials to stock -- but only what's ACTUALLY still "out"
+      // (deductedMaterialsUsed): if this appointment was never marked
+      // "Виконано", nothing was deducted in the first place, so there's
+      // nothing to return, no matter what's sitting in the materials
+      // draft.
+      const effective=deductedMaterialsUsed;
       for(const{matId,qty}of effective){
         const m=mats.find(x=>x.id===matId);if(!m)continue;
         const deltaSht=unitsToSht(m,qty);
