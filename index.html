@@ -517,6 +517,7 @@ function drawCal(){
         <button class="vb ${calView===7?'on':''}" data-cv="7">Тиждень</button>
       </div>
       <button class="btn bp bs" id="cadd">${svg(ic.plus,14)} Запис</button>
+      <button class="btn bg bs" id="cclients">👤 Клієнти</button>
       <button class="btn bg bs" id="cbreak">⏸ Перерва</button>
       <button class="bi" id="csched">⚙️</button>
     </div>
@@ -529,6 +530,7 @@ function drawCal(){
   $('cnext').onclick=e=>{e.stopPropagation();calDate=addDays(calDate,calView);drawCal();};
   $('cdatelbl').onclick=()=>miniCalModal();
   $('cadd').onclick=()=>apptModal(null,calDate,'10:00');
+  $('cclients').onclick=()=>clientsListModal();
   $('cbreak').onclick=()=>breakModal(null,calDate);
   $('csched').onclick=()=>schedModal();
   el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{calView=+b.dataset.cv;drawCal();}));
@@ -909,7 +911,7 @@ function apptModal(a,date,time){
 
     $('modal').innerHTML=`
       <div class="mh"><div class="mt">${a?'Редагувати':'Новий запис'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-      <div class="field"><label>Клієнтка</label><input class="fi" id="fc" value="${fClient}" placeholder="Ім'я Прізвище"/></div>
+      <div class="field"><label>Клієнтка <span id="chistlink" style="float:right;color:var(--acc);font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0">📋 Історія візитів</span></label><input class="fi" id="fc" value="${fClient}" placeholder="Ім'я Прізвище"/></div>
       <div class="field"><label>Телефон</label><input class="fi" id="fp" value="${fPhone}" placeholder="+380..."/></div>
       <div class="field"><label>Послуги <span id="svcHeaderInfo" style="color:var(--acc);font-weight:700">${selSvcs.length>0?`${selSvcs.length} · ${fmt(totalPrice)} грн · ${fmtTotalDur(shownDur)}`:''}</span></label>
         ${selRows}
@@ -951,6 +953,16 @@ function apptModal(a,date,time){
       </div>`;
 
     $('mx').onclick=hide;$('fcancel').onclick=hide;
+    // Jumps straight to this client's full visit history. Whatever isn't
+    // saved yet in THIS form (paid amount, tips, note, status) is left
+    // behind when we navigate away — materials are already safe via the
+    // live draft-save, everything else waits for the actual Save button,
+    // same as closing the modal any other way.
+    $('chistlink').onclick=()=>{
+      const name=($('fc').value||'').trim();
+      if(!name){alert("Спочатку впишіть ім'я клієнтки");return;}
+      clientHistoryModal(name);
+    };
     // Reads whatever is currently sitting in the adj / material-qty inputs
     // back into selSvcs/selMats. Must run before any re-render (adding or
     // removing a service/material, or the duration selects triggering
@@ -1158,6 +1170,86 @@ function apptModal(a,date,time){
 // so it reuses the existing drag/resize/rendering machinery for free, but is
 // skipped everywhere client stats are computed (nothing sets a.status on it,
 // and analytics only counts a.status==='done').
+// Client directory — every unique client name pulled straight out of the
+// appointments already in the app (no separate "clients" collection to
+// keep in sync), with a running visit count and total spent, so you don't
+// have to remember who's who or scroll the calendar to check.
+function clientsListModal(){
+  let cq='';
+  function render(){
+    const byClient={};
+    appts.filter(a=>!a.isBreak&&a.client&&a.client.trim()).forEach(a=>{
+      const key=a.client.trim().toLowerCase();
+      if(!byClient[key])byClient[key]={name:a.client.trim(),phone:a.phone||'',visits:0,totalPaid:0,lastDate:''};
+      const c=byClient[key];
+      c.visits+=1;
+      if(a.status==='done')c.totalPaid+=(a.paid||apptTotalPrice(a));
+      if(!c.phone&&a.phone)c.phone=a.phone;
+      if((a.date||'')>c.lastDate)c.lastDate=a.date||'';
+    });
+    let list=Object.values(byClient);
+    if(cq){const ql=cq.toLowerCase();list=list.filter(c=>c.name.toLowerCase().includes(ql)||(c.phone||'').includes(cq));}
+    list.sort((a,b)=>(b.lastDate||'').localeCompare(a.lastDate||''));
+    const rows=list.map(c=>`
+      <div class="ri" data-client="${c.name.replace(/"/g,'&quot;')}" style="cursor:pointer">
+        <div class="rl"><div class="rn">${c.name}</div><div class="rs">${c.visits} візит${c.visits===1?'':(c.visits>=2&&c.visits<=4)?'и':'ів'}${c.phone?' · '+c.phone:''} · останній ${c.lastDate?fmtS(c.lastDate):'—'}</div></div>
+        <div class="rr"><div class="rv">${fmt(c.totalPaid)} грн</div></div>
+      </div>`).join('');
+    $('modal').innerHTML=`
+      <div class="mh"><div class="mt">👤 Клієнти</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <input class="fi" id="cq" style="margin-bottom:10px" placeholder="🔍 Пошук за ім'ям чи телефоном..." value="${cq}"/>
+      ${list.length===0?'<div class="empty">Клієнтів не знайдено</div>':rows}`;
+    $('mx').onclick=hide;
+    $('cq').addEventListener('input',e=>{
+      cq=e.target.value;render();
+      setTimeout(()=>{const el2=$('cq');if(el2){el2.focus();el2.setSelectionRange(el2.value.length,el2.value.length);}},10);
+    });
+    $('modal').querySelectorAll('[data-client]').forEach(el2=>el2.onclick=()=>clientHistoryModal(el2.dataset.client));
+  }
+  show('');render();
+}
+
+// Full visit history for one client, matched by name (case-insensitive —
+// same key used to group them in clientsListModal above). Summary card up
+// top for the at-a-glance numbers, then every visit newest-first; tapping
+// one opens it in the normal appointment editor.
+function clientHistoryModal(clientName){
+  const key=clientName.trim().toLowerCase();
+  const visits=appts.filter(a=>!a.isBreak&&(a.client||'').trim().toLowerCase()===key)
+    .sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
+  const doneVisits=visits.filter(a=>a.status==='done');
+  const totalPaid=doneVisits.reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);
+  const totalTips=doneVisits.reduce((s,a)=>s+(a.tips||0),0);
+  const avgCheck=doneVisits.length?totalPaid/doneVisits.length:0;
+  const phone=visits.find(a=>a.phone)?.phone||'';
+  const rows=visits.map(a=>{
+    const svcNames=a.services?a.services.map(s=>{const sid=typeof s==='object'?s.serviceId:s;return svcs.find(sv=>sv.id===sid)?.name||'';}).filter(Boolean).join('+'):(svcs.find(sv=>sv.id===a.serviceId)?.name||'');
+    const amt=a.paid||apptTotalPrice(a);
+    const statusLbl=a.status==='done'?'Виконано':a.status==='cancelled'?'Скасовано':'Очікує';
+    const statusColor=a.status==='done'?'var(--ok)':a.status==='cancelled'?'var(--err)':'var(--wrn)';
+    return`<div class="ri" data-appt="${a.id}" style="cursor:pointer">
+      <div class="rl"><div class="rn">${fmtS(a.date)}${a.time?' · '+a.time:''}</div>
+        <div class="rs">${svcNames||'—'}</div>
+        <div class="rs" style="color:${statusColor}">${statusLbl}${a.note?' · '+a.note:''}</div></div>
+      <div class="rr"><div class="rv">${a.status==='cancelled'?'—':fmt(amt)+' грн'}</div>${a.materialCost?`<div class="ra">матер. ${fmt(a.materialCost)} грн</div>`:''}</div>
+    </div>`;
+  }).join('');
+  show(`<div class="mh"><div class="mt">${clientName.trim()}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    ${phone?`<div style="font-size:12px;color:var(--mut);margin-bottom:10px">📞 ${phone}</div>`:''}
+    <div class="sg" style="margin-bottom:14px">
+      <div class="sc"><div class="sv" style="color:var(--sil)">${visits.length}</div><div class="sl">Візитів</div></div>
+      <div class="sc"><div class="sv" style="color:var(--acs)">${fmt(totalPaid)} грн</div><div class="sl">Разом сплачено</div></div>
+      <div class="sc"><div class="sv" style="color:var(--sil)">${fmt(avgCheck)} грн</div><div class="sl">Сер. чек</div></div>
+      <div class="sc"><div class="sv" style="color:var(--ok)">${fmt(totalTips)} грн</div><div class="sl">Чайові</div></div>
+    </div>
+    ${visits.length===0?'<div class="empty">Візитів не знайдено</div>':rows}`);
+  $('mx').onclick=hide;
+  $('modal').querySelectorAll('[data-appt]').forEach(el2=>el2.onclick=()=>{
+    const a=appts.find(x=>x.id===el2.dataset.appt);
+    if(a)apptModal(a,a.date,a.time);
+  });
+}
+
 function breakModal(a,date){
   const label=a?.client||'Обід';
   const dur=a?.customDuration||60;
