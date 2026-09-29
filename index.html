@@ -9,7 +9,8 @@
 :root{--bg:#111214;--surf:#18191C;--card:#1E2024;--brd:#2C2F35;--txt:#ECEEF2;--mut:#848A96;--dim:#4E5460;--acc:#A89BC2;--acs:#C4BAD8;--sil:#C8CDD6;--ok:#7BAF8A;--err:#B87070;--wrn:#C4A46A;}
 .light{--bg:#F2F2F7;--surf:#FFFFFF;--card:#FFFFFF;--brd:#E0E0E5;--txt:#1A1A1E;--mut:#6B6B70;--dim:#AEAEB2;--acc:#7B6FA0;--acs:#9B8FC0;--sil:#3A3A3C;--ok:#3A8A50;--err:#C0392B;--wrn:#B8860B;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;overflow-x:hidden;}
+html{overflow-x:hidden;}
+body{background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;overflow-x:hidden;width:100%;}
 button,input,select,textarea{font-family:inherit;}
 ::-webkit-scrollbar{display:none;}
 .hdr{background:var(--surf);border-bottom:1px solid var(--brd);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
@@ -416,15 +417,27 @@ async function gestureEnd(){
     await updateDoc(doc(db,'appointments',appt.id),{customDuration:newDur});
   }
   GESTURE.mode=null;GESTURE.block=null;GESTURE.appt=null;GESTURE.pendingDate=null;GESTURE.pendingTime=null;
+  detachGestureMove();
   if(tab==='cal')drawCal();
 }
-document.addEventListener('touchmove',gestureMove,{passive:false});
+// gestureMove is only wired up to the document WHILE a drag/resize is
+// actually happening (see beginDrag() and the resize touchstart handler
+// below), instead of sitting there permanently from page load. A
+// non-passive touchmove listener forces the browser to wait for this JS to
+// run before it can start scrolling on every single touch, everywhere in
+// the app — having it attached at all times is what made normal scrolling
+// (nothing being dragged) feel sluggish. Attaching it only for the
+// hundred-or-so milliseconds a gesture is actually in progress keeps
+// ordinary scrolling fully native and smooth.
+function attachGestureMove(){document.addEventListener('touchmove',gestureMove,{passive:false});}
+function detachGestureMove(){document.removeEventListener('touchmove',gestureMove);}
 document.addEventListener('touchend',gestureEnd,{passive:true});
 document.addEventListener('touchcancel',()=>{
   if(!GESTURE.mode)return; // ordinary tap — nothing to clean up
   const block=GESTURE.block;
   if(block){block.style.position='';block.style.left='';block.style.top='';block.style.width='';block.style.opacity='';block.style.zIndex='';block.style.pointerEvents='';block.style.transition='';}
   GESTURE.mode=null;GESTURE.block=null;GESTURE.appt=null;GESTURE.pendingDate=null;GESTURE.pendingTime=null;
+  detachGestureMove();
   if(tab==='cal')drawCal();
 },{passive:true});
 
@@ -510,16 +523,16 @@ function drawCal(){
         <button class="bi" id="cnext">${svg(ic.r,16)}</button>
       </div>
     </div>
-    <div style="display:flex;gap:6px;margin-bottom:10px;align-items:center">
-      <div style="display:flex;gap:4px;flex:1">
-        <button class="vb ${calView===1?'on':''}" data-cv="1">День</button>
-        <button class="vb ${calView===2?'on':''}" data-cv="2">2 дні</button>
-        <button class="vb ${calView===7?'on':''}" data-cv="7">Тиждень</button>
-      </div>
-      <button class="btn bp bs" id="cadd">${svg(ic.plus,14)} Запис</button>
-      <button class="btn bg bs" id="cclients">👤 Клієнти</button>
-      <button class="btn bg bs" id="cbreak">⏸ Перерва</button>
-      <button class="bi" id="csched">⚙️</button>
+    <div style="display:flex;gap:4px;margin-bottom:8px">
+      <button class="vb ${calView===1?'on':''}" data-cv="1">День</button>
+      <button class="vb ${calView===2?'on':''}" data-cv="2">2 дні</button>
+      <button class="vb ${calView===7?'on':''}" data-cv="7">Тиждень</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px">
+      <button class="btn bp bs" id="cadd" style="flex-shrink:0">${svg(ic.plus,14)} Запис</button>
+      <button class="btn bg bs" id="cclients" style="flex-shrink:0">👤 Клієнти</button>
+      <button class="btn bg bs" id="cbreak" style="flex-shrink:0">⏸ Перерва</button>
+      <button class="bi" id="csched" style="flex-shrink:0">⚙️</button>
     </div>
     <div style="overflow-x:auto;border:1px solid var(--brd);border-radius:10px;position:relative" id="calGridWrap">
       ${hdrRow}
@@ -576,6 +589,7 @@ function drawCal(){
         // back to its original slot on release.
         block.style.pointerEvents='none';
         if(navigator.vibrate)navigator.vibrate(10);
+        attachGestureMove();
       };
       const longPressTimer=setTimeout(beginDrag,350);
       const onMove=ev=>{
@@ -608,6 +622,7 @@ function drawCal(){
         GESTURE.origDur=GESTURE.appt?apptDuration(GESTURE.appt):60;
         GESTURE.startY=e.touches[0].clientY;
         block.style.transition='none';
+        attachGestureMove();
       },{passive:true});
     }
   });
