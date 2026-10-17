@@ -210,7 +210,7 @@ const getWorkMins=d=>isWorkDay(d)?(schedule.end-schedule.start)*60:0;
 // grid — counting every service on a multi-service appointment and
 // respecting a manually-resized duration, not just the first service.
 const getBookedMins=d=>appts.filter(a=>a.date===d&&a.status!=='cancelled').reduce((s,a)=>s+apptDuration(a),0);
-const dayColor=d=>{const t=getWorkMins(d);if(!t)return'#4E5460';const p=getBookedMins(d)/t;if(p<=0)return'#4E5460';if(p<.5)return'#7BAF8A';if(p<.75)return'#D4A853';if(p<1)return'#E07B39';return'#B87070';};
+const dayColor=d=>{const t=getWorkMins(d);if(!t)return'#4E5460';const p=getBookedMins(d)/t;if(p<=0)return'#4E5460';if(p<.5)return'#7BAF8A';if(p<.8)return'#D4A853';return'#B87070';};
 const dayRing=d=>{
   const t=getWorkMins(d);if(!t)return'';
   const p=Math.min(getBookedMins(d)/t,1),r=9,C=2*Math.PI*r,col=dayColor(d);
@@ -686,8 +686,7 @@ function miniCalModal(){
       <div style="display:flex;gap:10px;justify-content:center;margin-top:14px;flex-wrap:wrap;font-size:11px;color:var(--mut)">
         <span><span style="color:#7BAF8A">●</span> Вільно</span>
         <span><span style="color:#D4A853">●</span> 50%+</span>
-        <span><span style="color:#E07B39">●</span> 75%+</span>
-        <span><span style="color:#B87070">●</span> Заповнено</span>
+        <span><span style="color:#B87070">●</span> 80%+</span>
       </div>`;
     $('mx').onclick=hide;
     $('mprev').onclick=()=>{vm.setMonth(vm.getMonth()-1);render();};
