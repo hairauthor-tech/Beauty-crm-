@@ -170,8 +170,16 @@ const fmtS=d=>new Date(d+'T12:00:00').toLocaleDateString('uk-UA',{day:'numeric',
 const DN=['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
 // The calendar grid's visible hours now follow whatever start/end you set in
 // the schedule (⚙️) modal, instead of always showing a fixed 8:00–20:30
-// range regardless of your actual working hours.
-const getHours=()=>{const len=Math.max(1,schedule.end-schedule.start);return Array.from({length:len},(_,i)=>i+schedule.start);};
+// range regardless of your actual working hours. When dates is passed (the
+// day(s) currently on screen), the range also stretches to cover any of
+// those days' own custom hours (see getDayHours below) — so a day you've
+// set to run later than usual still shows enough rows for it.
+const getHours=(dates)=>{
+  let start=schedule.start,end=schedule.end;
+  if(dates)dates.forEach(d=>{if(isWorkDay(d)){const dh=getDayHours(d);start=Math.min(start,dh.start);end=Math.max(end,dh.end);}});
+  const len=Math.max(1,end-start);
+  return Array.from({length:len},(_,i)=>i+start);
+};
 const SLOTS=Array.from({length:26},(_,i)=>({h:Math.floor(i/2)+8,m:i%2===0?0:30}));
 const HALF_HOURS=Array.from({length:26},(_,i)=>i*0.5+8); // 8:00, 8:30, 9:00...20:00
 const CATS=['Фарби','Окислювачі','Порошки','Шампуні','Маски','Кондиціонери','Стайлінг','Інше'];
@@ -203,8 +211,13 @@ function unitsToSht(m,units){
 }
 
 // ── Schedule ───────────────────────────────────────
-const isWorkDay=d=>{if(exceptions[d]===true)return true;if(exceptions[d]===false)return false;return schedule.days.includes(new Date(d+'T12:00:00').getDay());};
-const getWorkMins=d=>isWorkDay(d)?(schedule.end-schedule.start)*60:0;
+// exceptions[date] is one of: undefined (follow the general weekly
+// schedule), true (forced open on an otherwise-off day), false (forced
+// closed on an otherwise-working day), or {start,end} (open, but with its
+// own hours for just that date — a half day, a late night, etc).
+const isWorkDay=d=>{const ex=exceptions[d];if(ex&&typeof ex==='object')return ex.work!==false;if(ex===true)return true;if(ex===false)return false;return schedule.days.includes(new Date(d+'T12:00:00').getDay());};
+const getDayHours=d=>{const ex=exceptions[d];if(ex&&typeof ex==='object'&&ex.start!=null&&ex.end!=null)return{start:ex.start,end:ex.end};return{start:schedule.start,end:schedule.end};};
+const getWorkMins=d=>{if(!isWorkDay(d))return 0;const{start,end}=getDayHours(d);return Math.max(0,(end-start)*60);};
 // Uses the shared apptDuration() (declared below, hoisted) so a day's
 // "how booked is it" percentage matches what's actually on the calendar
 // grid — counting every service on a multi-service appointment and
@@ -462,7 +475,7 @@ function drawCal(){
 
   // Time rows with 30-min subgrid
   // Each hour = 2 rows of 30px each = 60px total
-  const rows=getHours().map(h=>{
+  const rows=getHours(dates).map(h=>{
     const cells=dates.map(d=>{
       const da=appts.filter(a=>a.date===d&&a.time&&+a.time.split(':')[0]===h);
       const blocks=da.map((a,i)=>{
@@ -690,17 +703,73 @@ function miniCalModal(){
       const d=el.dataset.date;
       let pressT=null;
       el.addEventListener('touchstart',()=>{pressT=setTimeout(()=>{
-        if(exceptions[d]===true)delete exceptions[d];
-        else if(exceptions[d]===false)delete exceptions[d];
-        else if(isWorkDay(d))exceptions[d]=false;
-        else exceptions[d]=true;
-        localStorage.setItem('exc',JSON.stringify(exceptions));render();
-      },600);},{passive:true});
+        if(navigator.vibrate)navigator.vibrate(10);
+        dayHoursModal(d,render);
+      },500);},{passive:true});
       el.addEventListener('touchend',()=>clearTimeout(pressT));
       el.addEventListener('click',()=>{if(isWorkDay(d)){calDate=d;hide();drawCal();}});
     });
   }
   show('');render();
+}
+
+// Per-day override — opened by a long-press on a date in the month view.
+// Lets you mark a single date as working/non-working AND, separately, give
+// it its own start/end hours that differ from the general schedule (⚙️) —
+// a shorter Saturday, a late evening, a half day before a holiday, etc.
+// Saved into the same `exceptions` object as the old plain on/off toggle
+// (see isWorkDay/getDayHours above), so nothing else in the app needs to
+// change to understand it.
+function dayHoursModal(d,onDone){
+  const templateWork=schedule.days.includes(new Date(d+'T12:00:00').getDay());
+  let workSel=isWorkDay(d);
+  const curHours=getDayHours(d);
+  const hasOverride=exceptions[d]!==undefined;
+  const ho=h=>Array.from({length:24},(_,i)=>`<option value="${i}" ${i===h?'selected':''}>${i}:00</option>`).join('');
+  show(`
+    <div class="mh"><div class="mt">${fmtL(d)}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    <div class="field"><label>Статус дня</label>
+      <div class="chips">
+        <button class="chip ${workSel?'on':''}" data-dw="1">Робочий</button>
+        <button class="chip ${!workSel?'on':''}" data-dw="0">Вихідний</button>
+      </div>
+    </div>
+    <div id="dhrs" style="${workSel?'':'display:none'}">
+      <div class="g2">
+        <div class="field"><label>Початок</label><select class="fi" id="dstart">${ho(curHours.start)}</select></div>
+        <div class="field"><label>Кінець</label><select class="fi" id="dend">${ho(curHours.end)}</select></div>
+      </div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:13px">Якщо лишити як є — діють загальні години з ⚙️ Графік роботи (${schedule.start}:00–${schedule.end}:00). Зміни тут стосуються лише цієї дати.</div>
+    </div>
+    <div class="mf">
+      ${hasOverride?`<button class="btn bg bs" id="dclear">Скинути до шаблону</button>`:''}
+      <button class="btn bg" id="dcancel">Скасувати</button>
+      <button class="btn bp" id="dsave">Зберегти</button>
+    </div>`);
+  $('mx').onclick=()=>{hide();onDone&&onDone();};
+  $('dcancel').onclick=()=>{hide();onDone&&onDone();};
+  $('modal').querySelectorAll('[data-dw]').forEach(b=>b.onclick=()=>{
+    workSel=b.dataset.dw==='1';
+    $('modal').querySelectorAll('[data-dw]').forEach(x=>x.classList.toggle('on',x===b));
+    $('dhrs').style.display=workSel?'':'none';
+  });
+  if($('dclear'))$('dclear').onclick=()=>{
+    delete exceptions[d];
+    localStorage.setItem('exc',JSON.stringify(exceptions));
+    hide();onDone&&onDone();drawCal();
+  };
+  $('dsave').onclick=()=>{
+    const start=+$('dstart').value,end=+$('dend').value;
+    if(workSel&&end<=start){alert('Кінець має бути пізніше за початок');return;}
+    // Matches the general template exactly (same work/off status, and same
+    // hours if working) — no need to store an override at all.
+    const matchesTemplate=workSel===templateWork&&(!workSel||(start===schedule.start&&end===schedule.end));
+    if(matchesTemplate)delete exceptions[d];
+    else if(!workSel)exceptions[d]={work:false};
+    else exceptions[d]={work:true,start,end};
+    localStorage.setItem('exc',JSON.stringify(exceptions));
+    hide();onDone&&onDone();drawCal();
+  };
 }
 
 // Schedule Modal
@@ -715,6 +784,7 @@ function schedModal(){
       <div class="field"><label>Початок</label><select class="fi" id="wstart">${ho(schedule.start)}</select></div>
       <div class="field"><label>Кінець</label><select class="fi" id="wend">${ho(schedule.end)}</select></div>
     </div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:13px">Це загальний шаблон на всі робочі дні. Щоб змінити статус або години окремо для конкретної дати (коротший день, вихідний серед тижня тощо) — довге натискання на дату в місячному календарі (ⓘ дата).</div>
     <div class="mf">
       <button class="btn bg" id="mc">Скасувати</button>
       <button class="btn bp" id="ms">Зберегти</button>
