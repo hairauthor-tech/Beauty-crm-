@@ -798,7 +798,7 @@ function schedModal(){
 }
 
 // Appointment Modal — multiple services
-function apptModal(a,date,time){
+function apptModal(a,date,time,prefill){
   // selectedServices: [{serviceId, price}]
   // Init services - support both old format (serviceId string) and new (array of objects)
   let selSvcs = [];
@@ -897,7 +897,7 @@ function apptModal(a,date,time){
   // The other fields also need to survive a re-render (triggered when adding
   // or removing a service) — otherwise anything the user just typed gets
   // thrown away and replaced with the original appointment's values.
-  let fClient=a?.client||'', fPhone=a?.phone||'', fDate=a?.date||date||today(),
+  let fClient=a?.client||prefill?.client||'', fPhone=a?.phone||prefill?.phone||'', fDate=a?.date||date||today(),
       fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fPaid=a?.paid||0, fTips=a?.tips||0, fNote=a?.note||'';
   let matSearchQ='';
   const captureFields=()=>{
@@ -995,8 +995,8 @@ function apptModal(a,date,time){
 
     $('modal').innerHTML=`
       <div class="mh"><div class="mt">${a?'Редагувати':'Новий запис'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-      <div class="field"><label>Клієнтка <span id="chistlink" style="float:right;color:var(--acc);font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0">📋 Історія візитів</span></label><input class="fi" id="fc" value="${fClient}" placeholder="Ім'я Прізвище"/></div>
-      <div class="field"><label>Телефон</label><input class="fi" id="fp" value="${fPhone}" placeholder="+380..."/></div>
+      <div class="field"><label>Клієнтка <span id="chistlink" style="float:right;color:var(--acc);font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0">📋 Історія візитів</span></label><input class="fi" id="fc" list="clientNames" autocomplete="off" value="${fClient}" placeholder="Ім'я Прізвище"/><datalist id="clientNames">${[...new Set(appts.filter(x=>!x.isBreak&&x.client).map(x=>x.client.trim()))].sort().map(n=>`<option value="${n}"></option>`).join('')}</datalist></div>
+      <div class="field"><label>Instagram / телефон</label><input class="fi" id="fp" value="${fPhone}" placeholder="@nick"/></div>
       <div class="field"><label>Послуги <span id="svcHeaderInfo" style="color:var(--acc);font-weight:700">${selSvcs.length>0?`${selSvcs.length} · ${fmt(totalPrice)} грн · ${fmtTotalDur(shownDur)}`:''}</span></label>
         ${selRows}
         <select class="fi" id="fsadd" style="margin-top:8px">
@@ -1037,6 +1037,11 @@ function apptModal(a,date,time){
       </div>`;
 
     $('mx').onclick=hide;$('fcancel').onclick=hide;
+    $('fc').addEventListener('change',()=>{
+      const nm=$('fc').value.trim().toLowerCase();
+      const c=buildClients().find(x=>x.name.toLowerCase()===nm);
+      if(c&&c.phone&&!$('fp').value)$('fp').value=c.phone;
+    });
     // Jumps straight to this client's full visit history. Whatever isn't
     // saved yet in THIS form (paid amount, tips, note, status) is left
     // behind when we navigate away — materials are already safe via the
@@ -1258,36 +1263,101 @@ function apptModal(a,date,time){
 // appointments already in the app (no separate "clients" collection to
 // keep in sync), with a running visit count and total spent, so you don't
 // have to remember who's who or scroll the calendar to check.
-function clientsListModal(){
-  let cq='';
+function clientsListModalOld(){
+  let cq='', sortMode='recent';
   function render(){
+    // Group every non-cancelled, non-break appointment by client name.
+    // "Візити" counts done + upcoming (pending) so the number matches what
+    // the person intuitively expects to see; everything frequency/revenue
+    // related below uses only completed (done) visits, since a scheduled
+    // future appointment shouldn't yet count toward someone's history.
     const byClient={};
-    appts.filter(a=>!a.isBreak&&a.client&&a.client.trim()).forEach(a=>{
+    appts.filter(a=>!a.isBreak&&a.client&&a.client.trim()&&a.status!=='cancelled').forEach(a=>{
       const key=a.client.trim().toLowerCase();
-      if(!byClient[key])byClient[key]={name:a.client.trim(),phone:a.phone||'',visits:0,totalPaid:0,lastDate:''};
+      if(!byClient[key])byClient[key]={name:a.client.trim(),phone:a.phone||'',visits:0,doneDates:[],totalPaid:0,lastDate:''};
       const c=byClient[key];
       c.visits+=1;
-      if(a.status==='done')c.totalPaid+=(a.paid||apptTotalPrice(a));
       if(!c.phone&&a.phone)c.phone=a.phone;
       if((a.date||'')>c.lastDate)c.lastDate=a.date||'';
+      if(a.status==='done'){c.doneDates.push(a.date);c.totalPaid+=(a.paid||apptTotalPrice(a));}
     });
-    let list=Object.values(byClient);
+    const todayStr=today();
+    const dayMs=86400000;
+    let clients=Object.values(byClient).map(c=>{
+      const dates=[...c.doneDates].sort();
+      // Average gap between consecutive completed visits — "how often does
+      // this person usually come back" — needs at least 2 visits to mean
+      // anything.
+      let avgGap=null;
+      if(dates.length>=2){
+        let sum=0;
+        for(let i=1;i<dates.length;i++)sum+=(new Date(dates[i]+'T12:00:00')-new Date(dates[i-1]+'T12:00:00'))/dayMs;
+        avgGap=sum/(dates.length-1);
+      }
+      const daysSince=c.lastDate?Math.round((new Date(todayStr+'T12:00:00')-new Date(c.lastDate+'T12:00:00'))/dayMs):null;
+      // Flagged when overdue relative to their OWN usual rhythm (1.5x their
+      // average gap), or — for someone with no established rhythm yet — a
+      // flat 45-day fallback, whichever is more lenient, so a client who
+      // visits every 3 weeks gets flagged sooner than one who visits twice
+      // a year.
+      const threshold=avgGap?Math.max(45,avgGap*1.5):45;
+      const needsAttention=daysSince!==null&&daysSince>threshold;
+      return{...c,avgGap,daysSince,needsAttention,doneVisits:dates.length,firstDate:dates[0]||null};
+    });
+
+    // Base-wide numbers — the actual "client base analytics" part.
+    const totalClients=clients.length;
+    const monthKey=todayStr.slice(0,7);
+    const newThisMonth=clients.filter(c=>c.firstDate&&c.firstDate.slice(0,7)===monthKey).length;
+    const returning=clients.filter(c=>c.doneVisits>=2).length;
+    const retentionPct=totalClients?(returning/totalClients*100):0;
+    const gaps=clients.filter(c=>c.avgGap!=null).map(c=>c.avgGap);
+    const avgFreq=gaps.length?gaps.reduce((s,g)=>s+g,0)/gaps.length:null;
+    const totalDoneVisits=clients.reduce((s,c)=>s+c.doneVisits,0);
+    const totalRevenue=clients.reduce((s,c)=>s+c.totalPaid,0);
+    const avgCheckAll=totalDoneVisits?totalRevenue/totalDoneVisits:0;
+    const attentionCount=clients.filter(c=>c.needsAttention).length;
+
+    let list=clients;
     if(cq){const ql=cq.toLowerCase();list=list.filter(c=>c.name.toLowerCase().includes(ql)||(c.phone||'').includes(cq));}
-    list.sort((a,b)=>(b.lastDate||'').localeCompare(a.lastDate||''));
+    if(sortMode==='attention')list=list.filter(c=>c.needsAttention);
+    list=[...list].sort((a,b)=>{
+      if(sortMode==='visits')return b.visits-a.visits;
+      if(sortMode==='spend')return b.totalPaid-a.totalPaid;
+      if(sortMode==='attention')return (b.daysSince||0)-(a.daysSince||0);
+      return (b.lastDate||'').localeCompare(a.lastDate||'');
+    });
+
     const rows=list.map(c=>`
-      <div class="ri" data-client="${c.name.replace(/"/g,'&quot;')}" style="cursor:pointer">
-        <div class="rl"><div class="rn">${c.name}</div><div class="rs">${c.visits} візит${c.visits===1?'':(c.visits>=2&&c.visits<=4)?'и':'ів'}${c.phone?' · '+c.phone:''} · останній ${c.lastDate?fmtS(c.lastDate):'—'}</div></div>
+      <div class="ri" data-client="${c.name.replace(/"/g,'&quot;')}" style="cursor:pointer;align-items:flex-start">
+        <div class="rl">
+          <div class="rn">${c.name}${c.needsAttention?' <span style="background:rgba(184,112,112,.15);color:var(--err);padding:2px 7px;border-radius:10px;font-size:10px">⏰ давно не була</span>':''}</div>
+          <div class="rs">${c.visits} візит${c.visits===1?'':(c.visits>=2&&c.visits<=4)?'и':'ів'}${c.phone?' · '+c.phone:''}</div>
+          <div class="rs">${c.lastDate?'останній '+fmtS(c.lastDate)+(c.daysSince!=null?' · '+c.daysSince+' дн. тому':''):'ще не було візитів'}${c.avgGap?' · зазвичай раз на '+Math.round(c.avgGap)+' дн.':''}</div>
+        </div>
         <div class="rr"><div class="rv">${fmt(c.totalPaid)} грн</div></div>
       </div>`).join('');
+
     $('modal').innerHTML=`
       <div class="mh"><div class="mt">👤 Клієнти</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <div class="sg" style="margin-bottom:12px">
+        <div class="sc"><div class="sv" style="color:var(--sil)">${totalClients}</div><div class="sl">Всього клієнтів</div></div>
+        <div class="sc"><div class="sv" style="color:var(--acs)">${newThisMonth}</div><div class="sl">Нових цього місяця</div></div>
+        <div class="sc"><div class="sv" style="color:var(--ok)">${retentionPct.toFixed(0)}%</div><div class="sl">Повертаються (2+ візити)</div></div>
+        <div class="sc"><div class="sv" style="color:var(--sil)">${avgFreq?Math.round(avgFreq)+' дн.':'—'}</div><div class="sl">Сер. частота повернень</div></div>
+        <div class="sc"><div class="sv" style="color:var(--sil)">${fmt(avgCheckAll)} грн</div><div class="sl">Сер. чек по базі</div></div>
+        <div class="sc" style="${attentionCount>0?'cursor:pointer':''}" id="cardAttention"><div class="sv" style="color:${attentionCount>0?'var(--err)':'var(--mut)'}">${attentionCount}</div><div class="sl">⏰ Давно не були</div></div>
+      </div>
       <input class="fi" id="cq" style="margin-bottom:10px" placeholder="🔍 Пошук за ім'ям чи телефоном..." value="${cq}"/>
+      <div class="chips">${[['recent','Останні'],['visits','За візитами'],['spend','За сумою'],['attention','⏰ Потребують уваги']].map(([k,l])=>`<button class="chip ${sortMode===k?'on':''}" data-sort="${k}">${l}</button>`).join('')}</div>
       ${list.length===0?'<div class="empty">Клієнтів не знайдено</div>':rows}`;
     $('mx').onclick=hide;
     $('cq').addEventListener('input',e=>{
       cq=e.target.value;render();
       setTimeout(()=>{const el2=$('cq');if(el2){el2.focus();el2.setSelectionRange(el2.value.length,el2.value.length);}},10);
     });
+    $('modal').querySelectorAll('[data-sort]').forEach(b=>b.onclick=()=>{sortMode=b.dataset.sort;render();});
+    if($('cardAttention'))$('cardAttention').onclick=()=>{if(attentionCount>0){sortMode='attention';render();}};
     $('modal').querySelectorAll('[data-client]').forEach(el2=>el2.onclick=()=>clientHistoryModal(el2.dataset.client));
   }
   show('');render();
@@ -1297,7 +1367,7 @@ function clientsListModal(){
 // same key used to group them in clientsListModal above). Summary card up
 // top for the at-a-glance numbers, then every visit newest-first; tapping
 // one opens it in the normal appointment editor.
-function clientHistoryModal(clientName){
+function clientHistoryModalOld(clientName){
   const key=clientName.trim().toLowerCase();
   const visits=appts.filter(a=>!a.isBreak&&(a.client||'').trim().toLowerCase()===key)
     .sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||'')));
@@ -2364,6 +2434,7 @@ function drawStats(){
       <div class="sc" id="cardSales" style="cursor:pointer"><div class="sv" style="color:var(--acs)">${fmt(salesRevenue)} грн</div><div class="sl">🛍️ Продаж товарів</div><div style="color:${salesMargin>=0?'var(--ok)':'var(--err)'};font-size:11px">маржа ${fmt(salesMargin)} грн</div></div>
       <div class="sc"><div class="sv" style="color:${netProfit>=0?'var(--ok)':'var(--err)'}">${fmt(netProfit)} грн</div><div class="sl">Чистий прибуток</div></div>
     </div>
+    ${clientsStatsHtml(done,inSelPeriod,avg)}
     <div class="card"><div class="sec" style="margin-top:0">По днях тижня</div>
       <div style="display:flex;align-items:flex-end;gap:5px;height:80px">
         ${byDay.map(({l,r})=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
@@ -2666,6 +2737,233 @@ function expModal(id){
   }
   show('');render();
 }
+
+// Контакт може бути Instagram (@nick, посилання) або телефон. Повертає ключ або ''.
+const normContact=v=>{
+  v=(v||'').trim().toLowerCase();if(!v)return'';
+  if(/^[\d\s+()\-]+$/.test(v)){const d=v.replace(/\D/g,'');return d.length>=9?'p'+d.slice(-9):'';}
+  const h=v.replace(/^https?:\/\/(www\.)?instagram\.com\//,'').replace(/^@/,'').replace(/[\/?#].*$/,'').trim();
+  return h?'i'+h:'';
+};
+const contactLink=v=>{
+  const k=normContact(v);if(!k)return'';
+  return k[0]==='p'?'tel:+'+(v.replace(/\D/g,'')):'https://instagram.com/'+k.slice(1);
+};
+const apptSvcIds=a=>a.services&&Array.isArray(a.services)?a.services.map(s=>typeof s==='object'?s.serviceId:s):(a.serviceId?[a.serviceId]:[]);
+
+function buildClients(){
+  const nk=a=>a.client.trim().toLowerCase().replace(/\s+/g,' ');
+  const real=appts.filter(a=>!a.isBreak&&a.client&&a.client.trim());
+  const nameToContact={};
+  real.forEach(a=>{const p=normContact(a.phone);if(p)nameToContact[nk(a)]=p;});
+  const keyOf=a=>{const p=normContact(a.phone);if(p)return p;return nameToContact[nk(a)]||'n'+nk(a);};
+  const map={};
+  real.forEach(a=>{
+    const k=keyOf(a);
+    const c=map[k]||(map[k]={key:k,name:a.client.trim(),phone:'',all:[]});
+    c.all.push(a);
+    if(!c.phone&&a.phone)c.phone=a.phone;
+  });
+  const todayStr=today(),dayMs=86400000;
+  const diff=(d1,d2)=>Math.round((new Date(d2+'T12:00:00')-new Date(d1+'T12:00:00'))/dayMs);
+  return Object.values(map).map(c=>{
+    const live=c.all.filter(a=>a.status!=='cancelled');
+    const done=live.filter(a=>a.status==='done');
+    const doneDates=[...new Set(done.map(a=>a.date))].sort();
+    const next=live.filter(a=>a.status==='pending'&&a.date>=todayStr).sort((x,y)=>(x.date+(x.time||'')).localeCompare(y.date+(y.time||'')))[0]||null;
+    const gaps=[];
+    for(let i=1;i<doneDates.length;i++)gaps.push(diff(doneDates[i-1],doneDates[i]));
+    const avgGap=gaps.length?gaps.reduce((s,g)=>s+g,0)/gaps.length:null;
+    const lastDone=doneDates[doneDates.length-1]||null;
+    const daysSince=lastDone?diff(lastDone,todayStr):null;
+    const threshold=avgGap?Math.max(21,avgGap*1.5):45;
+    const booked=!!next;
+    const overdue=!booked&&daysSince!==null&&daysSince>threshold;
+    const lost=overdue&&daysSince>Math.max(90,threshold*2);
+    let expected=null;
+    if(lastDone&&avgGap){const d=new Date(lastDone+'T12:00:00');d.setDate(d.getDate()+Math.round(avgGap));expected=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+    const totalPaid=done.reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);
+    const tips=done.reduce((s,a)=>s+(a.tips||0),0);
+    return{...c,doneCount:done.length,doneVisits:doneDates.length,firstDone:doneDates[0]||null,lastDone,daysSince,avgGap,
+      next,booked,overdue,lost,expected,totalPaid,tips,cancelled:c.all.filter(a=>a.status==='cancelled').length,
+      avgCheck:done.length?totalPaid/done.length:0};
+  });
+}
+
+function clientsListModal(){
+  let cq='',seg='all',sortMode='recent';
+  function render(){
+    const all=buildClients();
+    const withDone=all.filter(c=>c.doneVisits>=1);
+    const total=all.length;
+    const monthKey=today().slice(0,7);
+    const newMonth=all.filter(c=>c.firstDone&&c.firstDone.slice(0,7)===monthKey).length;
+    const returning=withDone.filter(c=>c.doneVisits>=2).length;
+    const retPct=withDone.length?returning/withDone.length*100:0;
+    const gaps=all.filter(c=>c.avgGap!=null).map(c=>c.avgGap);
+    const avgFreq=gaps.length?gaps.reduce((s,g)=>s+g,0)/gaps.length:null;
+    const doneTotal=all.reduce((s,c)=>s+c.doneCount,0);
+    const revTotal=all.reduce((s,c)=>s+c.totalPaid,0);
+    const avgCheck=doneTotal?revTotal/doneTotal:0;
+    const overdueN=all.filter(c=>c.overdue).length;
+    const segs=[['all','Всі',all.length],['new','Нові (1 візит)',all.filter(c=>c.doneVisits===1).length],
+      ['regular','Постійні (3+)',all.filter(c=>c.doneVisits>=3).length],
+      ['overdue','⏰ Пора нагадати',overdueN],['lost','Втрачені',all.filter(c=>c.lost).length]];
+    let list=all.filter(c=>{
+      if(seg==='new')return c.doneVisits===1;
+      if(seg==='regular')return c.doneVisits>=3;
+      if(seg==='overdue')return c.overdue;
+      if(seg==='lost')return c.lost;
+      return true;
+    });
+    if(cq){const ql=cq.toLowerCase();list=list.filter(c=>c.name.toLowerCase().includes(ql)||(c.phone||'').toLowerCase().includes(ql));}
+    list.sort((a,b)=>{
+      if(sortMode==='visits')return b.doneVisits-a.doneVisits;
+      if(sortMode==='spend')return b.totalPaid-a.totalPaid;
+      if(seg==='overdue'||seg==='lost')return (b.daysSince||0)-(a.daysSince||0);
+      return (b.lastDone||'').localeCompare(a.lastDone||'');
+    });
+    const plural=n=>n===1?'візит':(n>=2&&n<=4)?'візити':'візитів';
+    const rows=list.map(c=>{
+      const badge=c.lost?'<span style="background:rgba(184,112,112,.15);color:var(--err);padding:2px 7px;border-radius:10px;font-size:10px">втрачена?</span>'
+        :c.overdue?'<span style="background:rgba(196,164,106,.18);color:var(--wrn);padding:2px 7px;border-radius:10px;font-size:10px">⏰ пора нагадати</span>'
+        :c.booked?'<span style="background:rgba(123,175,138,.18);color:var(--ok);padding:2px 7px;border-radius:10px;font-size:10px">записана</span>':'';
+      const line2=c.lastDone?`останній ${fmtS(c.lastDone)} · ${c.daysSince} дн. тому`:'ще не було виконаних візитів';
+      const line3=c.booked?`наступний: ${fmtS(c.next.date)}${c.next.time?' '+c.next.time:''}`
+        :c.expected?`зазвичай раз на ${Math.round(c.avgGap)} дн. · очікуємо ~${fmtS(c.expected)}`:'';
+      const tel=c.phone&&contactLink(c.phone)?`<a href="${contactLink(c.phone)}" target="_blank" rel="noopener" data-tel style="text-decoration:none;font-size:16px;padding:4px 6px">${normContact(c.phone)[0]==='i'?'💬':'📞'}</a>`:'';
+      return`<div class="ri" data-ckey="${c.key}" style="cursor:pointer;align-items:flex-start">
+        <div class="rl"><div class="rn">${c.name} ${badge}</div>
+          <div class="rs">${c.doneVisits} ${plural(c.doneVisits)}${c.cancelled?' · скасувань: '+c.cancelled:''}${c.phone?' · '+c.phone:''}</div>
+          <div class="rs">${line2}</div>${line3?`<div class="rs">${line3}</div>`:''}</div>
+        <div class="rr"><div class="rv">${fmt(c.totalPaid)} грн</div><div class="ra">чек ${fmt(c.avgCheck)}</div>${tel}</div>
+      </div>`;
+    }).join('');
+    $('modal').innerHTML=`
+      <div class="mh"><div class="mt">👤 Клієнти</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <div class="sg" style="margin-bottom:12px">
+        <div class="sc"><div class="sv" style="color:var(--sil)">${total}</div><div class="sl">Всього клієнтів</div></div>
+        <div class="sc"><div class="sv" style="color:var(--acs)">${newMonth}</div><div class="sl">Нових цього місяця</div></div>
+        <div class="sc"><div class="sv" style="color:var(--ok)">${retPct.toFixed(0)}%</div><div class="sl">Повернулись (2+ візити)</div></div>
+        <div class="sc"><div class="sv" style="color:var(--sil)">${avgFreq?Math.round(avgFreq)+' дн.':'—'}</div><div class="sl">Сер. інтервал між візитами</div></div>
+        <div class="sc"><div class="sv" style="color:var(--sil)">${fmt(avgCheck)} грн</div><div class="sl">Сер. чек</div></div>
+        <div class="sc" id="cardOverdue" style="cursor:pointer"><div class="sv" style="color:${overdueN?'var(--wrn)':'var(--mut)'}">${overdueN}</div><div class="sl">⏰ Пора нагадати</div></div>
+      </div>
+      <button class="btn bg bs" id="cmerge" style="margin-bottom:10px">🔗 Об'єднати дублі</button>
+      <input class="fi" id="cq" style="margin-bottom:10px" placeholder="🔍 Ім'я або @instagram..." value="${cq}"/>
+      <div class="chips">${segs.map(([k,l,n])=>`<button class="chip ${seg===k?'on':''}" data-seg="${k}">${l} · ${n}</button>`).join('')}</div>
+      <div class="chips">${[['recent','Останні'],['visits','За візитами'],['spend','За сумою']].map(([k,l])=>`<button class="chip ${sortMode===k?'on':''}" data-sort="${k}">${l}</button>`).join('')}</div>
+      ${list.length===0?'<div class="empty">Клієнтів не знайдено</div>':rows}`;
+    $('mx').onclick=hide;
+    $('cq').addEventListener('input',e=>{cq=e.target.value;render();setTimeout(()=>{const el2=$('cq');if(el2){el2.focus();el2.setSelectionRange(el2.value.length,el2.value.length);}},10);});
+    $('modal').querySelectorAll('[data-seg]').forEach(b=>b.onclick=()=>{seg=b.dataset.seg;render();});
+    $('modal').querySelectorAll('[data-sort]').forEach(b=>b.onclick=()=>{sortMode=b.dataset.sort;render();});
+    $('cmerge').onclick=()=>mergeClientModal();
+    $('cardOverdue').onclick=()=>{seg='overdue';render();};
+    $('modal').querySelectorAll('[data-ckey]').forEach(el2=>el2.onclick=()=>clientHistoryModal(el2.dataset.ckey));
+    $('modal').querySelectorAll('[data-tel]').forEach(a=>a.onclick=e=>e.stopPropagation());
+  }
+  show('');render();
+}
+
+function clientHistoryModal(arg){
+  const all=buildClients(),nm=String(arg).trim().toLowerCase();
+  const c=all.find(x=>x.key===arg)||all.find(x=>x.all.some(a=>a.client.trim().toLowerCase()===nm));
+  const clientName=c?c.name:String(arg).trim();
+  const visits=c?[...c.all].sort((a,b)=>((b.date||'')+(b.time||'')).localeCompare((a.date||'')+(a.time||''))):[];
+  const rows=visits.map(a=>{
+    const svcNames=apptSvcIds(a).map(id=>svcs.find(sv=>sv.id===id)?.name||'').filter(Boolean).join('+');
+    const amt=a.paid||apptTotalPrice(a);
+    const statusLbl=a.status==='done'?'Виконано':a.status==='cancelled'?'Скасовано':'Очікує';
+    const statusColor=a.status==='done'?'var(--ok)':a.status==='cancelled'?'var(--err)':'var(--wrn)';
+    return`<div class="ri" data-appt="${a.id}" style="cursor:pointer">
+      <div class="rl"><div class="rn">${fmtS(a.date)}${a.time?' · '+a.time:''}</div><div class="rs">${svcNames||'—'}</div>
+        <div class="rs" style="color:${statusColor}">${statusLbl}${a.note?' · '+a.note:''}</div></div>
+      <div class="rr"><div class="rv">${a.status==='cancelled'?'—':fmt(amt)+' грн'}</div>${a.materialCost?`<div class="ra">матер. ${fmt(a.materialCost)} грн</div>`:''}</div>
+    </div>`;
+  }).join('');
+  show(`<div class="mh"><div class="mt">${clientName}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    ${c&&c.phone?`<div style="font-size:12px;color:var(--mut);margin-bottom:10px">${normContact(c.phone)[0]==='i'?'💬':'📞'} <a href="${contactLink(c.phone)}" target="_blank" rel="noopener" style="color:var(--acs)">${c.phone}</a></div>`:''}
+    <div class="sg" style="margin-bottom:12px">
+      <div class="sc"><div class="sv" style="color:var(--sil)">${c?c.doneVisits:0}</div><div class="sl">Виконаних візитів</div></div>
+      <div class="sc"><div class="sv" style="color:var(--acs)">${fmt(c?c.totalPaid:0)} грн</div><div class="sl">Разом сплачено</div></div>
+      <div class="sc"><div class="sv" style="color:var(--sil)">${fmt(c?c.avgCheck:0)} грн</div><div class="sl">Сер. чек</div></div>
+      <div class="sc"><div class="sv" style="color:var(--sil)">${c&&c.avgGap?Math.round(c.avgGap)+' дн.':'—'}</div><div class="sl">Сер. інтервал</div></div>
+    </div>
+    ${c&&c.booked?`<div class="alert" style="background:rgba(123,175,138,.12);border:1px solid rgba(123,175,138,.4);color:var(--ok)">Наступний запис: ${fmtS(c.next.date)}${c.next.time?' '+c.next.time:''}</div>`
+      :c&&c.expected?`<div class="alert" style="background:rgba(196,164,106,.12);border:1px solid rgba(196,164,106,.4);color:var(--wrn)">${c.overdue?'⏰ Пора нагадати — ':''}очікуваний візит ~${fmtS(c.expected)}</div>`:''}
+    <button class="btn bp" id="crebook" style="width:100%;justify-content:center;margin-bottom:12px">${svg(ic.plus,14)} Записати знову</button>
+    ${visits.length===0?'<div class="empty">Візитів не знайдено</div>':rows}`);
+  $('mx').onclick=hide;
+  $('crebook').onclick=()=>apptModal(null,calDate,'10:00',{client:clientName,phone:c?c.phone:''});
+  $('modal').querySelectorAll('[data-appt]').forEach(el2=>el2.onclick=()=>{const a=appts.find(x=>x.id===el2.dataset.appt);if(a)apptModal(a,a.date,a.time);});
+}
+
+// Об'єднання дублів: усі записи клієнта «дубль» перейменовуються на ім'я
+// клієнта «залишити». Зворотної дії немає — спочатку дивіться, що обрали.
+function mergeClientModal(){
+  const all=buildClients().sort((a,b)=>a.name.localeCompare(b.name,'uk'));
+  const opts=(sel)=>all.map(c=>`<option value="${c.key}" ${c.key===sel?'selected':''}>${c.name} (${c.all.length} зап.)</option>`).join('');
+  show(`<div class="mh"><div class="mt">🔗 Об'єднати дублі</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    <div class="field"><label>Дубль (зникне)</label><select class="fi" id="mfrom"><option value="">— оберіть —</option>${opts('')}</select></div>
+    <div class="field"><label>Залишити (основний)</label><select class="fi" id="mto"><option value="">— оберіть —</option>${opts('')}</select></div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:13px">Усі записи «дубля» стануть записами основного клієнта. Скасувати це не можна.</div>
+    <div class="mf"><button class="btn bg" id="mcn">Скасувати</button><button class="btn bp" id="mgo">Об'єднати</button></div>`);
+  $('mx').onclick=hide;$('mcn').onclick=()=>clientsListModal();
+  $('mgo').onclick=async()=>{
+    const f=all.find(c=>c.key===$('mfrom').value),t=all.find(c=>c.key===$('mto').value);
+    if(!f||!t||f.key===t.key){alert('Оберіть двох різних клієнтів');return;}
+    if(!confirm(`Перенести ${f.all.length} запис(ів) «${f.name}» → «${t.name}»?`))return;
+    for(const a of f.all){
+      const upd={client:t.name};
+      if(!a.phone&&t.phone)upd.phone=t.phone;
+      await updateDoc(doc(db,'appointments',a.id),upd);
+    }
+    clientsListModal();
+  };
+}
+
+function clientsStatsHtml(done,inSelPeriod,avg){
+  // ── Клієнти та популярність послуг за обраний період ──
+  const clAll=buildClients(),apptToCl={};
+  clAll.forEach(c=>c.all.forEach(a=>{apptToCl[a.id]=c;}));
+  const perCl={};
+  done.forEach(a=>{const c=apptToCl[a.id];if(!c)return;const p=perCl[c.key]||(perCl[c.key]={c,visits:0,rev:0});p.visits++;p.rev+=(a.paid||apptTotalPrice(a));});
+  const pcl=Object.values(perCl);
+  const pclNew=pcl.filter(p=>p.c.firstDone&&inSelPeriod(p.c.firstDone)).length;
+  const pclRet=pcl.length-pclNew;
+  const pclBooked=pcl.filter(p=>p.c.booked).length;
+  const visitsPerCl=pcl.length?done.length/pcl.length:0;
+  const topCl=[...pcl].sort((a,b)=>b.rev-a.rev).slice(0,5);
+  const baseGaps=clAll.filter(c=>c.avgGap!=null).map(c=>c.avgGap);
+  const baseFreq=baseGaps.length?baseGaps.reduce((s,g)=>s+g,0)/baseGaps.length:null;
+  const svcCnt={};
+  done.forEach(a=>[...new Set(apptSvcIds(a))].forEach(id=>{svcCnt[id]=(svcCnt[id]||0)+1;}));
+  const topSvc=Object.entries(svcCnt).map(([id,n])=>({name:svcs.find(s=>s.id===id)?.name||'?',n})).sort((a,b)=>b.n-a.n).slice(0,6);
+  const maxSvcN=Math.max(...topSvc.map(s=>s.n),1);
+  const clientsCardHtml=`
+    <div class="card"><div class="sec" style="margin-top:0">👤 Клієнти за період</div>
+      <div class="sg" style="margin-bottom:10px">
+        <div class="sc"><div class="sv" style="color:var(--sil)">${pcl.length}</div><div class="sl">Унікальних клієнтів</div></div>
+        <div class="sc"><div class="sv" style="color:var(--acs)">${pclNew} / ${pclRet}</div><div class="sl">Нові / Повторні</div></div>
+        <div class="sc"><div class="sv" style="color:var(--sil)">${visitsPerCl.toFixed(1)}</div><div class="sl">Візитів на клієнта</div></div>
+        <div class="sc"><div class="sv" style="color:var(--ok)">${pcl.length?Math.round(pclBooked/pcl.length*100):0}%</div><div class="sl">Мають наступний запис</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--mut);margin-bottom:8px">Сер. чек: <b style="color:var(--sil)">${fmt(avg)} грн</b> · сер. інтервал між візитами по базі: <b style="color:var(--sil)">${baseFreq?Math.round(baseFreq)+' дн.':'—'}</b></div>
+      ${topCl.length?`<div style="font-size:11px;font-weight:700;color:var(--mut);margin:8px 0 4px">ТОП КЛІЄНТІВ ЗА ВИРУЧКОЮ</div>`+topCl.map(p=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--brd);font-size:13px"><span>${p.c.name} <span style="color:var(--dim)">×${p.visits}</span></span><b style="color:var(--sil)">${fmt(p.rev)} грн</b></div>`).join(''):''}
+      <button class="btn bg bs" id="openClients" style="margin-top:10px;width:100%;justify-content:center">Відкрити базу клієнтів</button>
+    </div>
+    <div class="card"><div class="sec" style="margin-top:0">🔥 Найпопулярніші послуги (за кількістю)</div>
+      ${topSvc.length===0?'<div style="color:var(--dim);text-align:center;padding:20px 0">Немає даних</div>':topSvc.map(s=>`<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px">${s.name}</span><span style="font-weight:700;color:var(--sil)">×${s.n} <span style="color:var(--dim);font-weight:400">(${Math.round(s.n/done.length*100)}% візитів)</span></span></div>
+        <div class="pb"><div class="pf" style="width:${s.n/maxSvcN*100}%"></div></div></div>`).join('')}
+    </div>`;
+
+  return clientsCardHtml;
+}
+
+// кнопка «Відкрити базу клієнтів» в Аналітиці
+document.addEventListener('click',e=>{if(e.target.closest('#openClients'))clientsListModal();});
 
 draw();
 setInterval(()=>{ if(tab==='cal') drawCal(); }, 60000);
