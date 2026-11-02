@@ -148,6 +148,9 @@ let customExpCats=JSON.parse(localStorage.getItem('expCats')||'[]');
 let theme=localStorage.getItem('theme')||'dark';
 let schedule=JSON.parse(localStorage.getItem('sched')||'{"days":[1,2,3,4,5,6],"start":9,"end":19}');
 let exceptions=JSON.parse(localStorage.getItem('exc')||'{}');
+// Графік по конкретних місяцях: {'2026-11':{days,start,end}}. Якщо для місяця нічого не задано — діє загальний `schedule`.
+let monthSched=JSON.parse(localStorage.getItem('msched')||'{}');
+const getSched=ym=>monthSched[ym]||schedule;
 
 const d0=new Date();
 let calDate=d0.getFullYear()+'-'+String(d0.getMonth()+1).padStart(2,'0')+'-'+String(d0.getDate()).padStart(2,'0');
@@ -176,7 +179,12 @@ const DN=['Нд','Пн','Вт','Ср','Чт','Пт','Сб'];
 // set to run later than usual still shows enough rows for it.
 const getHours=(dates)=>{
   let start=schedule.start,end=schedule.end;
-  if(dates)dates.forEach(d=>{if(isWorkDay(d)){const dh=getDayHours(d);start=Math.min(start,dh.start);end=Math.max(end,dh.end);}});
+  if(dates&&dates.length){
+    start=24;end=0;
+    dates.forEach(d=>{const dh=getDayHours(d);start=Math.min(start,dh.start);end=Math.max(end,dh.end);});
+    // Записи поза годинами графіка (наприклад, після зміни графіка місяця) не мають зникати з сітки.
+    appts.forEach(a=>{if(a.time&&dates.includes(a.date)){const h0=+a.time.split(':')[0];start=Math.min(start,h0);end=Math.max(end,Math.min(24,Math.ceil((h0*60+(+a.time.split(':')[1]||0)+apptDuration(a))/60)));}});
+  }
   const len=Math.max(1,end-start);
   return Array.from({length:len},(_,i)=>i+start);
 };
@@ -215,8 +223,8 @@ function unitsToSht(m,units){
 // schedule), true (forced open on an otherwise-off day), false (forced
 // closed on an otherwise-working day), or {start,end} (open, but with its
 // own hours for just that date — a half day, a late night, etc).
-const isWorkDay=d=>{const ex=exceptions[d];if(ex&&typeof ex==='object')return ex.work!==false;if(ex===true)return true;if(ex===false)return false;return schedule.days.includes(new Date(d+'T12:00:00').getDay());};
-const getDayHours=d=>{const ex=exceptions[d];if(ex&&typeof ex==='object'&&ex.start!=null&&ex.end!=null)return{start:ex.start,end:ex.end};return{start:schedule.start,end:schedule.end};};
+const isWorkDay=d=>{const ex=exceptions[d];if(ex&&typeof ex==='object')return ex.work!==false;if(ex===true)return true;if(ex===false)return false;return getSched(d.slice(0,7)).days.includes(new Date(d+'T12:00:00').getDay());};
+const getDayHours=d=>{const ex=exceptions[d];if(ex&&typeof ex==='object'&&ex.start!=null&&ex.end!=null)return{start:ex.start,end:ex.end};const ms=getSched(d.slice(0,7));return{start:ms.start,end:ms.end};};
 const getWorkMins=d=>{if(!isWorkDay(d))return 0;const{start,end}=getDayHours(d);return Math.max(0,(end-start)*60);};
 // Uses the shared apptDuration() (declared below, hoisted) so a day's
 // "how booked is it" percentage matches what's actually on the calendar
@@ -306,8 +314,9 @@ function updateNowLine(dates, todayStr){
   if(todayIdx<0) return; // today not visible
   const now = new Date();
   const h = now.getHours(), m = now.getMinutes();
-  if(h<schedule.start||h>=schedule.end) return; // outside visible range
-  const minsFromStart = (h-schedule.start)*60+m;
+  const gridHours=getHours(dates);
+  if(h<gridHours[0]||h>gridHours[gridHours.length-1]) return; // outside visible range
+  const minsFromStart = (h-gridHours[0])*60+m;
   const topPx = (minsFromStart/30)*30; // 30px per 30min row
   const wrap = document.getElementById('calGridWrap');
   if(!wrap) return;
@@ -326,7 +335,7 @@ function updateNowLine(dates, todayStr){
   const colLeft = cellRect.left - wrapRect.left + wrap.scrollLeft;
   const colWidth = cellRect.width;
   // Find header height (all rows above hour 8:00)
-  const firstRow = wrap.querySelector('[data-h="08:00"]');
+  const firstRow = wrap.querySelector('[data-h]');
   if(!firstRow) return;
   const firstRowRect = firstRow.getBoundingClientRect();
   const topOffset = firstRowRect.top - wrapRect.top + wrap.scrollTop;
@@ -391,7 +400,7 @@ function cellFromPoint(x,y){
   const baseM=+cell.dataset.h.split(':')[1];
   const totalMins=baseH*60+baseM+minsOffset;
   const newH=Math.floor(totalMins/60),newM=totalMins%60;
-  return{date:cell.dataset.d,time:String(Math.min(schedule.end-1,newH)).padStart(2,'0')+':'+String(Math.min(55,newM)).padStart(2,'0')};
+  return{date:cell.dataset.d,time:String(Math.min(23,newH)).padStart(2,'0')+':'+String(Math.min(55,newM)).padStart(2,'0')};
 }
 
 function gestureMove(e){
@@ -558,7 +567,7 @@ function drawCal(){
   $('cadd').onclick=()=>apptModal(null,calDate,'10:00');
   $('cclients').onclick=()=>clientsListModal();
   $('cbreak').onclick=()=>breakModal(null,calDate);
-  $('csched').onclick=()=>schedModal();
+  $('csched').onclick=()=>schedModal(calDate.slice(0,7));
   el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{calView=+b.dataset.cv;drawCal();}));
   el.querySelectorAll('.TC').forEach(c=>c.addEventListener('click',e=>{if(!e.target.closest('.AB'))apptModal(null,c.dataset.d,c.dataset.h);}));
   el.querySelectorAll('.AB').forEach(b=>b.addEventListener('click',e=>{
@@ -721,7 +730,8 @@ function miniCalModal(){
 // (see isWorkDay/getDayHours above), so nothing else in the app needs to
 // change to understand it.
 function dayHoursModal(d,onDone){
-  const templateWork=schedule.days.includes(new Date(d+'T12:00:00').getDay());
+  const msch=getSched(d.slice(0,7));
+  const templateWork=msch.days.includes(new Date(d+'T12:00:00').getDay());
   let workSel=isWorkDay(d);
   const curHours=getDayHours(d);
   const hasOverride=exceptions[d]!==undefined;
@@ -739,7 +749,7 @@ function dayHoursModal(d,onDone){
         <div class="field"><label>Початок</label><select class="fi" id="dstart">${ho(curHours.start)}</select></div>
         <div class="field"><label>Кінець</label><select class="fi" id="dend">${ho(curHours.end)}</select></div>
       </div>
-      <div style="font-size:11px;color:var(--dim);margin-bottom:13px">Якщо лишити як є — діють загальні години з ⚙️ Графік роботи (${schedule.start}:00–${schedule.end}:00). Зміни тут стосуються лише цієї дати.</div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:13px">Якщо лишити як є — діють загальні години з ⚙️ Графік роботи (${msch.start}:00–${msch.end}:00). Зміни тут стосуються лише цієї дати.</div>
     </div>
     <div class="mf">
       ${hasOverride?`<button class="btn bg bs" id="dclear">Скинути до шаблону</button>`:''}
@@ -763,7 +773,7 @@ function dayHoursModal(d,onDone){
     if(workSel&&end<=start){alert('Кінець має бути пізніше за початок');return;}
     // Matches the general template exactly (same work/off status, and same
     // hours if working) — no need to store an override at all.
-    const matchesTemplate=workSel===templateWork&&(!workSel||(start===schedule.start&&end===schedule.end));
+    const matchesTemplate=workSel===templateWork&&(!workSel||(start===msch.start&&end===msch.end));
     if(matchesTemplate)delete exceptions[d];
     else if(!workSel)exceptions[d]={work:false};
     else exceptions[d]={work:true,start,end};
@@ -772,29 +782,66 @@ function dayHoursModal(d,onDone){
   };
 }
 
-// Schedule Modal
-function schedModal(){
+// Schedule Modal — загальний шаблон + окремий графік для будь-якого місяця (минулого, поточного, майбутнього)
+function schedModal(initYM){
+  const nowD=new Date();
+  const ymNow=nowD.getFullYear()+'-'+String(nowD.getMonth()+1).padStart(2,'0');
+  let cur=initYM||'default';
+  let lastYM=initYM||ymNow;
+  const monthNames=Array.from({length:12},(_,i)=>new Date(2000,i,1).toLocaleDateString('uk-UA',{month:'long'}));
   const ho=h=>Array.from({length:24},(_,i)=>`<option value="${i}" ${i===h?'selected':''}>${i}:00</option>`).join('');
-  show(`
-    <div class="mh"><div class="mt">⚙️ Графік роботи</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-    <div class="field"><label>Робочі дні</label>
-      <div class="chips">${[1,2,3,4,5,6,0].map(d=>`<button class="chip ${schedule.days.includes(d)?'on':''}" data-day="${d}">${DN[d]}</button>`).join('')}</div>
-    </div>
-    <div class="g2">
-      <div class="field"><label>Початок</label><select class="fi" id="wstart">${ho(schedule.start)}</select></div>
-      <div class="field"><label>Кінець</label><select class="fi" id="wend">${ho(schedule.end)}</select></div>
-    </div>
-    <div style="font-size:11px;color:var(--dim);margin-bottom:13px">Це загальний шаблон на всі робочі дні. Щоб змінити статус або години окремо для конкретної дати (коротший день, вихідний серед тижня тощо) — довге натискання на дату в місячному календарі (ⓘ дата).</div>
-    <div class="mf">
-      <button class="btn bg" id="mc">Скасувати</button>
-      <button class="btn bp" id="ms">Зберегти</button>
-    </div>`);
-  $('mx').onclick=hide;$('mc').onclick=hide;
-  $('modal').querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>b.classList.toggle('on'));
-  $('ms').onclick=()=>{
-    schedule={days:[...$('modal').querySelectorAll('[data-day].on')].map(b=>+b.dataset.day),start:+$('wstart').value,end:+$('wend').value};
-    localStorage.setItem('sched',JSON.stringify(schedule));hide();drawCal();
-  };
+  function render(){
+    const s=cur==='default'?schedule:(monthSched[cur]||schedule);
+    const custom=cur!=='default'&&!!monthSched[cur];
+    const[cy,cm]=(cur==='default'?lastYM:cur).split('-').map(Number);
+    const years=[...new Set([nowD.getFullYear()-3,nowD.getFullYear()-2,nowD.getFullYear()-1,nowD.getFullYear(),nowD.getFullYear()+1,nowD.getFullYear()+2,nowD.getFullYear()+3,cy])].sort();
+    const mk=(y,m)=>y+'-'+String(m).padStart(2,'0');
+    show(`
+      <div class="mh"><div class="mt">⚙️ Графік роботи</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <div class="field"><label>Для якого періоду</label>
+        <select class="fi" id="wscope">
+          <option value="default" ${cur==='default'?'selected':''}>Загальний (усі місяці без свого графіка)</option>
+          <option value="month" ${cur!=='default'?'selected':''}>Конкретний місяць</option>
+        </select>
+      </div>
+      ${cur!=='default'?`<div class="g2">
+        <div class="field"><select class="fi" id="wyear">${years.map(y=>`<option value="${y}" ${y===cy?'selected':''}>${y}</option>`).join('')}</select></div>
+        <div class="field"><select class="fi" id="wmon">${monthNames.map((n,i)=>`<option value="${i+1}" ${i+1===cm?'selected':''}>${n}${monthSched[mk(cy,i+1)]?' •':''}</option>`).join('')}</select></div>
+      </div>`:''}
+      ${cur!=='default'&&!custom?`<div style="font-size:11px;color:var(--wrn);margin-bottom:10px">Для цього місяця свого графіка ще немає — зараз діє загальний. Змініть дні чи години й натисніть «Зберегти», щоб задати окремий. Місяці зі своїм графіком позначені «•».</div>`:''}
+      <div class="field"><label>Робочі дні</label>
+        <div class="chips">${[1,2,3,4,5,6,0].map(d=>`<button class="chip ${s.days.includes(d)?'on':''}" data-day="${d}">${DN[d]}</button>`).join('')}</div>
+      </div>
+      <div class="g2">
+        <div class="field"><label>Початок</label><select class="fi" id="wstart">${ho(s.start)}</select></div>
+        <div class="field"><label>Кінець</label><select class="fi" id="wend">${ho(s.end)}</select></div>
+      </div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:13px">Графік місяця має пріоритет над загальним. Для окремої дати (вихідний чи коротший день) — довге натискання на дату в місячному календарі. Існуючі записи не видаляються, навіть якщо вони потрапили на неробочий час.</div>
+      <div class="mf">
+        ${custom?`<button class="btn bg bs" id="mreset">Скинути місяць</button>`:''}
+        <button class="btn bg" id="mc">Скасувати</button>
+        <button class="btn bp" id="ms">Зберегти</button>
+      </div>`);
+    $('mx').onclick=hide;$('mc').onclick=hide;
+    $('modal').querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>b.classList.toggle('on'));
+    $('wscope').onchange=e=>{cur=e.target.value==='default'?'default':lastYM;render();};
+    if($('wyear')){
+      const pick=()=>{cur=lastYM=mk(+$('wyear').value,+$('wmon').value);render();};
+      $('wyear').onchange=pick;$('wmon').onchange=pick;
+    }
+    if($('mreset'))$('mreset').onclick=()=>{
+      if(!confirm('Скинути графік місяця до загального?'))return;
+      delete monthSched[cur];localStorage.setItem('msched',JSON.stringify(monthSched));hide();drawCal();
+    };
+    $('ms').onclick=()=>{
+      const days=[...$('modal').querySelectorAll('[data-day].on')].map(b=>+b.dataset.day),start=+$('wstart').value,end=+$('wend').value;
+      if(end<=start){alert('Кінець має бути пізніше за початок');return;}
+      if(cur==='default'){schedule={days,start,end};localStorage.setItem('sched',JSON.stringify(schedule));}
+      else{monthSched[cur]={days,start,end};localStorage.setItem('msched',JSON.stringify(monthSched));}
+      hide();drawCal();
+    };
+  }
+  render();
 }
 
 // Appointment Modal — multiple services
