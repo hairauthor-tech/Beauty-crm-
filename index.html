@@ -151,6 +151,8 @@ let exceptions=JSON.parse(localStorage.getItem('exc')||'{}');
 // Графік по конкретних місяцях: {'2026-11':{days,start,end}}. Якщо для місяця нічого не задано — діє загальний `schedule`.
 let monthSched=JSON.parse(localStorage.getItem('msched')||'{}');
 const getSched=ym=>monthSched[ym]||schedule;
+// Чи робочий день за ШАБЛОНОМ (графік місяця «по датах» або по днях тижня), без винятків окремих дат.
+const templateWork=d=>{const ms=getSched(d.slice(0,7));return ms.byDate?(ms.dates||[]).includes(+d.slice(8,10)):ms.days.includes(new Date(d+'T12:00:00').getDay());};
 
 const d0=new Date();
 let calDate=d0.getFullYear()+'-'+String(d0.getMonth()+1).padStart(2,'0')+'-'+String(d0.getDate()).padStart(2,'0');
@@ -223,7 +225,7 @@ function unitsToSht(m,units){
 // schedule), true (forced open on an otherwise-off day), false (forced
 // closed on an otherwise-working day), or {start,end} (open, but with its
 // own hours for just that date — a half day, a late night, etc).
-const isWorkDay=d=>{const ex=exceptions[d];if(ex&&typeof ex==='object')return ex.work!==false;if(ex===true)return true;if(ex===false)return false;return getSched(d.slice(0,7)).days.includes(new Date(d+'T12:00:00').getDay());};
+const isWorkDay=d=>{const ex=exceptions[d];if(ex&&typeof ex==='object')return ex.work!==false;if(ex===true)return true;if(ex===false)return false;return templateWork(d);};
 const getDayHours=d=>{const ex=exceptions[d];if(ex&&typeof ex==='object'&&ex.start!=null&&ex.end!=null)return{start:ex.start,end:ex.end};const ms=getSched(d.slice(0,7));return{start:ms.start,end:ms.end};};
 const getWorkMins=d=>{if(!isWorkDay(d))return 0;const{start,end}=getDayHours(d);return Math.max(0,(end-start)*60);};
 // Uses the shared apptDuration() (declared below, hoisted) so a day's
@@ -567,7 +569,7 @@ function drawCal(){
   $('cadd').onclick=()=>apptModal(null,calDate,'10:00');
   $('cclients').onclick=()=>clientsListModal();
   $('cbreak').onclick=()=>breakModal(null,calDate);
-  $('csched').onclick=()=>schedModal(calDate.slice(0,7));
+  $('csched').onclick=()=>datesSchedModal(calDate.slice(0,7));
   el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{calView=+b.dataset.cv;drawCal();}));
   el.querySelectorAll('.TC').forEach(c=>c.addEventListener('click',e=>{if(!e.target.closest('.AB'))apptModal(null,c.dataset.d,c.dataset.h);}));
   el.querySelectorAll('.AB').forEach(b=>b.addEventListener('click',e=>{
@@ -731,7 +733,7 @@ function miniCalModal(){
 // change to understand it.
 function dayHoursModal(d,onDone){
   const msch=getSched(d.slice(0,7));
-  const templateWork=msch.days.includes(new Date(d+'T12:00:00').getDay());
+  const templateIsWork=templateWork(d);
   let workSel=isWorkDay(d);
   const curHours=getDayHours(d);
   const hasOverride=exceptions[d]!==undefined;
@@ -773,7 +775,7 @@ function dayHoursModal(d,onDone){
     if(workSel&&end<=start){alert('Кінець має бути пізніше за початок');return;}
     // Matches the general template exactly (same work/off status, and same
     // hours if working) — no need to store an override at all.
-    const matchesTemplate=workSel===templateWork&&(!workSel||(start===msch.start&&end===msch.end));
+    const matchesTemplate=workSel===templateIsWork&&(!workSel||(start===msch.start&&end===msch.end));
     if(matchesTemplate)delete exceptions[d];
     else if(!workSel)exceptions[d]={work:false};
     else exceptions[d]={work:true,start,end};
@@ -782,20 +784,115 @@ function dayHoursModal(d,onDone){
   };
 }
 
-// Schedule Modal — загальний шаблон + окремий графік для будь-якого місяця (минулого, поточного, майбутнього)
+// Графік по датах — місячна сітка. Дотик по даті: вихідний → робочий (з обраними годинами),
+// робочий з тими ж годинами → вихідний, робочий з іншими годинами → обрані години.
+// Зберігається в тих самих `exceptions`, що й довге натискання на дату, тож решта застосунку не змінюється.
+function datesSchedModal(initYM){
+  let ym=initYM||today().slice(0,7);
+  const base0=getSched(ym);
+  const brush={start:base0.start,end:base0.end};
+  const draft={}; // дата -> {work,start,end}; застосовується лише після «Зберегти»
+  const mk=(y,m,d)=>y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+  const tmplOf=d=>{const ms=getSched(d.slice(0,7));return{work:ms.days.includes(new Date(d+'T12:00:00').getDay()),start:ms.start,end:ms.end};};
+  const stateOf=d=>{if(draft[d])return draft[d];const h=getDayHours(d);return{work:isWorkDay(d),start:h.start,end:h.end};};
+  const daysOf=()=>{const[y,m]=ym.split('-').map(Number);const n=new Date(y,m,0).getDate();return Array.from({length:n},(_,i)=>mk(y,m,i+1));};
+  const ho=h=>Array.from({length:24},(_,i)=>`<option value="${i}" ${i===h?'selected':''}>${i}:00</option>`).join('');
+  function render(){
+    const[y,m]=ym.split('-').map(Number);
+    const lbl=new Date(y,m-1,1).toLocaleDateString('uk-UA',{month:'long',year:'numeric'}).replace(/\s*р\.?\s*$/i,'');
+    const first=new Date(y,m-1,1).getDay(),off=first===0?6:first-1,todayStr=today();
+    const days=daysOf();
+    let cells='';for(let i=0;i<off;i++)cells+='<div></div>';
+    let workN=0,hoursN=0;
+    days.forEach(d=>{
+      const st=stateOf(d);
+      if(st.work){workN++;hoursN+=st.end-st.start;}
+      const isT=d===todayStr;
+      const style=st.work
+        ?`background:rgba(168,155,194,.22);border:1px solid var(--acc);color:var(--txt)`
+        :`background:transparent;border:1px solid var(--brd);color:var(--dim)`;
+      cells+=`<div data-d="${d}" style="${style};border-radius:8px;min-height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;${isT?'box-shadow:0 0 0 2px var(--acs);':''}">
+        <div style="font-size:14px;font-weight:700;${st.work?'':'text-decoration:line-through'}">${+d.slice(8)}</div>
+        <div style="font-size:9px;color:${st.work?'var(--acs)':'var(--dim)'}">${st.work?st.start+'–'+st.end:'вих.'}</div>
+      </div>`;
+    });
+    $('modal').innerHTML=`
+      <div class="mh"><div class="mt">📅 Графік по датах</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <button class="bi" id="dprev">${svg(ic.l,16)}</button>
+        <div style="flex:1;text-align:center;font-weight:800;font-size:16px;text-transform:capitalize">${lbl}</div>
+        <button class="bi" id="dnext">${svg(ic.r,16)}</button>
+      </div>
+      <div class="g2">
+        <div class="field"><label>Години: початок</label><select class="fi" id="bstart">${ho(brush.start)}</select></div>
+        <div class="field"><label>Години: кінець</label><select class="fi" id="bend">${ho(brush.end)}</select></div>
+      </div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:10px">Оберіть години вище, потім торкайтесь дат: вихідний стає робочим із цими годинами; робочий із такими самими годинами стає вихідним; робочий з іншими годинами отримує обрані. Зміни зберігаються після «Зберегти».</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;text-align:center">${['пн','вт','ср','чт','пт','сб','нд'].map(x=>`<div style="font-size:10px;font-weight:600;color:var(--dim)">${x}</div>`).join('')}</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:10px">${cells}</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:10px">Робочих днів: <b style="color:var(--sil)">${workN}</b> · годин: <b style="color:var(--sil)">${hoursN}</b></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="btn bg bs" id="dallw">Усі робочі</button>
+        <button class="btn bg bs" id="dallo">Усі вихідні</button>
+        <button class="btn bg bs" id="dtmpl">До шаблону</button>
+        <button class="btn bg bs" id="dweek">⚙️ Шаблон по днях тижня</button>
+      </div>
+      <div class="mf"><button class="btn bg" id="dcancel">Скасувати</button><button class="btn bp" id="dsave">Зберегти</button></div>`;
+    $('mx').onclick=hide;$('dcancel').onclick=hide;
+    $('dprev').onclick=()=>{const d=new Date(y,m-2,1);ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');render();};
+    $('dnext').onclick=()=>{const d=new Date(y,m,1);ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');render();};
+    $('bstart').onchange=e=>{brush.start=+e.target.value;};
+    $('bend').onchange=e=>{brush.end=+e.target.value;};
+    $('modal').querySelectorAll('[data-d]').forEach(c=>c.onclick=()=>{
+      if(brush.end<=brush.start){alert('Кінець має бути пізніше за початок');return;}
+      const d=c.dataset.d,st=stateOf(d);
+      if(st.work&&st.start===brush.start&&st.end===brush.end)draft[d]={work:false,start:st.start,end:st.end};
+      else draft[d]={work:true,start:brush.start,end:brush.end};
+      render();
+    });
+    $('dallw').onclick=()=>{if(brush.end<=brush.start){alert('Кінець має бути пізніше за початок');return;}daysOf().forEach(d=>{draft[d]={work:true,start:brush.start,end:brush.end};});render();};
+    $('dallo').onclick=()=>{daysOf().forEach(d=>{const st=stateOf(d);draft[d]={work:false,start:st.start,end:st.end};});render();};
+    $('dtmpl').onclick=()=>{daysOf().forEach(d=>{draft[d]=tmplOf(d);});render();};
+    $('dweek').onclick=()=>schedModal(ym);
+    $('dsave').onclick=()=>{
+      Object.entries(draft).forEach(([d,st])=>{
+        const t=tmplOf(d);
+        const matches=st.work===t.work&&(!st.work||(st.start===t.start&&st.end===t.end));
+        if(matches)delete exceptions[d];
+        else if(!st.work)exceptions[d]={work:false};
+        else exceptions[d]={work:true,start:st.start,end:st.end};
+      });
+      localStorage.setItem('exc',JSON.stringify(exceptions));
+      hide();drawCal();
+    };
+  }
+  show('');render();
+}
+
+// Schedule Modal — загальний шаблон + окремий графік для будь-якого місяця (по днях тижня АБО по конкретних датах)
 function schedModal(initYM){
   const nowD=new Date();
   const ymNow=nowD.getFullYear()+'-'+String(nowD.getMonth()+1).padStart(2,'0');
   let cur=initYM||'default';
   let lastYM=initYM||ymNow;
+  let byDate=false,selD=new Set(),daysSel=new Set(),hStart=9,hEnd=19;
   const monthNames=Array.from({length:12},(_,i)=>new Date(2000,i,1).toLocaleDateString('uk-UA',{month:'long'}));
   const ho=h=>Array.from({length:24},(_,i)=>`<option value="${i}" ${i===h?'selected':''}>${i}:00</option>`).join('');
+  const loadState=()=>{
+    const ms=cur==='default'?null:monthSched[cur];
+    const b=ms||schedule;
+    byDate=!!(ms&&ms.byDate);selD=new Set((ms&&ms.dates)||[]);daysSel=new Set(b.days);hStart=b.start;hEnd=b.end;
+  };
+  loadState();
   function render(){
-    const s=cur==='default'?schedule:(monthSched[cur]||schedule);
     const custom=cur!=='default'&&!!monthSched[cur];
     const[cy,cm]=(cur==='default'?lastYM:cur).split('-').map(Number);
     const years=[...new Set([nowD.getFullYear()-3,nowD.getFullYear()-2,nowD.getFullYear()-1,nowD.getFullYear(),nowD.getFullYear()+1,nowD.getFullYear()+2,nowD.getFullYear()+3,cy])].sort();
     const mk=(y,m)=>y+'-'+String(m).padStart(2,'0');
+    const dim=new Date(cy,cm,0).getDate(),first=new Date(cy,cm-1,1).getDay(),off=first===0?6:first-1;
+    let gridCells='';
+    for(let i=0;i<off;i++)gridCells+='<div></div>';
+    for(let d=1;d<=dim;d++)gridCells+=`<button class="chip ${selD.has(d)?'on':''}" data-dd="${d}" style="display:block;width:100%;padding:11px 0;border-radius:10px;text-align:center;font-size:14px">${d}</button>`;
     show(`
       <div class="mh"><div class="mt">⚙️ Графік роботи</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
       <div class="field"><label>Для якого періоду</label>
@@ -807,26 +904,48 @@ function schedModal(initYM){
       ${cur!=='default'?`<div class="g2">
         <div class="field"><select class="fi" id="wyear">${years.map(y=>`<option value="${y}" ${y===cy?'selected':''}>${y}</option>`).join('')}</select></div>
         <div class="field"><select class="fi" id="wmon">${monthNames.map((n,i)=>`<option value="${i+1}" ${i+1===cm?'selected':''}>${n}${monthSched[mk(cy,i+1)]?' •':''}</option>`).join('')}</select></div>
+      </div>
+      <div class="field"><label>Як задавати робочі дні</label>
+        <div class="chips"><button class="chip ${!byDate?'on':''}" data-mode="wd">По днях тижня</button><button class="chip ${byDate?'on':''}" data-mode="dt">По датах</button></div>
       </div>`:''}
-      ${cur!=='default'&&!custom?`<div style="font-size:11px;color:var(--wrn);margin-bottom:10px">Для цього місяця свого графіка ще немає — зараз діє загальний. Змініть дні чи години й натисніть «Зберегти», щоб задати окремий. Місяці зі своїм графіком позначені «•».</div>`:''}
-      <div class="field"><label>Робочі дні</label>
-        <div class="chips">${[1,2,3,4,5,6,0].map(d=>`<button class="chip ${s.days.includes(d)?'on':''}" data-day="${d}">${DN[d]}</button>`).join('')}</div>
-      </div>
+      ${cur!=='default'&&!custom?`<div style="font-size:11px;color:var(--wrn);margin-bottom:10px">Для цього місяця свого графіка ще немає — зараз діє загальний. Задайте дні й натисніть «Зберегти». Місяці зі своїм графіком позначені «•».</div>`:''}
+      ${cur!=='default'&&byDate?`<div class="field"><label>Робочі дати <span id="wcnt" style="color:var(--acc);font-weight:700">${selD.size}</span></label>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;text-align:center">${['пн','вт','ср','чт','пт','сб','нд'].map(x=>`<div style="font-size:10px;font-weight:600;color:var(--dim)">${x}</div>`).join('')}</div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">${gridCells}</div>
+        <div style="display:flex;gap:6px;margin-top:8px"><button class="btn bg bs" id="wclear">Очистити</button><button class="btn bg bs" id="wall">Усі дати</button></div>
+      </div>`:`<div class="field"><label>Робочі дні тижня</label>
+        <div class="chips">${[1,2,3,4,5,6,0].map(d=>`<button class="chip ${daysSel.has(d)?'on':''}" data-day="${d}">${DN[d]}</button>`).join('')}</div>
+      </div>`}
       <div class="g2">
-        <div class="field"><label>Початок</label><select class="fi" id="wstart">${ho(s.start)}</select></div>
-        <div class="field"><label>Кінець</label><select class="fi" id="wend">${ho(s.end)}</select></div>
+        <div class="field"><label>Початок</label><select class="fi" id="wstart">${ho(hStart)}</select></div>
+        <div class="field"><label>Кінець</label><select class="fi" id="wend">${ho(hEnd)}</select></div>
       </div>
-      <div style="font-size:11px;color:var(--dim);margin-bottom:13px">Графік місяця має пріоритет над загальним. Для окремої дати (вихідний чи коротший день) — довге натискання на дату в місячному календарі. Існуючі записи не видаляються, навіть якщо вони потрапили на неробочий час.</div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:13px">Графік місяця має пріоритет над загальним. Для однієї дати інші години чи вихідний — довге натискання на дату в місячному календарі. Існуючі записи не видаляються, навіть якщо потрапили на неробочий час.</div>
       <div class="mf">
         ${custom?`<button class="btn bg bs" id="mreset">Скинути місяць</button>`:''}
         <button class="btn bg" id="mc">Скасувати</button>
         <button class="btn bp" id="ms">Зберегти</button>
       </div>`);
     $('mx').onclick=hide;$('mc').onclick=hide;
-    $('modal').querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>b.classList.toggle('on'));
-    $('wscope').onchange=e=>{cur=e.target.value==='default'?'default':lastYM;render();};
+    $('wstart').onchange=e=>{hStart=+e.target.value;};
+    $('wend').onchange=e=>{hEnd=+e.target.value;};
+    $('modal').querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{
+      const d=+b.dataset.day;
+      if(daysSel.has(d))daysSel.delete(d);else daysSel.add(d);
+      b.classList.toggle('on',daysSel.has(d));
+    });
+    const cnt=()=>{const el=$('wcnt');if(el)el.textContent=selD.size;};
+    $('modal').querySelectorAll('[data-dd]').forEach(b=>b.onclick=()=>{
+      const d=+b.dataset.dd;
+      if(selD.has(d))selD.delete(d);else selD.add(d);
+      b.classList.toggle('on',selD.has(d));cnt();
+    });
+    if($('wclear'))$('wclear').onclick=()=>{selD=new Set();render();};
+    if($('wall'))$('wall').onclick=()=>{selD=new Set(Array.from({length:dim},(_,i)=>i+1));render();};
+    $('modal').querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{byDate=b.dataset.mode==='dt';render();});
+    $('wscope').onchange=e=>{cur=e.target.value==='default'?'default':lastYM;loadState();render();};
     if($('wyear')){
-      const pick=()=>{cur=lastYM=mk(+$('wyear').value,+$('wmon').value);render();};
+      const pick=()=>{cur=lastYM=mk(+$('wyear').value,+$('wmon').value);loadState();render();};
       $('wyear').onchange=pick;$('wmon').onchange=pick;
     }
     if($('mreset'))$('mreset').onclick=()=>{
@@ -834,10 +953,17 @@ function schedModal(initYM){
       delete monthSched[cur];localStorage.setItem('msched',JSON.stringify(monthSched));hide();drawCal();
     };
     $('ms').onclick=()=>{
-      const days=[...$('modal').querySelectorAll('[data-day].on')].map(b=>+b.dataset.day),start=+$('wstart').value,end=+$('wend').value;
+      const start=+$('wstart').value,end=+$('wend').value;
       if(end<=start){alert('Кінець має бути пізніше за початок');return;}
-      if(cur==='default'){schedule={days,start,end};localStorage.setItem('sched',JSON.stringify(schedule));}
-      else{monthSched[cur]={days,start,end};localStorage.setItem('msched',JSON.stringify(monthSched));}
+      if(cur==='default'){
+        schedule={days:[...daysSel],start,end};localStorage.setItem('sched',JSON.stringify(schedule));
+      } else if(byDate){
+        if(selD.size===0&&!confirm('Не вибрано жодної робочої дати — увесь місяць буде вихідним. Продовжити?'))return;
+        monthSched[cur]={byDate:true,dates:[...selD].sort((a,b)=>a-b),days:[...daysSel],start,end};
+        localStorage.setItem('msched',JSON.stringify(monthSched));
+      } else {
+        monthSched[cur]={days:[...daysSel],start,end};localStorage.setItem('msched',JSON.stringify(monthSched));
+      }
       hide();drawCal();
     };
   }
