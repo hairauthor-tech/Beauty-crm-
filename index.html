@@ -74,6 +74,9 @@ input[type=date],input[type=time]{color-scheme:dark;}
 .AB.pending{background:rgba(168,155,194,.2);border-left:3px solid var(--acc);}
 .AB.done{background:rgba(123,175,138,.15);border-left:3px solid var(--ok);}
 .AB.cancelled{background:rgba(184,112,112,.15);border-left:3px solid var(--err);}
+.AB.confirmed{background:rgba(92,138,168,.2);border-left:3px solid #5C8AA8;}
+.AB.noshow{background:rgba(196,164,106,.16);border-left:3px solid var(--wrn);}
+.AB.noshow .AB-N{text-decoration:line-through;opacity:.8;}
 .AB.brk{background:repeating-linear-gradient(45deg,rgba(132,138,150,.14),rgba(132,138,150,.14) 6px,rgba(132,138,150,.26) 6px,rgba(132,138,150,.26) 12px);border-left:3px solid var(--dim);}
 .AB-N{font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .AB-T{font-size:9px;color:var(--mut);}
@@ -465,13 +468,47 @@ document.addEventListener('touchcancel',()=>{
   if(tab==='cal')drawCal();
 },{passive:true});
 
+// ── Вільні вікна та шапка дня ──
+const fmtMin=m=>String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+// Вільні проміжки (≥30 хв) у межах робочих годин дати; null — якщо день вихідний.
+// Скасовані записи час не займають; «не прийшла» і перерви — займають.
+function dayFreeWindows(d){
+  if(!isWorkDay(d))return null;
+  const dh=getDayHours(d),ws=dh.start*60,we=dh.end*60;
+  const busy=appts.filter(a=>a.date===d&&a.time&&a.status!=='cancelled').map(a=>{const t=a.time.split(':');const st=+t[0]*60+(+t[1]||0);return[st,st+apptDuration(a)];}).sort((x,y)=>x[0]-y[0]);
+  const gaps=[];let cur=ws;
+  busy.forEach(([st,en])=>{if(cur<we&&st>cur){const e2=Math.min(st,we);if(e2>cur)gaps.push([cur,e2]);}cur=Math.max(cur,en);});
+  if(cur<we)gaps.push([cur,we]);
+  return gaps.filter(g=>g[1]-g[0]>=30);
+}
+function daySummaryHtml(dates){
+  const plan=appts.filter(a=>dates.includes(a.date)&&!a.isBreak&&a.status!=='cancelled'&&a.status!=='noshow');
+  const got=plan.filter(a=>a.status==='done').reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);
+  const wait=plan.filter(a=>a.status!=='done').reduce((s,a)=>s+apptTotalPrice(a),0);
+  let freeMin=0;const wins=[];
+  dates.forEach(d=>{const g=dayFreeWindows(d);if(!g)return;g.forEach(([a,b])=>{freeMin+=b-a;wins.push(fmtMin(a)+'–'+fmtMin(b));});});
+  const freeTxt=(freeMin/60).toFixed(1).replace(/\.0$/,'')+' год';
+  const cell=(v,l,c)=>`<div style="flex:1"><div style="font-weight:800;font-size:16px;color:${c}">${v}</div><div style="font-size:10px;color:var(--mut)">${l}</div></div>`;
+  let note='';
+  if(dates.length===1){
+    note=!isWorkDay(dates[0])?'Вихідний день'
+      :wins.length?'Вільно: '+wins.slice(0,5).join(' · ')+(wins.length>5?' …':'')
+      :'Вільних вікон немає';
+    note=`<div style="font-size:11px;color:var(--mut);margin-top:8px;text-align:center">${note}</div>`;
+  }
+  return`<div class="card" style="padding:10px 12px;margin-bottom:10px">
+    <div style="display:flex;text-align:center;gap:4px">
+      ${cell(plan.length,'записів','var(--sil)')}${cell(fmt(got),'отримано, грн','var(--ok)')}${cell(fmt(wait),'очікується, грн','var(--wrn)')}${cell(freeTxt,'вільно','var(--acs)')}
+    </div>${note}</div>`;
+}
+
 function drawCal(){
   if(GESTURE.mode)return; // a drag/resize is in progress — don't rebuild under the user's finger
   const el=$('t-cal');
   const dates=Array.from({length:calView},(_,i)=>addDays(calDate,i));
   const lbl=calView===1?fmtL(calDate):fmtS(calDate)+' – '+fmtS(dates[dates.length-1]);
   const todayStr=today();
-  const pending=appts.filter(a=>a.date===calDate&&a.status==='pending').length;
+  const pending=appts.filter(a=>a.date===calDate&&(a.status==='pending'||a.status==='confirmed')).length;
 
   // Header row for day columns
   const hdrRow=`<div style="display:flex">
@@ -479,7 +516,7 @@ function drawCal(){
     ${dates.map(d=>{
       const isT=d===todayStr,dn=DN[new Date(d+'T12:00:00').getDay()],day=new Date(d+'T12:00:00').getDate();
       return`<div class="CAL-COL COL-H ${isT?'tod':''}" style="position:relative;padding-top:6px;padding-bottom:6px;height:auto;min-height:28px">
-        <span style="position:relative;z-index:1">${dn} <b>${day}</b></span>
+        <span style="position:relative;z-index:1">${dn} <b>${day}</b>${isWorkDay(d)?'':' <span style="font-size:9px;color:var(--dim)">вих.</span>'}</span>
       </div>`;
     }).join('')}
   </div>`;
@@ -496,7 +533,7 @@ function drawCal(){
         // 30px per 30 minutes
         const topPx=(min/30)*30;
         const hPx=Math.max((dur/30)*30,22);
-        const cls=a.isBreak?'brk':a.status==='done'?'done':a.status==='cancelled'?'cancelled':'pending';
+        const cls=a.isBreak?'brk':a.status==='done'?'done':a.status==='cancelled'?'cancelled':a.status==='noshow'?'noshow':a.status==='confirmed'?'confirmed':'pending';
         const svcNames=a.services?a.services.map(s=>{const sid=typeof s==='object'?s.serviceId:s;return svcs.find(sv=>sv.id===sid)?.name||'';}).filter(Boolean).join('+'):(svc?.name||'');
         // If several appointments start in the same slot (e.g. identical
         // duplicated services), lay them out side-by-side instead of
@@ -510,18 +547,20 @@ function drawCal(){
         return`<div class="AB ${cls}" style="top:${topPx}px;height:${hPx}px;${posStyle}" data-aid="${a.id}">
           <div style="display:flex;align-items:center;gap:4px">
             <div class="AB-DRAG" style="padding:2px 4px;cursor:grab;color:rgba(255,255,255,.4);font-size:10px;touch-action:none">⠿</div>
-            <div class="AB-N" style="flex:1">${a.isBreak?'⏸ ':''}${a.client}</div>
+            <div class="AB-N" style="flex:1">${a.isBreak?'⏸ ':''}${a.status==='done'?'✓ ':a.status==='noshow'?'✕ ':a.status==='confirmed'?'● ':''}${a.client}</div>
           </div>
           <div class="AB-T">${a.time}${svcNames?' · '+svcNames:''}</div>
           <div class="AB-RES" data-resize="${a.id}"><div style="width:20px;height:2px;background:rgba(255,255,255,.25);border-radius:2px"></div></div>
         </div>`;
       }).join('');
       // Two 30px sub-rows per hour
+      const _dh=getDayHours(d),_off=!isWorkDay(d)||h<_dh.start||h>=_dh.end;
       return`<div class="CAL-COL" style="position:relative;height:60px;border-left:1px solid var(--brd)">
         <div style="position:absolute;inset:0;pointer-events:none">
           <div style="height:30px;border-bottom:1px solid rgba(128,128,128,.05)"></div>
           <div style="height:30px;border-bottom:1px solid rgba(128,128,128,.08)"></div>
         </div>
+        ${_off?'<div style="position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(135deg,rgba(128,128,128,.10) 0 6px,rgba(128,128,128,.20) 6px 12px)"></div>':''}
         <div class="TC" style="position:absolute;inset:0;height:30px" data-d="${d}" data-h="${String(h).padStart(2,'0')}:00"></div>
         <div class="TC" style="position:absolute;top:30px;left:0;right:0;height:30px" data-d="${d}" data-h="${String(h).padStart(2,'0')}:30"></div>
         ${blocks}
@@ -547,6 +586,7 @@ function drawCal(){
         <button class="bi" id="cnext">${svg(ic.r,16)}</button>
       </div>
     </div>
+    ${daySummaryHtml(dates)}
     <div style="display:flex;gap:4px;margin-bottom:8px">
       <button class="vb ${calView===1?'on':''}" data-cv="1">День</button>
       <button class="vb ${calView===2?'on':''}" data-cv="2">2 дні</button>
@@ -561,6 +601,9 @@ function drawCal(){
     <div style="overflow-x:auto;border:1px solid var(--brd);border-radius:10px;position:relative" id="calGridWrap">
       ${hdrRow}
       <div style="position:relative">${rows}</div>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--mut)">
+      <span><span style="color:var(--acc)">■</span> очікує</span><span><span style="color:#5C8AA8">■</span> підтверджена</span><span><span style="color:var(--ok)">■</span> прийшла</span><span><span style="color:var(--wrn)">■</span> не прийшла</span><span><span style="color:var(--err)">■</span> скасовано</span>
     </div>`;
 
   $('cprev').onclick=e=>{e.stopPropagation();calDate=addDays(calDate,-calView);drawCal();};
@@ -578,7 +621,7 @@ function drawCal(){
     const a=appts.find(x=>x.id===b.dataset.aid);
     if(!a)return;
     if(a.isBreak)breakModal(a);
-    else apptModal(a,a.date,a.time);
+    else apptQuickModal(a);
   }));
 
   // Drag & Resize — bind handles to shared global gesture state
@@ -653,6 +696,21 @@ function drawCal(){
 
   // Now-line indicator
   updateNowLine(dates, todayStr);
+
+  // Свайп між днями (лише коли сітка не прокручується горизонтально — День / 2 дні; у тижні — стрілки)
+  const gw=$('calGridWrap');
+  if(gw){
+    let sx=0,sy=0,t0=0,tracking=false;
+    gw.addEventListener('touchstart',e=>{if(e.touches.length!==1)return;sx=e.touches[0].clientX;sy=e.touches[0].clientY;t0=Date.now();tracking=true;},{passive:true});
+    gw.addEventListener('touchend',e=>{
+      if(!tracking)return;tracking=false;
+      if(GESTURE.mode)return;
+      if(gw.scrollWidth>gw.clientWidth+2)return;
+      const t=e.changedTouches[0],dx=t.clientX-sx,dy=t.clientY-sy;
+      if(Date.now()-t0>700||Math.abs(dx)<70||Math.abs(dx)<Math.abs(dy)*2)return;
+      calDate=addDays(calDate,dx<0?calView:-calView);drawCal();
+    },{passive:true});
+  }
 }
 
 // Mini Calendar Modal (opens at top)
@@ -1197,7 +1255,9 @@ function apptModal(a,date,time,prefill){
       </div>
       <div class="field"><label>Статус</label><select class="fi" id="fst">
         <option value="pending" ${fStatus==='pending'?'selected':''}>Очікує</option>
-        <option value="done" ${fStatus==='done'?'selected':''}>Виконано</option>
+        <option value="confirmed" ${fStatus==='confirmed'?'selected':''}>Підтверджена</option>
+        <option value="done" ${fStatus==='done'?'selected':''}>Виконано (прийшла)</option>
+        <option value="noshow" ${fStatus==='noshow'?'selected':''}>Не прийшла</option>
         <option value="cancelled" ${fStatus==='cancelled'?'selected':''}>Скасовано</option>
       </select></div>
       <div class="field"><label>Оплачено (грн)</label><input type="number" class="fi" id="fm" value="${fPaid}"/></div>
@@ -1552,8 +1612,8 @@ function clientHistoryModalOld(clientName){
   const rows=visits.map(a=>{
     const svcNames=a.services?a.services.map(s=>{const sid=typeof s==='object'?s.serviceId:s;return svcs.find(sv=>sv.id===sid)?.name||'';}).filter(Boolean).join('+'):(svcs.find(sv=>sv.id===a.serviceId)?.name||'');
     const amt=a.paid||apptTotalPrice(a);
-    const statusLbl=a.status==='done'?'Виконано':a.status==='cancelled'?'Скасовано':'Очікує';
-    const statusColor=a.status==='done'?'var(--ok)':a.status==='cancelled'?'var(--err)':'var(--wrn)';
+    const statusLbl=({done:'Виконано',cancelled:'Скасовано',noshow:'Не прийшла',confirmed:'Підтверджена'})[a.status]||'Очікує';
+    const statusColor=({done:'var(--ok)',cancelled:'var(--err)',noshow:'var(--wrn)',confirmed:'#5C8AA8'})[a.status]||'var(--acs)';
     return`<div class="ri" data-appt="${a.id}" style="cursor:pointer">
       <div class="rl"><div class="rn">${fmtS(a.date)}${a.time?' · '+a.time:''}</div>
         <div class="rs">${svcNames||'—'}</div>
@@ -1574,6 +1634,54 @@ function clientHistoryModalOld(clientName){
   $('modal').querySelectorAll('[data-appt]').forEach(el2=>el2.onclick=()=>{
     const a=appts.find(x=>x.id===el2.dataset.appt);
     if(a)apptModal(a,a.date,a.time);
+  });
+}
+
+// ── Швидка зміна статусу прямо з календаря ──
+// Повторює ту саму логіку складу, що й збереження в apptModal: матеріали списуються лише коли статус
+// стає «Виконано», і повертаються, якщо запис із «Виконано» переведено в інший статус.
+async function quickSetStatus(a,newStatus){
+  if(a.status===newStatus)return;
+  const oldEff=Array.isArray(a.materialsDeducted)?a.materialsDeducted:(a.status!=='cancelled'?(a.materialsUsed||[]):[]);
+  const newEff=(newStatus==='done')?(a.materialsUsed||[]).filter(m=>m.matId&&m.qty>0).map(m=>({matId:m.matId,qty:m.qty})):[];
+  const ids=[...new Set([...oldEff.map(x=>x.matId),...newEff.map(x=>x.matId)])];
+  for(const mid of ids){
+    const m=mats.find(x=>x.id===mid);if(!m)continue;
+    const oldQ=oldEff.find(x=>x.matId===mid)?.qty||0,newQ=newEff.find(x=>x.matId===mid)?.qty||0;
+    const deltaUnits=newQ-oldQ;
+    if(deltaUnits===0)continue;
+    await updateDoc(doc(db,'materials',mid),{qty:+((m.qty||0)-unitsToSht(m,deltaUnits)).toFixed(4)});
+    if(deltaUnits>0){
+      const{unit,ppu}=matUnitInfo(m);
+      await addDoc(collection(db,'purchases'),{matId:mid,matName:m.name,type:'spend',qty:deltaUnits,unit,total:deltaUnits*ppu,date:a.date,note:a.client,apptId:a.id});
+    }
+  }
+  await updateDoc(doc(db,'appointments',a.id),{status:newStatus,materialsDeducted:newEff});
+}
+
+function apptQuickModal(a){
+  const svcNames=apptSvcIds(a).map(id=>svcs.find(sv=>sv.id===id)?.name||'').filter(Boolean).join('+');
+  const amount=a.paid||apptTotalPrice(a);
+  const matN=(a.materialsUsed||[]).filter(m=>m.matId&&m.qty>0).length;
+  const sts=[['pending','Очікує','var(--acc)'],['confirmed','Підтверджена','#5C8AA8'],['done','Прийшла','var(--ok)'],['noshow','Не прийшла','var(--wrn)'],['cancelled','Скасувати','var(--err)']];
+  show(`
+    <div class="mh"><div class="mt">${a.client}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    <div style="font-size:13px;color:var(--mut);margin-bottom:4px">${fmtS(a.date)} · ${a.time||''}${svcNames?' · '+svcNames:''}</div>
+    <div style="font-size:15px;font-weight:700;color:var(--sil);margin-bottom:14px">${fmt(amount)} грн</div>
+    <div class="sec" style="margin-top:0">Статус</div>
+    <div class="g2" style="margin-bottom:10px">
+      ${sts.map(([k,l,c])=>`<button class="btn bg" data-qs="${k}" style="justify-content:center;${a.status===k||(!a.status&&k==='pending')?`border-color:${c};color:${c};background:rgba(128,128,128,.12)`:''}">${a.status===k||(!a.status&&k==='pending')?'✓ ':''}${l}</button>`).join('')}
+    </div>
+    <div id="qsnote" style="font-size:11px;color:var(--dim);margin-bottom:12px">${matN?`«Прийшла» спише зі складу матеріали запису (${matN} поз.).`:'Матеріали в записі не вказані — склад не зміниться.'}</div>
+    <div class="mf"><button class="btn bp" id="qedit">✏️ Редагувати запис</button></div>`);
+  $('mx').onclick=hide;
+  $('qedit').onclick=()=>apptModal(a,a.date,a.time);
+  $('modal').querySelectorAll('[data-qs]').forEach(b=>b.onclick=async()=>{
+    const k=b.dataset.qs;
+    if(k==='cancelled'&&!confirm('Скасувати запис?'))return;
+    const all=$('modal').querySelectorAll('[data-qs]');all.forEach(x=>x.disabled=true);
+    try{await quickSetStatus(a,k);hide();}
+    catch(e){console.warn('Quick status failed:',e);all.forEach(x=>x.disabled=false);$('qsnote').textContent='⚠️ Не вдалося зберегти — спробуйте ще раз';$('qsnote').style.color='var(--err)';}
   });
 }
 
@@ -2940,10 +3048,10 @@ function buildClients(){
   const todayStr=today(),dayMs=86400000;
   const diff=(d1,d2)=>Math.round((new Date(d2+'T12:00:00')-new Date(d1+'T12:00:00'))/dayMs);
   return Object.values(map).map(c=>{
-    const live=c.all.filter(a=>a.status!=='cancelled');
+    const live=c.all.filter(a=>a.status!=='cancelled'&&a.status!=='noshow');
     const done=live.filter(a=>a.status==='done');
     const doneDates=[...new Set(done.map(a=>a.date))].sort();
-    const next=live.filter(a=>a.status==='pending'&&a.date>=todayStr).sort((x,y)=>(x.date+(x.time||'')).localeCompare(y.date+(y.time||'')))[0]||null;
+    const next=live.filter(a=>(a.status==='pending'||a.status==='confirmed')&&a.date>=todayStr).sort((x,y)=>(x.date+(x.time||'')).localeCompare(y.date+(y.time||'')))[0]||null;
     const gaps=[];
     for(let i=1;i<doneDates.length;i++)gaps.push(diff(doneDates[i-1],doneDates[i]));
     const avgGap=gaps.length?gaps.reduce((s,g)=>s+g,0)/gaps.length:null;
@@ -2958,7 +3066,7 @@ function buildClients(){
     const totalPaid=done.reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);
     const tips=done.reduce((s,a)=>s+(a.tips||0),0);
     return{...c,doneCount:done.length,doneVisits:doneDates.length,firstDone:doneDates[0]||null,lastDone,daysSince,avgGap,
-      next,booked,overdue,lost,expected,totalPaid,tips,cancelled:c.all.filter(a=>a.status==='cancelled').length,
+      next,booked,overdue,lost,expected,totalPaid,tips,cancelled:c.all.filter(a=>a.status==='cancelled').length,noshow:c.all.filter(a=>a.status==='noshow').length,
       avgCheck:done.length?totalPaid/done.length:0};
   });
 }
@@ -3007,7 +3115,7 @@ function clientsListModal(){
       const tel=c.phone&&contactLink(c.phone)?`<a href="${contactLink(c.phone)}" target="_blank" rel="noopener" data-tel style="text-decoration:none;font-size:16px;padding:4px 6px">${normContact(c.phone)[0]==='i'?'💬':'📞'}</a>`:'';
       return`<div class="ri" data-ckey="${c.key}" style="cursor:pointer;align-items:flex-start">
         <div class="rl"><div class="rn">${c.name} ${badge}</div>
-          <div class="rs">${c.doneVisits} ${plural(c.doneVisits)}${c.cancelled?' · скасувань: '+c.cancelled:''}${c.phone?' · '+c.phone:''}</div>
+          <div class="rs">${c.doneVisits} ${plural(c.doneVisits)}${c.cancelled?' · скасувань: '+c.cancelled:''}${c.noshow?' · не прийшла: '+c.noshow:''}${c.phone?' · '+c.phone:''}</div>
           <div class="rs">${line2}</div>${line3?`<div class="rs">${line3}</div>`:''}</div>
         <div class="rr"><div class="rv">${fmt(c.totalPaid)} грн</div><div class="ra">чек ${fmt(c.avgCheck)}</div>${tel}</div>
       </div>`;
@@ -3047,8 +3155,8 @@ function clientHistoryModal(arg){
   const rows=visits.map(a=>{
     const svcNames=apptSvcIds(a).map(id=>svcs.find(sv=>sv.id===id)?.name||'').filter(Boolean).join('+');
     const amt=a.paid||apptTotalPrice(a);
-    const statusLbl=a.status==='done'?'Виконано':a.status==='cancelled'?'Скасовано':'Очікує';
-    const statusColor=a.status==='done'?'var(--ok)':a.status==='cancelled'?'var(--err)':'var(--wrn)';
+    const statusLbl=({done:'Виконано',cancelled:'Скасовано',noshow:'Не прийшла',confirmed:'Підтверджена'})[a.status]||'Очікує';
+    const statusColor=({done:'var(--ok)',cancelled:'var(--err)',noshow:'var(--wrn)',confirmed:'#5C8AA8'})[a.status]||'var(--acs)';
     return`<div class="ri" data-appt="${a.id}" style="cursor:pointer">
       <div class="rl"><div class="rn">${fmtS(a.date)}${a.time?' · '+a.time:''}</div><div class="rs">${svcNames||'—'}</div>
         <div class="rs" style="color:${statusColor}">${statusLbl}${a.note?' · '+a.note:''}</div></div>
