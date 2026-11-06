@@ -74,6 +74,8 @@ input[type=date],input[type=time]{color-scheme:dark;}
 .AB.pending{background:rgba(168,155,194,.2);border-left:3px solid var(--acc);}
 .AB.done{background:rgba(123,175,138,.15);border-left:3px solid var(--ok);}
 .AB.cancelled{background:rgba(184,112,112,.15);border-left:3px solid var(--err);}
+button,.chip,.ri,.nb,.bi{touch-action:manipulation;}
+.btn:active,.chip:active,.bi:active,.nb:active,.ri:active{opacity:.6;}
 .AB.confirmed{background:rgba(92,138,168,.2);border-left:3px solid #5C8AA8;}
 .AB.noshow{background:rgba(196,164,106,.16);border-left:3px solid var(--wrn);}
 .AB.noshow .AB-N{text-decoration:line-through;opacity:.8;}
@@ -100,6 +102,7 @@ input[type=date],input[type=time]{color-scheme:dark;}
   <button class="bi" id="themeBtn" style="font-size:18px;border:none;background:transparent;padding:4px">🌙</button>
 </div>
 <div id="connBanner"></div>
+<div id="resumeBanner"></div>
 <div class="content">
   <div class="tab on" id="t-cal"></div>
   <div class="tab" id="t-stock"></div>
@@ -135,7 +138,8 @@ const db = getFirestore(initializeApp({
 // anything again — which is the "app freezes / everything disappears then
 // comes back" symptom. With persistence on, a reconnect serves the cached
 // data instantly while the fresh data loads quietly in the background.
-try{ await enableIndexedDbPersistence(db); }
+// Не блокуємо запуск усього інтерфейсу очікуванням IndexedDB: виклик робиться першим, решта запитів стає в чергу за ним.
+try{ enableIndexedDbPersistence(db).catch(e=>{}); }
 catch(e){ /* multiple tabs open, or browser doesn't support it — app still works, just without the cache cushion */ }
 
 // ── State ──────────────────────────────────────────
@@ -256,10 +260,16 @@ const dayRing=d=>{
 // a brief freeze/stutter, especially on older phones. Coalescing them into
 // a single animation-frame pass fixes that.
 let drawQueued=false;
+let needsDraw=false;   // зміни прийшли, поки було відкрите вікно — перемалюємо, коли його закриють
+let dataVer=0;         // версія даних записів/послуг — для кешу buildClients
+let apptFlush=null;    // «скинути в базу все, що ще не збережено» для відкритого вікна запису
+let apptToken=null;    // який саме екземпляр apptModal зараз на екрані
+let resumeChecked=false;
+const markOpen=id=>{try{localStorage.setItem('openAppt',JSON.stringify({id,ts:Date.now()}));}catch(e){}};
 function scheduleDraw(){
   if(drawQueued)return;
   drawQueued=true;
-  requestAnimationFrame(()=>{drawQueued=false;draw();});
+  requestAnimationFrame(()=>{drawQueued=false;if($('overlay').classList.contains('show')){needsDraw=true;return;}draw();});
 }
 
 let connIssue=false;
@@ -274,11 +284,15 @@ function setConnBanner(bad){
 // do NOT clear svcs/mats/appts/ops on error — the last good data stays on
 // screen until a fresh snapshot actually arrives.
 const onErr=e=>{console.warn('Firestore listener error:',e);setConnBanner(true);};
+// Запис у Firestore застосовується локально миттєво, а підтвердження від сервера може йти секунди.
+// Тому інтерфейс НЕ чекає на нього: вікно закривається одразу, а помилку покажемо, лише якщо вона справді буде.
+const bgWrites=(ws,label)=>Promise.all(ws).catch(e=>{console.warn('Write failed',label||'',e);alert('⚠️ Не вдалося зберегти зміни. Перевірте з’єднання й повторіть.');});
 
-onSnapshot(collection(db,'services'),s=>{svcs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name));setConnBanner(false);scheduleDraw();},onErr);
+onSnapshot(collection(db,'services'),s=>{dataVer++;svcs=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.name.localeCompare(b.name));setConnBanner(false);scheduleDraw();},onErr);
 onSnapshot(collection(db,'materials'),s=>{mats=s.docs.map(d=>({id:d.id,...d.data()}));setConnBanner(false);scheduleDraw();},onErr);
 onSnapshot(collection(db,'appointments'),s=>{
-  appts=s.docs.map(d=>({id:d.id,...d.data()}))
+  if(!resumeChecked){resumeChecked=true;setTimeout(checkResume,0);}
+  dataVer++;appts=s.docs.map(d=>({id:d.id,...d.data()}))
     .sort((a,b)=>a.date===b.date?(a.time||'').localeCompare(b.time||''):(a.date||'').localeCompare(b.date||''));
   setConnBanner(false);scheduleDraw();
 },onErr);
@@ -297,8 +311,25 @@ document.querySelectorAll('.nb').forEach(b=>b.addEventListener('click',()=>{
 }));
 
 // ── Modal ──────────────────────────────────────────
+// Якщо застосунок закрили/вивантажили, поки було відкрите вікно запису, — пропонуємо продовжити з того ж місця.
+function checkResume(){
+  let r=null;try{r=JSON.parse(localStorage.getItem('openAppt')||'null');}catch(e){}
+  if(!r||Date.now()-r.ts>6*3600*1000){return;}
+  const a=appts.find(x=>x.id===r.id);if(!a)return;
+  $('resumeBanner').innerHTML=`<div class="alert" style="background:rgba(168,155,194,.15);border:1px solid var(--acc);color:var(--txt);margin:8px 16px 0;justify-content:space-between"><span>Не закрито запис: <b>${a.client||''}</b></span><span style="display:flex;gap:6px"><button class="btn bp bs" id="resumeBtn">Продовжити</button><button class="bi bs" id="resumeX">✕</button></span></div>`;
+  $('resumeBtn').onclick=()=>{$('resumeBanner').innerHTML='';apptModal(a,a.date,a.time);};
+  $('resumeX').onclick=()=>{$('resumeBanner').innerHTML='';try{localStorage.removeItem('openAppt');}catch(e){}};
+}
 function show(html){$('modal').innerHTML=html;$('overlay').classList.add('show');}
-function hide(){$('overlay').classList.remove('show');}
+function hide(){
+  $('overlay').classList.remove('show');
+  if(apptFlush){const f=apptFlush;apptFlush=null;try{f();}catch(e){console.warn(e);}}
+  try{localStorage.removeItem('openAppt');}catch(e){}
+  if(needsDraw){needsDraw=false;scheduleDraw();}
+}
+// Згорнули застосунок / перемкнулись на інший — одразу зберігаємо те, що введено у відкритому записі.
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&apptFlush)apptFlush();});
+window.addEventListener('pagehide',()=>{if(apptFlush)apptFlush();});
 $('overlay').addEventListener('click',e=>{if(e.target===$('overlay'))hide();});
 
 function draw(){
@@ -417,6 +448,7 @@ function gestureMove(e){
     GESTURE.block.style.left=(GESTURE.origLeft+dx)+'px';
     GESTURE.block.style.top=(GESTURE.origTop+dy)+'px';
   } else if(GESTURE.mode==='resize'){
+    GESTURE.moved=true;
     const dy=e.touches[0].clientY-GESTURE.startY;
     const newH=Math.max(22,(GESTURE.origDur/60+dy/60)*60);
     GESTURE.block.style.height=newH+'px';
@@ -424,6 +456,7 @@ function gestureMove(e){
 }
 async function gestureEnd(){
   const mode=GESTURE.mode, block=GESTURE.block, appt=GESTURE.appt;
+  const wasTap=(mode==='resize'&&!GESTURE.moved);
   if(!mode)return; // ordinary tap, not a drag/resize — don't touch the DOM, let the click through
   if(mode==='drag'&&block){
     // Read the drop position from the card's ACTUAL on-screen top edge, right
@@ -435,17 +468,21 @@ async function gestureEnd(){
     block.style.opacity='';block.style.zIndex='';block.style.pointerEvents='';
     if(appt&&drop&&(drop.date!==appt.date||drop.time!==appt.time)){
       // Written once, at the end, scoped to THIS appointment's id only.
-      await updateDoc(doc(db,'appointments',appt.id),{date:drop.date,time:drop.time});
+      appt.date=drop.date;appt.time=drop.time;
+      bgWrites([updateDoc(doc(db,'appointments',appt.id),{date:drop.date,time:drop.time})],'drag');
     }
   } else if(mode==='resize'&&block&&appt){
     const newDur=Math.max(15,Math.round((parseFloat(block.style.height)/60*60)/15)*15);
     block.style.transition='';
     // Saved on the APPOINTMENT itself (customDuration), not the shared service.
-    await updateDoc(doc(db,'appointments',appt.id),{customDuration:newDur});
+    if(GESTURE.moved){ // лише справжнє розтягування змінює тривалість; простий дотик — ні
+      appt.customDuration=newDur;
+      bgWrites([updateDoc(doc(db,'appointments',appt.id),{customDuration:newDur})],'resize');
+    }
   }
   GESTURE.mode=null;GESTURE.block=null;GESTURE.appt=null;GESTURE.pendingDate=null;GESTURE.pendingTime=null;
   detachGestureMove();
-  if(tab==='cal')drawCal();
+  if(tab==='cal'&&!wasTap)drawCal(); // після простого дотику не перебудовуємо сітку, щоб дотик дійшов до запису
 }
 // gestureMove is only wired up to the document WHILE a drag/resize is
 // actually happening (see beginDrag() and the resize touchstart handler
@@ -523,9 +560,12 @@ function drawCal(){
 
   // Time rows with 30-min subgrid
   // Each hour = 2 rows of 30px each = 60px total
+  // Записи групуємо по даті й годині один раз, замість фільтрування всього масиву для кожної клітинки сітки
+  const apptIdx={};
+  appts.forEach(a=>{if(a.time&&dates.includes(a.date)){const k=a.date+'|'+(+a.time.split(':')[0]);(apptIdx[k]||(apptIdx[k]=[])).push(a);}});
   const rows=getHours(dates).map(h=>{
     const cells=dates.map(d=>{
-      const da=appts.filter(a=>a.date===d&&a.time&&+a.time.split(':')[0]===h);
+      const da=apptIdx[d+'|'+h]||[];
       const blocks=da.map((a,i)=>{
         const svc=svcs.find(s=>s.id===a.serviceId);
         const dur=apptDuration(a);
@@ -560,7 +600,7 @@ function drawCal(){
           <div style="height:30px;border-bottom:1px solid rgba(128,128,128,.05)"></div>
           <div style="height:30px;border-bottom:1px solid rgba(128,128,128,.08)"></div>
         </div>
-        ${_off?'<div style="position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(135deg,rgba(128,128,128,.10) 0 6px,rgba(128,128,128,.20) 6px 12px)"></div>':''}
+        ${_off?'<div style="position:absolute;inset:0;pointer-events:none;background:rgba(128,128,128,.16)"></div>':''}
         <div class="TC" style="position:absolute;inset:0;height:30px" data-d="${d}" data-h="${String(h).padStart(2,'0')}:00"></div>
         <div class="TC" style="position:absolute;top:30px;left:0;right:0;height:30px" data-d="${d}" data-h="${String(h).padStart(2,'0')}:30"></div>
         ${blocks}
@@ -616,7 +656,6 @@ function drawCal(){
   el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{calView=+b.dataset.cv;drawCal();}));
   el.querySelectorAll('.TC').forEach(c=>c.addEventListener('click',e=>{if(!e.target.closest('.AB'))apptModal(null,c.dataset.d,c.dataset.h);}));
   el.querySelectorAll('.AB').forEach(b=>b.addEventListener('click',e=>{
-    if(e.target.closest('[data-resize]'))return;
     e.stopPropagation();
     const a=appts.find(x=>x.id===b.dataset.aid);
     if(!a)return;
@@ -681,6 +720,7 @@ function drawCal(){
       resizeHandle.addEventListener('touchstart',e=>{
         e.stopPropagation();
         GESTURE.mode='resize';
+        GESTURE.moved=false;
         GESTURE.block=block;
         GESTURE.appt=appts.find(x=>x.id===block.dataset.aid);
         // Per-appointment duration (respects existing customDuration), not
@@ -1077,6 +1117,10 @@ function apptModal(a,date,time,prefill){
   // before the person has hit "Зберегти" even once still have somewhere
   // to be saved to. Does nothing (and any not-yet-persisted edits simply
   // wait) if those two aren't filled in yet.
+  let dirty=false,savedFinal=false;
+  const myToken={};apptToken=myToken;
+  if(a)markOpen(a.id);
+  const setSaveNote=t=>$('modal').querySelectorAll('[data-savenote]').forEach(e=>{e.textContent=t;});
   async function ensureApptExists(){
     if(apptId)return apptId;
     const client=($('fc')?.value||'').trim();
@@ -1085,22 +1129,29 @@ function apptModal(a,date,time,prefill){
     const finalDuration=Math.min(durOverride!==null?durOverride:totalDurMin0,480);
     const data={client,phone:$('fp')?.value||'',serviceId:selSvcs[0].serviceId,
       services:selSvcs.map(s=>({serviceId:s.serviceId,adj:s.adj||0})),
-      date:$('fd')?.value||fDate,time:$('ft')?.value||fTime,status:$('fst')?.value||fStatus,
+      date:$('fd')?.value||fDate,time:$('ft')?.value||fTime,status:'pending', // чернетка завжди «Очікує»: статус «Виконано» (і списання зі складу) — лише кнопкою «Зберегти»
       customDuration:finalDuration,materialsUsed:[],materialCost:0,materialsDeducted:[],
-      paid:+($('fm')?.value||0),tips:+($('ftip')?.value||0),note:$('fn')?.value||'',
+      paid:+($('fm')?.value||0),tips:+($('ftip')?.value||0),note:$('fn')?.value||'',formula:$('fform')?.value||'',
       materialsHistoryBackfilled:true};
-    const ref=await addDoc(collection(db,'appointments'),data);
-    apptId=ref.id;
+    const ref=doc(collection(db,'appointments'));
+    apptId=ref.id;   // id одразу, тож два швидкі автозбереження не створять дубль запису
+    markOpen(apptId);
+    setDoc(ref,data).catch(e=>console.warn('Draft create failed:',e));
     return apptId;
   }
   // Writes only the materials DRAFT (materialsUsed + materialCost) — no
   // stock changes, no history log. Safe to call as often as needed.
   async function persistMaterialsDraft(){
+    dirty=false;
+    if(apptToken===myToken)captureFields(); // підхоплюємо введене у формі (формула, примітка, оплата, чайові); застарілий екземпляр форму не чіпає
     const id=await ensureApptExists();
-    if(!id)return; // client/service not filled in yet — nothing to save to
+    if(!id){dirty=true;return;} // ще немає імені/послуги — зберемо, щойно з’являться, або при виході
     const materialsUsedFinal=selMats.filter(sm=>sm.matId&&sm.qty>0).map(sm=>({matId:sm.matId,qty:sm.qty}));
     const materialCostFinal=materialsUsedFinal.reduce((s,sm)=>{const m=mats.find(x=>x.id===sm.matId);return s+sm.qty*matUnitInfo(m).ppu;},0);
-    await updateDoc(doc(db,'appointments',id),{materialsUsed:materialsUsedFinal,materialCost:materialCostFinal});
+    // Автозберігається лише «робоче»: рецепт, формула, примітка, оплата, чайові, послуги. Дата, час, ім’я, статус і склад — тільки кнопкою «Зберегти».
+    const upd={materialsUsed:materialsUsedFinal,materialCost:materialCostFinal,formula:fFormula,note:fNote,paid:fPaid,tips:fTips};
+    if(selSvcs.length>0){upd.serviceId=selSvcs[0].serviceId;upd.services=selSvcs.map(s2=>({serviceId:s2.serviceId,adj:s2.adj||0}));}
+    updateDoc(doc(db,'appointments',id),upd).catch(e=>console.warn('Draft save failed:',e));
   }
   // Debounced trigger — called after every material edit. Waits a beat so
   // rapid edits (typing a quantity digit by digit) collapse into one write
@@ -1108,14 +1159,14 @@ function apptModal(a,date,time,prefill){
   // person can see it actually saved.
   function queueMaterialsAutosave(){
     if(matSaveTimer)clearTimeout(matSaveTimer);
-    const st=$('matSaveStatus');if(st)st.textContent='Зберігається…';
+    dirty=true;setSaveNote('Зберігається…');
     matSaveTimer=setTimeout(async()=>{
       try{
         await persistMaterialsDraft();
-        const st2=$('matSaveStatus');if(st2)st2.textContent='✓ Чернетка збережена (склад не чіпається)';
+        setSaveNote('✓ Збережено автоматично');
       }catch(e){
         console.warn('Material autosave failed:',e);
-        const st2=$('matSaveStatus');if(st2)st2.textContent='⚠️ Не збереглось — спробуйте ще раз';
+        setSaveNote('⚠️ Не збереглось — спробуйте ще раз');
       }
     },700);
   }
@@ -1124,12 +1175,25 @@ function apptModal(a,date,time,prefill){
   // by dragging the resize handle on the calendar) or, failing that, the sum
   // of the selected services' durations. null = "not yet touched by the user
   // in this modal session", so it keeps auto-tracking the services total.
+  // Закриття/згортання не губить введене: усе «робоче» летить у базу автоматично, а при виході — одразу.
+  apptFlush=()=>{
+    if(matSaveTimer){clearTimeout(matSaveTimer);matSaveTimer=null;dirty=true;}
+    if(savedFinal||!dirty)return;
+    persistMaterialsDraft().catch(e=>console.warn('Flush failed:',e));
+  };
+  const closeDraft=()=>{
+    if(!a&&apptId&&!savedFinal&&confirm('Запис уже збережено автоматично як чернетку. Видалити його?')){
+      savedFinal=true;if(matSaveTimer){clearTimeout(matSaveTimer);matSaveTimer=null;}
+      bgWrites([deleteDoc(doc(db,'appointments',apptId))],'draft-del');
+    }
+    hide();
+  };
   let durOverride = a?.customDuration || null;
   // The other fields also need to survive a re-render (triggered when adding
   // or removing a service) — otherwise anything the user just typed gets
   // thrown away and replaced with the original appointment's values.
   let fClient=a?.client||prefill?.client||'', fPhone=a?.phone||prefill?.phone||'', fDate=a?.date||date||today(),
-      fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fPaid=a?.paid||0, fTips=a?.tips||0, fNote=a?.note||'';
+      fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fPaid=a?.paid||0, fTips=a?.tips||0, fNote=a?.note||'', fFormula=a?.formula||'';
   let matSearchQ='';
   const captureFields=()=>{
     if($('fc'))fClient=$('fc').value;
@@ -1140,6 +1204,7 @@ function apptModal(a,date,time,prefill){
     if($('fm'))fPaid=+$('fm').value||0;
     if($('ftip'))fTips=+$('ftip').value||0;
     if($('fn'))fNote=$('fn').value;
+    if($('fform'))fFormula=$('fform').value;
     if($('fmsearch'))matSearchQ=$('fmsearch').value;
     const hEl=$('fdh'),mEl=$('fdm');if(hEl&&mEl)durOverride=+hEl.value*60+ +mEl.value;
   };
@@ -1228,13 +1293,15 @@ function apptModal(a,date,time,prefill){
       <div class="mh"><div class="mt">${a?'Редагувати':'Новий запис'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
       <div class="field"><label>Клієнтка <span id="chistlink" style="float:right;color:var(--acc);font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0">📋 Історія візитів</span></label><input class="fi" id="fc" list="clientNames" autocomplete="off" value="${fClient}" placeholder="Ім'я Прізвище"/><datalist id="clientNames">${[...new Set(appts.filter(x=>!x.isBreak&&x.client).map(x=>x.client.trim()))].sort().map(n=>`<option value="${n}"></option>`).join('')}</datalist></div>
       <div class="field"><label>Instagram / телефон</label><input class="fi" id="fp" value="${fPhone}" placeholder="@nick"/></div>
+      <div id="recipeBox"></div>
       <div class="field"><label>Послуги <span id="svcHeaderInfo" style="color:var(--acc);font-weight:700">${selSvcs.length>0?`${selSvcs.length} · ${fmt(totalPrice)} грн · ${fmtTotalDur(shownDur)}`:''}</span></label>
         ${selRows}
         <select class="fi" id="fsadd" style="margin-top:8px">
           <option value="">+ Додати послугу</option>${opts}
         </select>
       </div>
-      <div class="field"><label>Матеріали на запис <span id="matHeaderInfo" style="color:var(--acc);font-weight:700">${selMats.length>0?`${selMats.length} · ${totalMatCost.toFixed(2)} грн`:''}</span> <span id="matSaveStatus" style="color:var(--dim);font-weight:400;text-transform:none;font-size:11px"></span></label>
+      <div class="field"><label>Формула (фарбування) <span data-savenote style="color:var(--dim);font-weight:400;text-transform:none;font-size:11px"></span></label><textarea class="fi" id="fform" placeholder="напр. 6.1 + 7.0 (1:1), окисл. 6%, пропорція 1:1,5, 35 хв">${escH(fFormula)}</textarea></div>
+      <div class="field"><label>Матеріали на запис <span id="matHeaderInfo" style="color:var(--acc);font-weight:700">${selMats.length>0?`${selMats.length} · ${totalMatCost.toFixed(2)} грн`:''}</span> <span id="matSaveStatus" data-savenote style="color:var(--dim);font-weight:400;text-transform:none;font-size:11px"></span></label>
         ${matRows}
         <input class="fi" id="fmsearch" style="margin-top:8px" placeholder="🔍 Пошук матеріалу..." value="${matSearchQ}"/>
         <div id="matPickList" style="max-height:160px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px;margin-top:6px">${renderMatPickList(matSearchQ)}</div>
@@ -1269,12 +1336,37 @@ function apptModal(a,date,time,prefill){
         <button class="btn bp" id="fsave">Зберегти</button>
       </div>`;
 
-    $('mx').onclick=hide;$('fcancel').onclick=hide;
+    $('mx').onclick=closeDraft;$('fcancel').onclick=closeDraft;
     $('fc').addEventListener('change',()=>{
       const nm=$('fc').value.trim().toLowerCase();
       const c=buildClients().find(x=>x.name.toLowerCase()===nm);
       if(c&&c.phone&&!$('fp').value)$('fp').value=c.phone;
+      renderRecipeBox();
     });
+    $('fp').addEventListener('change',()=>renderRecipeBox());
+    ['fform','fn','fm','ftip'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',()=>{captureFields();queueMaterialsAutosave();});});
+    // Рецепт із минулого візиту: показати й за один дотик скопіювати матеріали в цей запис.
+    function renderRecipeBox(idx){
+      const box=$('recipeBox');if(!box)return;
+      idx=idx||0;
+      const prev=prevRecipes($('fc').value,$('fp').value,apptId||a?.id,a?((a.date||'')+(a.time||'')):null,3);
+      if(!prev.length){box.innerHTML='';return;}
+      const v=prev[Math.min(idx,prev.length-1)];
+      box.innerHTML=`<div class="card" style="margin-bottom:13px;padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="sec" style="margin:0">🎨 Минулий рецепт</div><button class="btn bp bs" id="rcopy">Скопіювати</button></div>
+        ${recipeHtml(v)}
+        ${prev.length>1?`<select class="fi" id="rsel" style="margin-top:8px">${prev.map((x,i)=>`<option value="${i}" ${x===v?'selected':''}>${fmtS(x.date)}</option>`).join('')}</select>`:''}
+      </div>`;
+      $('rcopy').onclick=()=>{
+        captureDur();
+        if(v.formula&&!fFormula.trim())fFormula=v.formula; // формулу копіюємо лише в порожнє поле, щоб нічого не затерти
+        recipeLines(v).forEach(l=>{const ex=selMats.find(x=>x.matId===l.matId);if(ex)ex.qty=l.qty;else selMats.push({matId:l.matId,qty:l.qty});});
+        renderApptModal();
+        queueMaterialsAutosave();
+      };
+      if($('rsel'))$('rsel').onchange=e=>renderRecipeBox(+e.target.value);
+    }
+    renderRecipeBox();
     // Jumps straight to this client's full visit history. Whatever isn't
     // saved yet in THIS form (paid amount, tips, note, status) is left
     // behind when we navigate away — materials are already safe via the
@@ -1321,6 +1413,7 @@ function apptModal(a,date,time,prefill){
       captureDur();
       selSvcs.splice(+b.dataset.rmsvc,1);
       renderApptModal();
+      queueMaterialsAutosave();
     });
     function bindMatPickHandlers(){
       $('modal').querySelectorAll('[data-pickmat]').forEach(el2=>{
@@ -1390,6 +1483,7 @@ function apptModal(a,date,time,prefill){
     $('modal').querySelectorAll('[data-adj]').forEach(inp=>inp.addEventListener('input',e=>{
       selSvcs[+inp.dataset.adj].adj=+e.target.value||0;
       updateAllLiveDisplays();
+      queueMaterialsAutosave();
     }));
     $('modal').querySelectorAll('[data-matqty]').forEach(inp=>inp.addEventListener('input',e=>{
       selMats[+inp.dataset.matqty].qty=+e.target.value||0;
@@ -1416,7 +1510,7 @@ function apptModal(a,date,time,prefill){
         date:apptDate,time:$('ft').value,status:newStatus,
         customDuration:finalDuration,
         materialsUsed:materialsUsedFinal,materialCost:materialCostFinal,
-        paid:+$('fm').value||0,tips:+$('ftip').value||0,note:$('fn').value,
+        paid:+$('fm').value||0,tips:+$('ftip').value||0,note:$('fn').value,formula:$('fform').value,
         // Every save through this modal already logs material changes at
         // the moment they're actually deducted (see the delta loop below)
         // -- so this appointment never needs to go through the backfill
@@ -1437,6 +1531,8 @@ function apptModal(a,date,time,prefill){
       const oldEffective=deductedMaterialsUsed;
       const newEffective=(newStatus==='done')?materialsUsedFinal:[];
       const matIds=[...new Set([...oldEffective.map(x=>x.matId),...newEffective.map(x=>x.matId)])];
+      const writes=[];let isNewAppt=false;
+      if(!apptId){apptId=doc(collection(db,'appointments')).id;isNewAppt=true;}
       for(const mid of matIds){
         const m=mats.find(x=>x.id===mid);if(!m)continue;
         const oldQ=oldEffective.find(x=>x.matId===mid)?.qty||0;
@@ -1450,7 +1546,7 @@ function apptModal(a,date,time,prefill){
         // negative and self-corrects the moment the receive arrives. If we
         // floored it at 0 instead, the deduction would just be silently
         // lost and never recovered once new stock came in.
-        await updateDoc(doc(db,'materials',mid),{qty:+((m.qty||0)-deltaSht).toFixed(4)});
+        writes.push(updateDoc(doc(db,'materials',mid),{qty:+((m.qty||0)-deltaSht).toFixed(4)}));
         // Log net-new consumption into the same purchases/history trail as
         // a manual "Списати" -- so material used via an appointment now
         // shows up in Історія операцій too, with the client's name as the
@@ -1458,15 +1554,16 @@ function apptModal(a,date,time,prefill){
         // "Виконано" back to "Очікує") just quietly return stock.
         if(deltaUnits>0){
           const{unit,ppu}=matUnitInfo(m);
-          await addDoc(collection(db,'purchases'),{matId:mid,matName:m.name,type:'spend',qty:deltaUnits,unit,total:deltaUnits*ppu,date:apptDate,note:client,apptId});
+          writes.push(addDoc(collection(db,'purchases'),{matId:mid,matName:m.name,type:'spend',qty:deltaUnits,unit,total:deltaUnits*ppu,date:apptDate,note:client,apptId}));
         }
       }
       deductedMaterialsUsed=newEffective;
       data.materialsDeducted=newEffective;
-      if(apptId){await updateDoc(doc(db,'appointments',apptId),data);}
-      else{const ref=await addDoc(collection(db,'appointments'),data);apptId=ref.id;}
+      writes.push(isNewAppt?setDoc(doc(db,'appointments',apptId),data):updateDoc(doc(db,'appointments',apptId),data));
+      savedFinal=true;
       if(matSaveTimer)clearTimeout(matSaveTimer);
       hide();
+      bgWrites(writes,'appt-save');
     };
     if(a)$('fdel').onclick=async()=>{
       if(!confirm('Видалити?'))return;
@@ -1475,13 +1572,13 @@ function apptModal(a,date,time,prefill){
       // "Виконано", nothing was deducted in the first place, so there's
       // nothing to return, no matter what's sitting in the materials
       // draft.
-      const effective=deductedMaterialsUsed;
+      const effective=deductedMaterialsUsed;const delWrites=[];
       for(const{matId,qty}of effective){
         const m=mats.find(x=>x.id===matId);if(!m)continue;
         const deltaSht=unitsToSht(m,qty);
-        await updateDoc(doc(db,'materials',matId),{qty:+((m.qty||0)+deltaSht).toFixed(4)});
+        delWrites.push(updateDoc(doc(db,'materials',matId),{qty:+((m.qty||0)+deltaSht).toFixed(4)}));
       }
-      await deleteDoc(doc(db,'appointments',a.id));hide();
+      savedFinal=true;delWrites.push(deleteDoc(doc(db,'appointments',a.id)));hide();bgWrites(delWrites,'appt-delete');
     };
   }
   show('');renderApptModal();
@@ -1617,7 +1714,7 @@ function clientHistoryModalOld(clientName){
     return`<div class="ri" data-appt="${a.id}" style="cursor:pointer">
       <div class="rl"><div class="rn">${fmtS(a.date)}${a.time?' · '+a.time:''}</div>
         <div class="rs">${svcNames||'—'}</div>
-        <div class="rs" style="color:${statusColor}">${statusLbl}${a.note?' · '+a.note:''}</div></div>
+        <div class="rs" style="color:${statusColor}">${statusLbl}${a.note?' · '+a.note:''}</div>${recipeShort(a)}</div>
       <div class="rr"><div class="rv">${a.status==='cancelled'?'—':fmt(amt)+' грн'}</div>${a.materialCost?`<div class="ra">матер. ${fmt(a.materialCost)} грн</div>`:''}</div>
     </div>`;
   }).join('');
@@ -1637,11 +1734,43 @@ function clientHistoryModalOld(clientName){
   });
 }
 
+// ── Рецепти фарбування з минулих візитів ──
+const RECIPE_CATS=['Фарби','Окислювачі','Порошки'];
+const escH=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const normName=n=>(n||'').trim().toLowerCase().replace(/\s+/g,' ');
+const fmtQty=q=>Number.isInteger(q)?q:+Number(q).toFixed(1);
+// Рецепт = матеріали, фактично вказані в записі (materialsUsed). Фарби, окислювачі й порошки — зверху.
+function recipeLines(a){
+  return (a.materialsUsed||[]).filter(u=>u.matId&&u.qty>0).map(u=>{
+    const m=mats.find(x=>x.id===u.matId);
+    return{matId:u.matId,qty:u.qty,name:m?.name||'(видалений матеріал)',unit:m?matUnitInfo(m).unit:'шт',cat:m?.category||''};
+  }).sort((x,y)=>{const ix=RECIPE_CATS.indexOf(x.cat),iy=RECIPE_CATS.indexOf(y.cat);return (ix<0?9:ix)-(iy<0?9:iy);});
+}
+// Попередні візити клієнтки з непорожнім рецептом, найновіші першими. beforeKey = 'дата+час' запису,
+// щоб для старого запису показувати лише те, що було ДО нього.
+function prevRecipes(name,phone,excludeId,beforeKey,limit){
+  const ck=normContact(phone),nm=normName(name);
+  const c=buildClients().find(x=>(excludeId&&x.all.some(a=>a.id===excludeId))||(ck&&x.key===ck)||x.all.some(a=>normName(a.client)===nm));
+  if(!c)return[];
+  return c.all.filter(a=>a.id!==excludeId&&a.status!=='cancelled'&&a.status!=='noshow'&&(recipeLines(a).length>0||(a.formula||'').trim())&&(!beforeKey||((a.date||'')+(a.time||''))<beforeKey))
+    .sort((x,y)=>((y.date||'')+(y.time||'')).localeCompare((x.date||'')+(x.time||''))).slice(0,limit||3);
+}
+function recipeHtml(v){
+  const svcNames=apptSvcIds(v).map(id=>svcs.find(sv=>sv.id===id)?.name||'').filter(Boolean).join('+');
+  return`<div style="font-size:11px;color:var(--mut);margin-bottom:4px">${fmtS(v.date)}${svcNames?' · '+svcNames:''}</div>`
+    +(v.formula?`<div style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:8px 10px;font-size:13px;white-space:pre-wrap;margin-bottom:6px">${escH(v.formula)}</div>`:'')
+    +recipeLines(v).map(l=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0"><span>${l.name}</span><b style="color:var(--sil);white-space:nowrap">${fmtQty(l.qty)} ${l.unit}</b></div>`).join('')
+    +(v.note?`<div style="font-size:11px;color:var(--dim);margin-top:4px">Примітка: ${v.note}</div>`:'');
+}
+const recipeShort=a=>{const l=recipeLines(a),f=(a.formula||'').trim();return (l.length||f)?`<div class="rs">🎨 ${f?escH(f)+(l.length?' · ':''):''}${l.map(x=>x.name+' '+fmtQty(x.qty)+x.unit).join(' · ')}</div>`:'';};
+
 // ── Швидка зміна статусу прямо з календаря ──
 // Повторює ту саму логіку складу, що й збереження в apptModal: матеріали списуються лише коли статус
 // стає «Виконано», і повертаються, якщо запис із «Виконано» переведено в інший статус.
-async function quickSetStatus(a,newStatus){
-  if(a.status===newStatus)return;
+// Повертає масив записів (проміс-ів) — інтерфейс їх не чекає, див. bgWrites.
+function quickSetStatus(a,newStatus,extra){
+  if(a.status===newStatus&&!extra)return[];
+  const writes=[];
   const oldEff=Array.isArray(a.materialsDeducted)?a.materialsDeducted:(a.status!=='cancelled'?(a.materialsUsed||[]):[]);
   const newEff=(newStatus==='done')?(a.materialsUsed||[]).filter(m=>m.matId&&m.qty>0).map(m=>({matId:m.matId,qty:m.qty})):[];
   const ids=[...new Set([...oldEff.map(x=>x.matId),...newEff.map(x=>x.matId)])];
@@ -1650,38 +1779,61 @@ async function quickSetStatus(a,newStatus){
     const oldQ=oldEff.find(x=>x.matId===mid)?.qty||0,newQ=newEff.find(x=>x.matId===mid)?.qty||0;
     const deltaUnits=newQ-oldQ;
     if(deltaUnits===0)continue;
-    await updateDoc(doc(db,'materials',mid),{qty:+((m.qty||0)-unitsToSht(m,deltaUnits)).toFixed(4)});
+    writes.push(updateDoc(doc(db,'materials',mid),{qty:+((m.qty||0)-unitsToSht(m,deltaUnits)).toFixed(4)}));
     if(deltaUnits>0){
       const{unit,ppu}=matUnitInfo(m);
-      await addDoc(collection(db,'purchases'),{matId:mid,matName:m.name,type:'spend',qty:deltaUnits,unit,total:deltaUnits*ppu,date:a.date,note:a.client,apptId:a.id});
+      writes.push(addDoc(collection(db,'purchases'),{matId:mid,matName:m.name,type:'spend',qty:deltaUnits,unit,total:deltaUnits*ppu,date:a.date,note:a.client,apptId:a.id}));
     }
   }
-  await updateDoc(doc(db,'appointments',a.id),{status:newStatus,materialsDeducted:newEff});
+  writes.push(updateDoc(doc(db,'appointments',a.id),{status:newStatus,materialsDeducted:newEff,...(extra||{})}));
+  return writes;
 }
 
 function apptQuickModal(a){
   const svcNames=apptSvcIds(a).map(id=>svcs.find(sv=>sv.id===id)?.name||'').filter(Boolean).join('+');
-  const amount=a.paid||apptTotalPrice(a);
+  const price=apptTotalPrice(a);
   const matN=(a.materialsUsed||[]).filter(m=>m.matId&&m.qty>0).length;
   const sts=[['pending','Очікує','var(--acc)'],['confirmed','Підтверджена','#5C8AA8'],['done','Прийшла','var(--ok)'],['noshow','Не прийшла','var(--wrn)'],['cancelled','Скасувати','var(--err)']];
+  const isCur=k=>a.status===k||(!a.status&&k==='pending');
+  const prevRec=prevRecipes(a.client,a.phone,a.id,(a.date||'')+(a.time||''),3);
+  const recipeBlock=prevRec.length?`<div class="card" style="margin-bottom:12px"><div class="sec" style="margin-top:0">🎨 Минулий рецепт</div>${recipeHtml(prevRec[0])}${prevRec.length>1?`<button class="btn bg bs" id="qallrec" style="margin-top:8px">Усі рецепти клієнтки</button>`:''}</div>`:'';
   show(`
     <div class="mh"><div class="mt">${a.client}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
     <div style="font-size:13px;color:var(--mut);margin-bottom:4px">${fmtS(a.date)} · ${a.time||''}${svcNames?' · '+svcNames:''}</div>
-    <div style="font-size:15px;font-weight:700;color:var(--sil);margin-bottom:14px">${fmt(amount)} грн</div>
+    <div style="font-size:12px;color:var(--dim);margin-bottom:14px">Вартість послуг: ${fmt(price)} грн</div>
+    ${recipeBlock}
+    <div class="g2">
+      <div class="field"><label>Оплачено (грн)</label><input type="number" inputmode="decimal" class="fi" id="qpaid" value="${a.paid||price}"/></div>
+      <div class="field"><label>Чайові (грн)</label><input type="number" inputmode="decimal" class="fi" id="qtips" value="${a.tips||0}"/></div>
+    </div>
+    <div class="field"><label>Формула цього візиту</label><textarea class="fi" id="qform" placeholder="напр. 6.1 + 7.0 (1:1), окисл. 6%, 35 хв">${escH(a.formula||'')}</textarea></div>
     <div class="sec" style="margin-top:0">Статус</div>
     <div class="g2" style="margin-bottom:10px">
-      ${sts.map(([k,l,c])=>`<button class="btn bg" data-qs="${k}" style="justify-content:center;${a.status===k||(!a.status&&k==='pending')?`border-color:${c};color:${c};background:rgba(128,128,128,.12)`:''}">${a.status===k||(!a.status&&k==='pending')?'✓ ':''}${l}</button>`).join('')}
+      ${sts.map(([k,l,c])=>`<button class="btn bg" data-qs="${k}" style="justify-content:center;min-height:54px;font-size:14px;${isCur(k)?`border-color:${c};color:${c};background:rgba(128,128,128,.12)`:''}">${isCur(k)?'✓ ':''}${l}</button>`).join('')}
     </div>
-    <div id="qsnote" style="font-size:11px;color:var(--dim);margin-bottom:12px">${matN?`«Прийшла» спише зі складу матеріали запису (${matN} поз.).`:'Матеріали в записі не вказані — склад не зміниться.'}</div>
-    <div class="mf"><button class="btn bp" id="qedit">✏️ Редагувати запис</button></div>`);
+    <div style="font-size:11px;color:var(--dim);margin-bottom:12px">${matN?`«Прийшла» спише зі складу матеріали запису (${matN} поз.) і збереже суму та чайові.`:'Матеріали в записі не вказані — склад не зміниться. «Прийшла» збереже суму та чайові.'}</div>
+    <div class="mf" style="flex-wrap:wrap">
+      ${a.status==='done'?`<button class="btn bg" id="qsave">💾 Зберегти суму</button>`:''}
+      <button class="btn bg" id="qsaveform">💾 Формула</button>
+      <button class="btn bp" id="qedit">✏️ Редагувати запис</button>
+    </div>`);
+  const money=()=>({paid:+($('qpaid').value)||0,tips:+($('qtips').value)||0,formula:$('qform').value});
   $('mx').onclick=hide;
+  if($('qallrec'))$('qallrec').onclick=()=>clientHistoryModal(a.client);
   $('qedit').onclick=()=>apptModal(a,a.date,a.time);
-  $('modal').querySelectorAll('[data-qs]').forEach(b=>b.onclick=async()=>{
+  // Формула в швидкому вікні зберігається сама (значення береться в момент введення, тож нічого не переплутається між записами).
+  let qval=null,qt=null;
+  const saveForm=()=>{if(qt){clearTimeout(qt);qt=null;}if(qval===null)return;const v=qval;qval=null;bgWrites([updateDoc(doc(db,'appointments',a.id),{formula:v})],'formula');};
+  $('qform').addEventListener('input',e=>{qval=e.target.value;if(qt)clearTimeout(qt);qt=setTimeout(saveForm,600);});
+  apptFlush=saveForm;
+  $('qsaveform').onclick=()=>{qval=$('qform').value;saveForm();hide();};
+  if($('qsave'))$('qsave').onclick=()=>{const ws=quickSetStatus(a,'done',money());hide();bgWrites(ws,'quick-money');};
+  $('modal').querySelectorAll('[data-qs]').forEach(b=>b.onclick=()=>{
     const k=b.dataset.qs;
     if(k==='cancelled'&&!confirm('Скасувати запис?'))return;
-    const all=$('modal').querySelectorAll('[data-qs]');all.forEach(x=>x.disabled=true);
-    try{await quickSetStatus(a,k);hide();}
-    catch(e){console.warn('Quick status failed:',e);all.forEach(x=>x.disabled=false);$('qsnote').textContent='⚠️ Не вдалося зберегти — спробуйте ще раз';$('qsnote').style.color='var(--err)';}
+    const fm=$('qform').value;
+    const ws=quickSetStatus(a,k,k==='done'?money():(fm!==(a.formula||'')?{formula:fm}:null));
+    hide();bgWrites(ws,'quick-status');
   });
 }
 
@@ -1714,11 +1866,10 @@ function breakModal(a,date){
     const name=$('bl').value.trim()||'Перерва';
     const durMin=Math.max(5,+$('bdh').value*60 + +$('bdm').value);
     const data={client:name,isBreak:true,date:$('bd').value,time:$('bt').value,customDuration:durMin};
-    if(a)await updateDoc(doc(db,'appointments',a.id),data);
-    else await addDoc(collection(db,'appointments'),data);
+    bgWrites([a?updateDoc(doc(db,'appointments',a.id),data):addDoc(collection(db,'appointments'),data)],'break');
     hide();
   };
-  if(a)$('bdel').onclick=async()=>{if(confirm('Видалити блок?')){await deleteDoc(doc(db,'appointments',a.id));hide();}};
+  if(a)$('bdel').onclick=()=>{if(confirm('Видалити блок?')){bgWrites([deleteDoc(doc(db,'appointments',a.id))],'break-del');hide();}};
 }
 
 // ══════════════════════════════════════════════════
@@ -1779,7 +1930,7 @@ function drawStock(){
   el.querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{stockCat=b.dataset.c;drawStock();});
   el.querySelectorAll('[data-sp]').forEach(b=>b.onclick=()=>spendModal(b.dataset.sp));
   el.querySelectorAll('[data-em]').forEach(b=>b.onclick=()=>matModal(b.dataset.em));
-  el.querySelectorAll('[data-dm]').forEach(b=>b.onclick=async()=>{if(confirm('Видалити?'))await deleteDoc(doc(db,'materials',b.dataset.dm));});
+  el.querySelectorAll('[data-dm]').forEach(b=>b.onclick=()=>{if(confirm('Видалити?'))bgWrites([deleteDoc(doc(db,'materials',b.dataset.dm))],'mat-del');});
 }
 
 // Receive Modal — multi-item with search, no keyboard close
@@ -1877,8 +2028,8 @@ function receiveModal(draftId){
       captureHeader();
       if(rcvItems.length===0){alert('Додайте хоча б один товар, щоб зберегти чернетку');return;}
       const draftData={date:rDate,note:rNote,items:rcvItems,updatedAt:new Date().toISOString()};
-      if(curDraftId)await updateDoc(doc(db,'drafts',curDraftId),draftData);
-      else{const ref=await addDoc(collection(db,'drafts'),draftData);curDraftId=ref.id;}
+      if(curDraftId)bgWrites([updateDoc(doc(db,'drafts',curDraftId),draftData)],'draft');
+      else{curDraftId=doc(collection(db,'drafts')).id;bgWrites([setDoc(doc(db,'drafts',curDraftId),draftData)],'draft');}
       hide();
     };
     $('rsave').onclick=async()=>{
@@ -1889,15 +2040,19 @@ function receiveModal(draftId){
       // in this session carries it, so history can group them back into one
       // invoice card instead of one row per unit.
       const batchId='b'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+      const ws=[],live={};
       for(const it of rcvItems){
         const m=mats.find(x=>x.id===it.matId);if(!m)continue;
-        const dp=(it.price||0)*(1-(it.disc||0)/100),oldQ=m.qty||0,oldAvg=m.avgPrice||m.price||dp;
-        const newQ=oldQ+it.qty,newAvg=(oldQ*oldAvg+it.qty*dp)/newQ,newPPU=m.volPerUnit>0?newAvg/m.volPerUnit:0;
-        await updateDoc(doc(db,'materials',it.matId),{qty:newQ,avgPrice:newAvg,avgPricePerUnit:newPPU});
-        await addDoc(collection(db,'purchases'),{matId:it.matId,matName:m.name,type:'receive',qty:it.qty,unit:'шт',price:dp,origPrice:it.price,disc:it.disc||0,total:it.qty*dp,date,note,batchId});
+        const dp=(it.price||0)*(1-(it.disc||0)/100);
+        // Один товар може бути в накладній двічі — рахуємо від проміжного стану, а не від застарілого m.qty.
+        const st=live[it.matId]||{qty:m.qty||0,avg:m.avgPrice||m.price||dp};
+        const newQ=st.qty+it.qty,newAvg=(st.qty*st.avg+it.qty*dp)/newQ,newPPU=m.volPerUnit>0?newAvg/m.volPerUnit:0;
+        live[it.matId]={qty:newQ,avg:newAvg};
+        ws.push(updateDoc(doc(db,'materials',it.matId),{qty:newQ,avgPrice:newAvg,avgPricePerUnit:newPPU}));
+        ws.push(addDoc(collection(db,'purchases'),{matId:it.matId,matName:m.name,type:'receive',qty:it.qty,unit:'шт',price:dp,origPrice:it.price,disc:it.disc||0,total:it.qty*dp,date,note,batchId}));
       }
-      if(curDraftId)await deleteDoc(doc(db,'drafts',curDraftId));
-      hide();
+      if(curDraftId)ws.push(deleteDoc(doc(db,'drafts',curDraftId)));
+      hide();bgWrites(ws,'receive');
     };
   }
   show('');render();
@@ -2020,14 +2175,16 @@ function saleModal(){
       // Прихід накладна, so Історія can show one card per sale instead of
       // one row per item.
       const batchId='b'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+      const ws=[],live={};
       for(const it of saleItems){
         const m=mats.find(x=>x.id===it.matId);if(!m)continue;
         const cost=m.avgPrice||m.price||0;
-        const newQ=(m.qty||0)-it.qty;
-        await updateDoc(doc(db,'materials',it.matId),{qty:+newQ.toFixed(4)});
-        await addDoc(collection(db,'purchases'),{matId:it.matId,matName:m.name,type:'sale',qty:it.qty,unit:'шт',price:it.price,cost,total:it.qty*it.price,costTotal:it.qty*cost,margin:it.qty*(it.price-cost),date,note,batchId});
+        const curQ=live[it.matId]!==undefined?live[it.matId]:(m.qty||0);
+        const newQ=curQ-it.qty;live[it.matId]=newQ;
+        ws.push(updateDoc(doc(db,'materials',it.matId),{qty:+newQ.toFixed(4)}));
+        ws.push(addDoc(collection(db,'purchases'),{matId:it.matId,matName:m.name,type:'sale',qty:it.qty,unit:'шт',price:it.price,cost,total:it.qty*it.price,costTotal:it.qty*cost,margin:it.qty*(it.price-cost),date,note,batchId}));
       }
-      hide();
+      hide();bgWrites(ws,'sale');
     };
   }
   show('');render();
@@ -2048,7 +2205,7 @@ function draftsListModal(){
     ${drafts.length===0?'<div class="empty">Чернеток немає</div>':rows}`);
   $('mx').onclick=hide;
   $('modal').querySelectorAll('[data-resume]').forEach(b=>b.onclick=()=>receiveModal(b.dataset.resume));
-  $('modal').querySelectorAll('[data-delDraft]').forEach(b=>b.onclick=async()=>{if(confirm('Видалити чернетку?')){await deleteDoc(doc(db,'drafts',b.dataset.delDraft));hide();}});
+  $('modal').querySelectorAll('[data-delDraft]').forEach(b=>b.onclick=()=>{if(confirm('Видалити чернетку?')){bgWrites([deleteDoc(doc(db,'drafts',b.dataset.delDraft))],'draft-del');hide();}});
 }
 
 // ── Inventory (звірка фактичних залишків) ───────────────────────────────
@@ -2129,6 +2286,7 @@ function inventoryModal(){
       const changed=Object.entries(entries).filter(([,v])=>v.value!==undefined&&v.value!=='');
       if(changed.length===0){alert('Впишіть хоча б одну фактичну кількість');return;}
       if(!confirm(`Зберегти звірку для ${changed.length} товар(ів)?`))return;
+      const invWrites=[];
       let count=0;
       for(const[matId,v]of changed){
         const m=mats.find(x=>x.id===matId);if(!m)continue;
@@ -2140,10 +2298,11 @@ function inventoryModal(){
         const delta=actualNatural-curNatural;
         if(Math.abs(delta)<0.001)continue;
         const newQtySht=byG?actualNatural/m.volPerUnit:actualNatural;
-        await updateDoc(doc(db,'materials',matId),{qty:+newQtySht.toFixed(4)});
-        await addDoc(collection(db,'purchases'),{matId,matName:m.name,type:'adjustment',qty:delta,unit,total:delta*ppu,date:today(),note:'Інвентаризація'});
+        invWrites.push(updateDoc(doc(db,'materials',matId),{qty:+newQtySht.toFixed(4)}));
+        invWrites.push(addDoc(collection(db,'purchases'),{matId,matName:m.name,type:'adjustment',qty:delta,unit,total:delta*ppu,date:today(),note:'Інвентаризація'}));
         count++;
       }
+      bgWrites(invWrites,'inventory');
       alert(`Скориговано ${count} товар(ів).`);
       hide();
     };
@@ -2216,7 +2375,7 @@ function matModal(id){
     if(!id){const dup=mats.find(x=>x.name.toLowerCase()===name.toLowerCase());if(dup){alert('Товар "'+name+'" вже існує!');return;}}
     const ppu=su!=='шт'&&vol>0?price/vol:0;
     const data={name,category:$('mcat').value,qty,minQty:+$('mm').value,price,avgPrice:price,spendUnit:su,volPerUnit:vol,tare,pricePerUnit:ppu,avgPricePerUnit:ppu,sellPrice,autoInclude,autoQty};
-    if(id)await updateDoc(doc(db,'materials',id),data);else await addDoc(collection(db,'materials'),data);
+    bgWrites([id?updateDoc(doc(db,'materials',id),data):addDoc(collection(db,'materials'),data)],'mat-save');
     hide();
   };
 }
@@ -2252,9 +2411,9 @@ function spendModal(id){
     // that a later "Прихід" corrects, not a deduction that just vanishes.
     const newQty=byG?(totalU-q)/m.volPerUnit:m.qty-q;
     const total=byG?q*ppu:q*(m.avgPrice||m.price||0);
-    await updateDoc(doc(db,'materials',id),{qty:+newQty.toFixed(4)});
-    await addDoc(collection(db,'purchases'),{matId:id,matName:m.name,type:'spend',qty:q,unit,total,date:$('sdate').value,note:$('snote').value});
-    hide();
+    const ws=[updateDoc(doc(db,'materials',id),{qty:+newQty.toFixed(4)}),
+      addDoc(collection(db,'purchases'),{matId:id,matName:m.name,type:'spend',qty:q,unit,total,date:$('sdate').value,note:$('snote').value})];
+    hide();bgWrites(ws,'spend');
   };
 }
 
@@ -2412,21 +2571,23 @@ function historyModal(){
       // of a spend that already happened long ago — they never touched
       // stock themselves, so deleting one must NOT add stock back (that
       // would incorrectly inflate the current balance).
+      const ws=[];
       if(b.dataset.obackfilled!=='1'){
         const m=mats.find(x=>x.id===b.dataset.omid);
-        if(m){const q2=+b.dataset.oqty,nq=b.dataset.otype==='receive'?m.qty-q2:m.qty+q2;await updateDoc(doc(db,'materials',b.dataset.omid),{qty:+nq.toFixed(4)});}
+        if(m){const q2=+b.dataset.oqty,nq=b.dataset.otype==='receive'?m.qty-q2:m.qty+q2;ws.push(updateDoc(doc(db,'materials',b.dataset.omid),{qty:+nq.toFixed(4)}));}
       }
-      await deleteDoc(doc(db,'purchases',b.dataset.oid));hide();
+      ws.push(deleteDoc(doc(db,'purchases',b.dataset.oid)));hide();bgWrites(ws,'op-del');
     });
     $('modal').querySelectorAll('[data-delbatch]').forEach(b=>b.onclick=async()=>{
       if(!confirm('Скасувати всю накладну? Це поверне залишки по всіх позиціях у ній.'))return;
       const batch=batches[b.dataset.delbatch];
+      const ws=[],live={};
       for(const it of batch.items){
         const m=mats.find(x=>x.id===it.matId);
-        if(m){const nq=m.qty-(it.qty||0);await updateDoc(doc(db,'materials',it.matId),{qty:+nq.toFixed(4)});}
-        await deleteDoc(doc(db,'purchases',it.id));
+        if(m){const curQ=live[it.matId]!==undefined?live[it.matId]:m.qty;const nq=curQ-(it.qty||0);live[it.matId]=nq;ws.push(updateDoc(doc(db,'materials',it.matId),{qty:+nq.toFixed(4)}));}
+        ws.push(deleteDoc(doc(db,'purchases',it.id)));
       }
-      hide();
+      hide();bgWrites(ws,'batch-del');
     });
     // Cancelling a sale returns the sold items to stock (opposite sign
     // from cancelling a Прихід, since a sale subtracted stock rather than
@@ -2434,12 +2595,13 @@ function historyModal(){
     $('modal').querySelectorAll('[data-delsalebatch]').forEach(b=>b.onclick=async()=>{
       if(!confirm('Скасувати весь чек продажу? Це поверне товари на склад.'))return;
       const batch=saleBatches[b.dataset.delsalebatch];
+      const ws=[],live={};
       for(const it of batch.items){
         const m=mats.find(x=>x.id===it.matId);
-        if(m){const nq=m.qty+(it.qty||0);await updateDoc(doc(db,'materials',it.matId),{qty:+nq.toFixed(4)});}
-        await deleteDoc(doc(db,'purchases',it.id));
+        if(m){const curQ=live[it.matId]!==undefined?live[it.matId]:m.qty;const nq=curQ+(it.qty||0);live[it.matId]=nq;ws.push(updateDoc(doc(db,'materials',it.matId),{qty:+nq.toFixed(4)}));}
+        ws.push(deleteDoc(doc(db,'purchases',it.id)));
       }
-      hide();
+      hide();bgWrites(ws,'sale-batch-del');
     });
   }
   show("");render();
@@ -2467,7 +2629,7 @@ function drawSvc(){
     }).join('')}`;
   $('bnsvc').onclick=()=>svcModal(null);
   el.querySelectorAll('[data-es]').forEach(b=>b.onclick=()=>svcModal(b.dataset.es));
-  el.querySelectorAll('[data-ds]').forEach(b=>b.onclick=async()=>{if(confirm('Видалити?'))await deleteDoc(doc(db,'services',b.dataset.ds));});
+  el.querySelectorAll('[data-ds]').forEach(b=>b.onclick=()=>{if(confirm('Видалити?'))bgWrites([deleteDoc(doc(db,'services',b.dataset.ds))],'svc-del');});
 }
 
 function svcModal(id){
@@ -2567,7 +2729,7 @@ function svcModal(id){
       const d={name:$('sn').value,price:+$('sp').value,duration:+$('sdh').value*60 + +$('sdm').value,
         defaultMaterials:selMats.filter(sm=>sm.matId&&sm.qty>0).map(sm=>({matId:sm.matId,qty:sm.qty}))};
       if(!d.name||!d.price){alert('Заповніть поля');return;}
-      if(id)await updateDoc(doc(db,'services',id),d);else await addDoc(collection(db,'services'),d);
+      bgWrites([id?updateDoc(doc(db,'services',id),d):addDoc(collection(db,'services'),d)],'svc-save');
       hide();
     };
   }
@@ -2967,7 +3129,7 @@ function drawExp(){
   el.querySelectorAll('[data-ep]').forEach(b=>b.onclick=()=>{expPeriod=b.dataset.ep;drawExp();});
   el.querySelectorAll('[data-ec]').forEach(b=>b.onclick=()=>{expCat=b.dataset.ec;drawExp();});
   el.querySelectorAll('[data-ee]').forEach(b=>b.onclick=()=>expModal(b.dataset.ee));
-  el.querySelectorAll('[data-ed]').forEach(b=>b.onclick=async()=>{if(confirm('Видалити?'))await deleteDoc(doc(db,'expenses',b.dataset.ed));});
+  el.querySelectorAll('[data-ed]').forEach(b=>b.onclick=()=>{if(confirm('Видалити?'))bgWrites([deleteDoc(doc(db,'expenses',b.dataset.ed))],'exp-del');});
 }
 
 function expModal(id){
@@ -3010,11 +3172,10 @@ function expModal(id){
       const amount=+$('eam').value||0;
       if(!name||!amount){alert('Заповніть назву і суму');return;}
       const data={name,category:selCat,amount,date:$('edate').value,note:$('enote').value};
-      if(id)await updateDoc(doc(db,'expenses',id),data);
-      else await addDoc(collection(db,'expenses'),data);
+      bgWrites([id?updateDoc(doc(db,'expenses',id),data):addDoc(collection(db,'expenses'),data)],'exp-save');
       hide();
     };
-    if(id)$('edel').onclick=async()=>{if(confirm('Видалити?')){await deleteDoc(doc(db,'expenses',id));hide();}};
+    if(id)$('edel').onclick=()=>{if(confirm('Видалити?')){bgWrites([deleteDoc(doc(db,'expenses',id))],'exp-del2');hide();}};
   }
   show('');render();
 }
@@ -3032,7 +3193,9 @@ const contactLink=v=>{
 };
 const apptSvcIds=a=>a.services&&Array.isArray(a.services)?a.services.map(s=>typeof s==='object'?s.serviceId:s):(a.serviceId?[a.serviceId]:[]);
 
-function buildClients(){
+let _clCache={v:-1,d:'',val:null};
+function buildClients(){const t=today();if(_clCache.v===dataVer&&_clCache.d===t)return _clCache.val;_clCache={v:dataVer,d:t,val:buildClientsRaw()};return _clCache.val;}
+function buildClientsRaw(){
   const nk=a=>a.client.trim().toLowerCase().replace(/\s+/g,' ');
   const real=appts.filter(a=>!a.isBreak&&a.client&&a.client.trim());
   const nameToContact={};
@@ -3159,7 +3322,7 @@ function clientHistoryModal(arg){
     const statusColor=({done:'var(--ok)',cancelled:'var(--err)',noshow:'var(--wrn)',confirmed:'#5C8AA8'})[a.status]||'var(--acs)';
     return`<div class="ri" data-appt="${a.id}" style="cursor:pointer">
       <div class="rl"><div class="rn">${fmtS(a.date)}${a.time?' · '+a.time:''}</div><div class="rs">${svcNames||'—'}</div>
-        <div class="rs" style="color:${statusColor}">${statusLbl}${a.note?' · '+a.note:''}</div></div>
+        <div class="rs" style="color:${statusColor}">${statusLbl}${a.note?' · '+a.note:''}</div>${recipeShort(a)}</div>
       <div class="rr"><div class="rv">${a.status==='cancelled'?'—':fmt(amt)+' грн'}</div>${a.materialCost?`<div class="ra">матер. ${fmt(a.materialCost)} грн</div>`:''}</div>
     </div>`;
   }).join('');
@@ -3183,7 +3346,7 @@ function clientHistoryModal(arg){
 // Об'єднання дублів: усі записи клієнта «дубль» перейменовуються на ім'я
 // клієнта «залишити». Зворотної дії немає — спочатку дивіться, що обрали.
 function mergeClientModal(){
-  const all=buildClients().sort((a,b)=>a.name.localeCompare(b.name,'uk'));
+  const all=[...buildClients()].sort((a,b)=>a.name.localeCompare(b.name,'uk'));
   const opts=(sel)=>all.map(c=>`<option value="${c.key}" ${c.key===sel?'selected':''}>${c.name} (${c.all.length} зап.)</option>`).join('');
   show(`<div class="mh"><div class="mt">🔗 Об'єднати дублі</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
     <div class="field"><label>Дубль (зникне)</label><select class="fi" id="mfrom"><option value="">— оберіть —</option>${opts('')}</select></div>
@@ -3195,11 +3358,15 @@ function mergeClientModal(){
     const f=all.find(c=>c.key===$('mfrom').value),t=all.find(c=>c.key===$('mto').value);
     if(!f||!t||f.key===t.key){alert('Оберіть двох різних клієнтів');return;}
     if(!confirm(`Перенести ${f.all.length} запис(ів) «${f.name}» → «${t.name}»?`))return;
+    const ws=[];
     for(const a of f.all){
       const upd={client:t.name};
       if(!a.phone&&t.phone)upd.phone=t.phone;
-      await updateDoc(doc(db,'appointments',a.id),upd);
+      Object.assign(a,upd);  // одразу в пам’яті, щоб список оновився без очікування сервера
+      ws.push(updateDoc(doc(db,'appointments',a.id),upd));
     }
+    dataVer++;
+    bgWrites(ws,'merge');
     clientsListModal();
   };
 }
@@ -3247,7 +3414,7 @@ function clientsStatsHtml(done,inSelPeriod,avg){
 document.addEventListener('click',e=>{if(e.target.closest('#openClients'))clientsListModal();});
 
 draw();
-setInterval(()=>{ if(tab==='cal') drawCal(); }, 60000);
+setInterval(()=>{ if(tab==='cal'&&!$('overlay').classList.contains('show')) drawCal(); }, 60000);
 </script>
 </body>
 </html>
