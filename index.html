@@ -1131,7 +1131,7 @@ function apptModal(a,date,time,prefill){
       services:selSvcs.map(s=>({serviceId:s.serviceId,adj:s.adj||0})),
       date:$('fd')?.value||fDate,time:$('ft')?.value||fTime,status:'pending', // чернетка завжди «Очікує»: статус «Виконано» (і списання зі складу) — лише кнопкою «Зберегти»
       customDuration:finalDuration,materialsUsed:[],materialCost:0,materialsDeducted:[],
-      paid:+($('fm')?.value||0),tips:+($('ftip')?.value||0),note:$('fn')?.value||'',formula:$('fform')?.value||'',
+      paid:+($('fm')?.value||0),tips:+($('ftip')?.value||0),note:$('fn')?.value||'',formula:$('fform')?.value||'',source:$('fsrc')?.value||'',
       materialsHistoryBackfilled:true};
     const ref=doc(collection(db,'appointments'));
     apptId=ref.id;   // id одразу, тож два швидкі автозбереження не створять дубль запису
@@ -1149,7 +1149,7 @@ function apptModal(a,date,time,prefill){
     const materialsUsedFinal=selMats.filter(sm=>sm.matId&&sm.qty>0).map(sm=>({matId:sm.matId,qty:sm.qty}));
     const materialCostFinal=materialsUsedFinal.reduce((s,sm)=>{const m=mats.find(x=>x.id===sm.matId);return s+sm.qty*matUnitInfo(m).ppu;},0);
     // Автозберігається лише «робоче»: рецепт, формула, примітка, оплата, чайові, послуги. Дата, час, ім’я, статус і склад — тільки кнопкою «Зберегти».
-    const upd={materialsUsed:materialsUsedFinal,materialCost:materialCostFinal,formula:fFormula,note:fNote,paid:fPaid,tips:fTips};
+    const upd={materialsUsed:materialsUsedFinal,materialCost:materialCostFinal,formula:fFormula,note:fNote,paid:fPaid,tips:fTips,source:fSource};
     if(selSvcs.length>0){upd.serviceId=selSvcs[0].serviceId;upd.services=selSvcs.map(s2=>({serviceId:s2.serviceId,adj:s2.adj||0}));}
     updateDoc(doc(db,'appointments',id),upd).catch(e=>console.warn('Draft save failed:',e));
   }
@@ -1193,7 +1193,7 @@ function apptModal(a,date,time,prefill){
   // or removing a service) — otherwise anything the user just typed gets
   // thrown away and replaced with the original appointment's values.
   let fClient=a?.client||prefill?.client||'', fPhone=a?.phone||prefill?.phone||'', fDate=a?.date||date||today(),
-      fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fPaid=a?.paid||0, fTips=a?.tips||0, fNote=a?.note||'', fFormula=a?.formula||'';
+      fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fPaid=a?.paid||0, fTips=a?.tips||0, fNote=a?.note||'', fFormula=a?.formula||'', fSource=a?.source||'';
   let matSearchQ='';
   const captureFields=()=>{
     if($('fc'))fClient=$('fc').value;
@@ -1205,6 +1205,7 @@ function apptModal(a,date,time,prefill){
     if($('ftip'))fTips=+$('ftip').value||0;
     if($('fn'))fNote=$('fn').value;
     if($('fform'))fFormula=$('fform').value;
+    if($('fsrc'))fSource=$('fsrc').value;
     if($('fmsearch'))matSearchQ=$('fmsearch').value;
     const hEl=$('fdh'),mEl=$('fdm');if(hEl&&mEl)durOverride=+hEl.value*60+ +mEl.value;
   };
@@ -1293,6 +1294,7 @@ function apptModal(a,date,time,prefill){
       <div class="mh"><div class="mt">${a?'Редагувати':'Новий запис'}</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
       <div class="field"><label>Клієнтка <span id="chistlink" style="float:right;color:var(--acc);font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0">📋 Історія візитів</span></label><input class="fi" id="fc" list="clientNames" autocomplete="off" value="${fClient}" placeholder="Ім'я Прізвище"/><datalist id="clientNames">${[...new Set(appts.filter(x=>!x.isBreak&&x.client).map(x=>x.client.trim()))].sort().map(n=>`<option value="${n}"></option>`).join('')}</datalist></div>
       <div class="field"><label>Instagram / телефон</label><input class="fi" id="fp" value="${fPhone}" placeholder="@nick"/></div>
+      <div class="field"><label>Звідки клієнтка</label><select class="fi" id="fsrc"><option value="">— не вказано —</option>${SOURCES.map(x=>`<option value="${x}" ${fSource===x?'selected':''}>${x}</option>`).join('')}</select></div>
       <div id="recipeBox"></div>
       <div class="field"><label>Послуги <span id="svcHeaderInfo" style="color:var(--acc);font-weight:700">${selSvcs.length>0?`${selSvcs.length} · ${fmt(totalPrice)} грн · ${fmtTotalDur(shownDur)}`:''}</span></label>
         ${selRows}
@@ -1341,10 +1343,12 @@ function apptModal(a,date,time,prefill){
       const nm=$('fc').value.trim().toLowerCase();
       const c=buildClients().find(x=>x.name.toLowerCase()===nm);
       if(c&&c.phone&&!$('fp').value)$('fp').value=c.phone;
+      if(c&&c.source&&$('fsrc')&&!$('fsrc').value)$('fsrc').value=c.source;
       renderRecipeBox();
     });
     $('fp').addEventListener('change',()=>renderRecipeBox());
     ['fform','fn','fm','ftip'].forEach(id=>{const el=$(id);if(el)el.addEventListener('input',()=>{captureFields();queueMaterialsAutosave();});});
+    if($('fsrc'))$('fsrc').addEventListener('change',()=>{captureFields();queueMaterialsAutosave();});
     // Рецепт із минулого візиту: показати й за один дотик скопіювати матеріали в цей запис.
     function renderRecipeBox(idx){
       const box=$('recipeBox');if(!box)return;
@@ -1510,7 +1514,7 @@ function apptModal(a,date,time,prefill){
         date:apptDate,time:$('ft').value,status:newStatus,
         customDuration:finalDuration,
         materialsUsed:materialsUsedFinal,materialCost:materialCostFinal,
-        paid:+$('fm').value||0,tips:+$('ftip').value||0,note:$('fn').value,formula:$('fform').value,
+        paid:+$('fm').value||0,tips:+$('ftip').value||0,note:$('fn').value,formula:$('fform').value,source:$('fsrc').value,
         // Every save through this modal already logs material changes at
         // the moment they're actually deducted (see the delta loop below)
         // -- so this appointment never needs to go through the backfill
@@ -1733,6 +1737,131 @@ function clientHistoryModalOld(clientName){
     if(a)apptModal(a,a.date,a.time);
   });
 }
+
+// ══════════════ KPI: завантаження, скасування, повернення, динаміка, ціль, джерела ══════════════
+const SOURCES=['Instagram','Рекомендація','Реклама','Google/карти','Інше'];
+const apptRev=a=>(a.paid||apptTotalPrice(a));
+function kpiStatsHtml(){
+  const t=today(),now=new Date();
+  let from,to=t;
+  if(period==='day')from=t;
+  else if(period==='week')from=addDays(t,-6);
+  else if(period==='month')from=t.slice(0,8)+'01';
+  else if(period==='year')from=t.slice(0,4)+'-01-01';
+  else{from=periodFrom||t;to=periodTo||t;}
+  const toFact=to<t?to:t;                       // «факт» — лише до сьогодні
+  const hrs=m=>(m/60).toFixed(1).replace(/\.0$/,'');
+  const pc=v=>v==null?'—':Math.round(v)+'%';
+  const diffDays=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000);
+  const real=appts.filter(a=>!a.isBreak&&a.date&&a.client);
+  const dates=[];for(let d=from,g=0;d<=toFact&&g<800;d=addDays(d,1),g++)dates.push(d);
+  const stat=(v,l,c)=>`<div class="sc"><div class="sv" style="color:${c||'var(--sil)'}">${v}</div><div class="sl">${l}</div></div>`;
+
+  // 1) Завантаження та виручка за годину
+  const inFact=real.filter(a=>a.date>=from&&a.date<=toFact);
+  const busyBy={};inFact.filter(a=>a.status!=='cancelled').forEach(a=>{busyBy[a.date]=(busyBy[a.date]||0)+apptDuration(a);});
+  let workMins=0,busyMins=0;
+  dates.forEach(d=>{const w=getWorkMins(d);workMins+=w;if(w>0)busyMins+=Math.min(busyBy[d]||0,w);});
+  const doneF=inFact.filter(a=>a.status==='done');
+  const doneMins=doneF.reduce((s,a)=>s+apptDuration(a),0);
+  const revF=doneF.reduce((s,a)=>s+apptRev(a),0);
+  const loadPct=workMins?busyMins/workMins*100:null;
+  const donePct=workMins?Math.min(doneMins,workMins)/workMins*100:null;
+  const perWork=workMins?revF/(workMins/60):0, perDone=doneMins?revF/(doneMins/60):0;
+  const freeMins=Math.max(0,workMins-busyMins), lostIdle=freeMins/60*perDone;
+  const loadColor=loadPct==null?'var(--mut)':loadPct>=70?'var(--ok)':loadPct>=40?'var(--wrn)':'var(--err)';
+  const loadCard=`<div class="card"><div class="sec" style="margin-top:0">📈 Завантаження та ефективність</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">${dates.length?fmtS(from)+' – '+fmtS(toFact):'період ще не настав'} · робочих годин: ${hrs(workMins)}</div>
+    <div class="sg" style="margin-bottom:8px">
+      ${stat(pc(loadPct),'Завантаження (записи)',loadColor)}${stat(pc(donePct),'Відпрацьовано (виконано)','var(--acs)')}
+      ${stat(fmt(perWork)+' грн','Виручка за робочу годину')}${stat(fmt(perDone)+' грн','Виручка за годину роботи')}
+    </div>
+    <div style="font-size:12px;color:var(--mut)">Вільно: <b style="color:var(--sil)">${hrs(freeMins)} год</b>${perDone>0?` · ≈ недоотримано <b style="color:var(--wrn)">${fmt(lostIdle)} грн</b> (за вашою ставкою за годину)`:''}</div></div>`;
+
+  // 2) Скасування та неявки (за весь період, включно з майбутніми датами)
+  const inFull=real.filter(a=>a.date>=from&&a.date<=to);
+  const cDone=inFull.filter(a=>a.status==='done').length,cNo=inFull.filter(a=>a.status==='noshow').length,cCan=inFull.filter(a=>a.status==='cancelled').length;
+  const resolved=cDone+cNo+cCan;
+  const lostRev=inFull.filter(a=>a.status==='noshow'||a.status==='cancelled').reduce((s,a)=>s+apptTotalPrice(a),0);
+  const unmarked=real.filter(a=>(a.status==='pending'||a.status==='confirmed'||!a.status)&&a.date<t).length;
+  const cancelCard=`<div class="card"><div class="sec" style="margin-top:0">🚫 Скасування та неявки</div>
+    <div class="sg" style="margin-bottom:8px">
+      ${stat(resolved?pc(cNo/resolved*100):'—','Не прийшли ('+cNo+')',cNo?'var(--wrn)':'var(--mut)')}${stat(resolved?pc(cCan/resolved*100):'—','Скасовано ('+cCan+')',cCan?'var(--err)':'var(--mut)')}
+    </div>
+    <div style="font-size:12px;color:var(--mut)">Втрачена виручка (за вартістю послуг): <b style="color:var(--err)">${fmt(lostRev)} грн</b> · рахується від ${resolved} завершених записів</div>
+    ${unmarked?`<div style="font-size:11px;color:var(--wrn);margin-top:6px">⚠️ ${unmarked} минулих записів без статусу — відмітьте їх, інакше вони не потрапляють у виручку й показники.</div>`:''}</div>`;
+
+  // 3) Повернення клієнток 30/60/90 днів
+  const cl=buildClients();
+  const ret={30:{e:0,r:0},60:{e:0,r:0},90:{e:0,r:0}};
+  cl.forEach(c=>{
+    const ds=[...new Set(c.all.filter(a=>a.status==='done').map(a=>a.date))].sort();
+    ds.forEach((d,i)=>{
+      if(d<from||d>toFact)return;
+      const age=diffDays(d,t),next=ds[i+1];
+      [30,60,90].forEach(N=>{if(age>=N){ret[N].e++;if(next&&diffDays(d,next)<=N)ret[N].r++;}});
+    });
+  });
+  const rr=N=>ret[N].e?ret[N].r/ret[N].e*100:null;
+  const retCard=`<div class="card"><div class="sec" style="margin-top:0">🔁 Повернення клієнток</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">Яка частка візитів періоду завершилась новим візитом протягом N днів. Враховуються лише візити, для яких цей строк уже минув.</div>
+    <div class="sg" style="grid-template-columns:repeat(3,1fr);margin-bottom:0">
+      ${[30,60,90].map(N=>stat(pc(rr(N)),'за '+N+' дн.'+(ret[N].e?' (з '+ret[N].e+')':''),rr(N)==null?'var(--mut)':rr(N)>=50?'var(--ok)':rr(N)>=30?'var(--wrn)':'var(--err)')).join('')}
+    </div></div>`;
+
+  // 4) Ціль місяця і прогноз
+  const ym=t.slice(0,7),goal=+(localStorage.getItem('goal')||0);
+  const monthDone=appts.filter(a=>a.status==='done'&&(a.date||'').slice(0,7)===ym).reduce((s,a)=>s+apptRev(a),0);
+  const planned=appts.filter(a=>!a.isBreak&&(a.status==='pending'||a.status==='confirmed')&&a.date>=t&&a.date.slice(0,7)===ym).reduce((s,a)=>s+apptTotalPrice(a),0);
+  const dim=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  let elapsedW=0,totalW=0,remainW=0;
+  for(let i=1;i<=dim;i++){const d=ym+'-'+String(i).padStart(2,'0');if(!isWorkDay(d))continue;totalW++;if(d<=t)elapsedW++;if(d>=t)remainW++;}
+  const pace=elapsedW?monthDone/elapsedW*totalW:0;
+  const byBook=monthDone+planned;
+  const need=Math.max(0,goal-monthDone);
+  const goalCard=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center"><div class="sec" style="margin:0">🎯 Ціль місяця</div><button class="btn bg bs" id="setGoal">${goal>0?'Змінити':'Задати ціль'}</button></div>
+    <div style="font-size:12px;color:var(--mut);margin:8px 0 4px">Отримано: <b style="color:var(--ok)">${fmt(monthDone)} грн</b> · заплановано записами: <b style="color:var(--wrn)">${fmt(planned)} грн</b></div>
+    ${goal>0?`<div class="pb" style="height:8px"><div class="pf" style="width:${Math.min(100,monthDone/goal*100)}%"></div></div>
+      <div style="font-size:12px;color:var(--mut);margin-top:6px">Ціль ${fmt(goal)} грн · виконано ${pc(monthDone/goal*100)}${need>0?` · лишилось ${fmt(need)} грн${remainW?` (≈ ${fmt(need/remainW)} грн на робочий день, днів: ${remainW})`:''}`:' · ціль досягнуто 🎉'}</div>`:''}
+    <div style="font-size:12px;color:var(--mut);margin-top:8px">Прогноз за записами: <b style="color:var(--sil)">${fmt(byBook)} грн</b> · за темпом: <b style="color:var(--sil)">${fmt(pace)} грн</b>${goal>0?` ${byBook>=goal?'✅':'⚠️'}`:''}</div>
+    <div style="font-size:10px;color:var(--dim);margin-top:4px">Темп = виручка за відпрацьовані робочі дні, перенесена на всі робочі дні місяця (${elapsedW} з ${totalW}).</div></div>`;
+
+  // 5) Динаміка за 6 місяців
+  const months=Array.from({length:6},(_,i)=>{const d=new Date(now.getFullYear(),now.getMonth()-5+i,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');});
+  const ms=months.map(m=>{const l=appts.filter(a=>a.status==='done'&&(a.date||'').slice(0,7)===m);const rev=l.reduce((s,a)=>s+apptRev(a),0);return{m,rev,n:l.length,avg:l.length?rev/l.length:0};});
+  const maxM=Math.max(...ms.map(x=>x.rev),1);
+  const prevYm=ms[4].m,dayNow=t.slice(8);
+  const prevSame=appts.filter(a=>a.status==='done'&&(a.date||'').slice(0,7)===prevYm&&a.date.slice(8)<=dayNow).reduce((s,a)=>s+apptRev(a),0);
+  const mom=prevSame>0?(monthDone-prevSame)/prevSame*100:null;
+  const dynCard=`<div class="card"><div class="sec" style="margin-top:0">📅 Динаміка за 6 місяців</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:100px">
+      ${ms.map((x,i)=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+        <div style="font-size:9px;color:var(--dim)">${x.rev>0?(x.rev/1000).toFixed(1).replace(/\.0$/,'')+'к':''}</div>
+        <div style="width:100%;border-radius:3px 3px 0 0;height:${Math.max(x.rev/maxM*70,x.rev>0?3:2)}px;background:${i===5?'linear-gradient(to top,#6B6380,#A89BC2)':'var(--brd)'}"></div>
+        <div style="font-size:10px;color:var(--mut)">${new Date(x.m+'-01T12:00:00').toLocaleDateString('uk-UA',{month:'short'})}</div></div>`).join('')}
+    </div>
+    <div style="font-size:12px;color:var(--mut);margin-top:10px">Цей місяць до ${+dayNow}-го числа: <b style="color:var(--sil)">${fmt(monthDone)} грн</b> проти ${fmt(prevSame)} грн <span style="color:var(--dim)">у минулому місяці до тієї ж дати</span> ${mom==null?'':`<b style="color:${mom>=0?'var(--ok)':'var(--err)'}">${mom>=0?'+':''}${Math.round(mom)}%</b>`}</div>
+    <div style="font-size:11px;color:var(--dim);margin-top:4px">Візитів / сер. чек: ${ms.map(x=>x.n+' / '+fmt(x.avg)).join(' · ')}</div></div>`;
+
+  // 6) Джерела клієнток (за весь час)
+  const srcAgg={};
+  cl.forEach(c=>{const k=c.source||'Не вказано';const o=srcAgg[k]||(srcAgg[k]={name:k,clients:0,rev:0,visits:0,ret:0});o.clients++;o.rev+=c.totalPaid;o.visits+=c.doneCount;if(c.doneVisits>=2)o.ret++;});
+  const srcRows=Object.values(srcAgg).sort((a,b)=>b.rev-a.rev);
+  const srcCard=`<div class="card"><div class="sec" style="margin-top:0">📣 Джерела клієнток (за весь час)</div>
+    ${srcRows.length===0?'<div style="color:var(--dim);text-align:center;padding:14px 0">Немає даних</div>':srcRows.map(o=>`<div style="padding:8px 0;border-bottom:1px solid var(--brd)">
+      <div style="display:flex;justify-content:space-between"><span style="font-size:13px;font-weight:600">${o.name}</span><b style="color:var(--sil)">${fmt(o.rev)} грн</b></div>
+      <div style="font-size:11px;color:var(--mut)">клієнток: ${o.clients} · сер. чек ${fmt(o.visits?o.rev/o.visits:0)} грн · повернулись: ${o.clients?Math.round(o.ret/o.clients*100):0}%</div></div>`).join('')}
+    ${srcAgg['Не вказано']&&Object.keys(srcAgg).length===1?'<div style="font-size:11px;color:var(--dim);margin-top:8px">Вкажіть «Звідки клієнтка» у записі — тоді тут з’явиться розбивка.</div>':''}</div>`;
+  return loadCard+cancelCard+retCard+goalCard+dynCard+srcCard;
+}
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#setGoal'))return;
+  const v=prompt('Ціль виручки на місяць, грн:',localStorage.getItem('goal')||'');
+  if(v===null)return;
+  const n=Math.max(0,+String(v).replace(/\s/g,'').replace(',','.')||0);
+  try{localStorage.setItem('goal',String(n));}catch(err){}
+  drawStats();
+});
 
 // ── Рецепти фарбування з минулих візитів ──
 const RECIPE_CATS=['Фарби','Окислювачі','Порошки'];
@@ -2877,6 +3006,7 @@ function drawStats(){
       <div class="sc" id="cardSales" style="cursor:pointer"><div class="sv" style="color:var(--acs)">${fmt(salesRevenue)} грн</div><div class="sl">🛍️ Продаж товарів</div><div style="color:${salesMargin>=0?'var(--ok)':'var(--err)'};font-size:11px">маржа ${fmt(salesMargin)} грн</div></div>
       <div class="sc"><div class="sv" style="color:${netProfit>=0?'var(--ok)':'var(--err)'}">${fmt(netProfit)} грн</div><div class="sl">Чистий прибуток</div></div>
     </div>
+    ${kpiStatsHtml()}
     ${clientsStatsHtml(done,inSelPeriod,avg)}
     <div class="card"><div class="sec" style="margin-top:0">По днях тижня</div>
       <div style="display:flex;align-items:flex-end;gap:5px;height:80px">
@@ -3229,7 +3359,7 @@ function buildClientsRaw(){
     const totalPaid=done.reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);
     const tips=done.reduce((s,a)=>s+(a.tips||0),0);
     return{...c,doneCount:done.length,doneVisits:doneDates.length,firstDone:doneDates[0]||null,lastDone,daysSince,avgGap,
-      next,booked,overdue,lost,expected,totalPaid,tips,cancelled:c.all.filter(a=>a.status==='cancelled').length,noshow:c.all.filter(a=>a.status==='noshow').length,
+      next,booked,overdue,lost,expected,totalPaid,tips,cancelled:c.all.filter(a=>a.status==='cancelled').length,noshow:c.all.filter(a=>a.status==='noshow').length,source:((c.all.filter(a=>a.source).sort((x,y)=>(y.date||'').localeCompare(x.date||''))[0])||{}).source||'',
       avgCheck:done.length?totalPaid/done.length:0};
   });
 }
