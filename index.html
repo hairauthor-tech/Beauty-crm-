@@ -1741,6 +1741,7 @@ function clientHistoryModalOld(clientName){
 // ══════════════ KPI: завантаження, скасування, повернення, динаміка, ціль, джерела ══════════════
 const SOURCES=['Instagram','Рекомендація','Реклама','Google/карти','Інше'];
 const apptRev=a=>(a.paid||apptTotalPrice(a));
+let _notRet=[];
 function kpiStatsHtml(){
   const t=today(),now=new Date();
   let from,to=t;
@@ -1759,14 +1760,30 @@ function kpiStatsHtml(){
 
   // 1) Завантаження та виручка за годину
   const inFact=real.filter(a=>a.date>=from&&a.date<=toFact);
-  const busyBy={};inFact.filter(a=>a.status!=='cancelled').forEach(a=>{busyBy[a.date]=(busyBy[a.date]||0)+apptDuration(a);});
-  let workMins=0,busyMins=0;
-  dates.forEach(d=>{const w=getWorkMins(d);workMins+=w;if(w>0)busyMins+=Math.min(busyBy[d]||0,w);});
+  // Інтервали записів рахуємо ПО ЧАСУ: обрізаємо до робочого вікна дня й зливаємо накладені, тому
+  // «виконано» ніколи не перевищує «записи». Усе поза графіком (вихідні, години до/після) виносимо окремо.
+  const toIv=a=>{const hm=a.time.split(':');const st=(+hm[0])*60+(+hm[1]||0);return[st,st+apptDuration(a)];};
+  const unionIn=(ivs,w0,w1)=>{
+    const arr=ivs.map(([a0,a1])=>w0==null?[a0,a1]:[Math.max(a0,w0),Math.min(a1,w1)]).filter(([a0,a1])=>a1>a0).sort((x,y)=>x[0]-y[0]);
+    let tot=0,cs=null,ce=null;
+    arr.forEach(([a0,a1])=>{if(cs==null){cs=a0;ce=a1;}else if(a0<=ce){ce=Math.max(ce,a1);}else{tot+=ce-cs;cs=a0;ce=a1;}});
+    if(cs!=null)tot+=ce-cs;
+    return tot;
+  };
+  const ivByDate=list=>{const o={};list.filter(a=>a.time).forEach(a=>{(o[a.date]||(o[a.date]=[])).push(toIv(a));});return o;};
   const doneF=inFact.filter(a=>a.status==='done');
-  const doneMins=doneF.reduce((s,a)=>s+apptDuration(a),0);
+  const busyIv=ivByDate(inFact.filter(a=>a.status!=='cancelled')),doneIv=ivByDate(doneF);
+  let workMins=0,busyMins=0,doneIn=0,doneAll=0,busyAll=0;
+  dates.forEach(d=>{
+    const w=getWorkMins(d);workMins+=w;
+    if(w>0){const dh=getDayHours(d);busyMins+=unionIn(busyIv[d]||[],dh.start*60,dh.end*60);doneIn+=unionIn(doneIv[d]||[],dh.start*60,dh.end*60);}
+    busyAll+=unionIn(busyIv[d]||[],null,null);doneAll+=unionIn(doneIv[d]||[],null,null);
+  });
+  const overMins=Math.max(0,busyAll-busyMins);
+  const doneMins=doneAll;
   const revF=doneF.reduce((s,a)=>s+apptRev(a),0);
   const loadPct=workMins?busyMins/workMins*100:null;
-  const donePct=workMins?Math.min(doneMins,workMins)/workMins*100:null;
+  const donePct=workMins?doneIn/workMins*100:null;
   const perWork=workMins?revF/(workMins/60):0, perDone=doneMins?revF/(doneMins/60):0;
   const freeMins=Math.max(0,workMins-busyMins), lostIdle=freeMins/60*perDone;
   const loadColor=loadPct==null?'var(--mut)':loadPct>=70?'var(--ok)':loadPct>=40?'var(--wrn)':'var(--err)';
@@ -1776,7 +1793,7 @@ function kpiStatsHtml(){
       ${stat(pc(loadPct),'Завантаження (записи)',loadColor)}${stat(pc(donePct),'Відпрацьовано (виконано)','var(--acs)')}
       ${stat(fmt(perWork)+' грн','Виручка за робочу годину')}${stat(fmt(perDone)+' грн','Виручка за годину роботи')}
     </div>
-    <div style="font-size:12px;color:var(--mut)">Вільно: <b style="color:var(--sil)">${hrs(freeMins)} год</b>${perDone>0?` · ≈ недоотримано <b style="color:var(--wrn)">${fmt(lostIdle)} грн</b> (за вашою ставкою за годину)`:''}</div></div>`;
+    <div style="font-size:12px;color:var(--mut)">Вільно: <b style="color:var(--sil)">${hrs(freeMins)} год</b>${perDone>0?` · ≈ недоотримано <b style="color:var(--wrn)">${fmt(lostIdle)} грн</b> (за вашою ставкою за годину)`:''}</div>${overMins>0?`<div style="font-size:11px;color:var(--dim);margin-top:6px">Понад графік: ${hrs(overMins)} год — записи у вихідні або поза робочими годинами. У завантаження не входять, у виручку входять.</div>`:''}</div>`;
 
   // 2) Скасування та неявки (за весь період, включно з майбутніми датами)
   const inFull=real.filter(a=>a.date>=from&&a.date<=to);
@@ -1794,20 +1811,23 @@ function kpiStatsHtml(){
   // 3) Повернення клієнток 30/60/90 днів
   const cl=buildClients();
   const ret={30:{e:0,r:0},60:{e:0,r:0},90:{e:0,r:0}};
+  const notRet=[];
   cl.forEach(c=>{
     const ds=[...new Set(c.all.filter(a=>a.status==='done').map(a=>a.date))].sort();
     ds.forEach((d,i)=>{
       if(d<from||d>toFact)return;
       const age=diffDays(d,t),next=ds[i+1];
       [30,60,90].forEach(N=>{if(age>=N){ret[N].e++;if(next&&diffDays(d,next)<=N)ret[N].r++;}});
+      if(age>=90&&!(next&&diffDays(d,next)<=90))notRet.push({c,d});
     });
   });
+  _notRet=notRet;
   const rr=N=>ret[N].e?ret[N].r/ret[N].e*100:null;
   const retCard=`<div class="card"><div class="sec" style="margin-top:0">🔁 Повернення клієнток</div>
     <div style="font-size:11px;color:var(--dim);margin-bottom:8px">Яка частка візитів періоду завершилась новим візитом протягом N днів. Враховуються лише візити, для яких цей строк уже минув.</div>
     <div class="sg" style="grid-template-columns:repeat(3,1fr);margin-bottom:0">
       ${[30,60,90].map(N=>stat(pc(rr(N)),'за '+N+' дн.'+(ret[N].e?' (з '+ret[N].e+')':''),rr(N)==null?'var(--mut)':rr(N)>=50?'var(--ok)':rr(N)>=30?'var(--wrn)':'var(--err)')).join('')}
-    </div></div>`;
+    </div>${ret[90].e?`<button class="btn bg bs" id="retDetail" style="margin-top:10px;width:100%;justify-content:center">Хто не повернулась за 90 днів (${notRet.length})</button>`:''}</div>`;
 
   // 4) Ціль місяця і прогноз
   const ym=t.slice(0,7),goal=+(localStorage.getItem('goal')||0);
@@ -1854,6 +1874,18 @@ function kpiStatsHtml(){
     ${srcAgg['Не вказано']&&Object.keys(srcAgg).length===1?'<div style="font-size:11px;color:var(--dim);margin-top:8px">Вкажіть «Звідки клієнтка» у записі — тоді тут з’явиться розбивка.</div>':''}</div>`;
   return loadCard+cancelCard+retCard+goalCard+dynCard+srcCard;
 }
+// Діагностика повернень: кого вважаємо «не повернулась» і чи немає схожих імен (можливі дублі однієї клієнтки).
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#retDetail'))return;
+  const all=buildClients(),tok=n=>normName(n).split(' ')[0];
+  const rows=_notRet.slice().sort((x,y)=>y.d.localeCompare(x.d)).slice(0,60).map(({c,d})=>{
+    const sim=all.filter(o=>o.key!==c.key&&tok(o.name)&&tok(o.name)===tok(c.name)).slice(0,2).map(o=>o.name);
+    return`<div class="ri"><div class="rl"><div class="rn">${c.name}</div><div class="rs">візит ${fmtS(d)}${c.lastDone&&c.lastDone!==d?' · останній '+fmtS(c.lastDone):''}</div>${sim.length?`<div class="rs" style="color:var(--wrn)">схожа: ${sim.join(', ')}</div>`:''}</div></div>`;
+  }).join('');
+  show(`<div class="mh"><div class="mt">Не повернулись за 90 днів</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:10px">Якщо поруч є «схожа: …», це, найімовірніше, одна людина з різним написанням імені — об’єднайте їх у Клієнти → Об’єднати дублі, і показники стануть точнішими.</div>${rows||'<div class="empty">Немає</div>'}`);
+  $('mx').onclick=hide;
+});
 document.addEventListener('click',e=>{
   if(!e.target.closest('#setGoal'))return;
   const v=prompt('Ціль виручки на місяць, грн:',localStorage.getItem('goal')||'');
