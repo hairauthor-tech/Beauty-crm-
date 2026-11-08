@@ -76,6 +76,7 @@ input[type=date],input[type=time]{color-scheme:dark;}
 .AB.cancelled{background:rgba(184,112,112,.15);border-left:3px solid var(--err);}
 button,.chip,.ri,.nb,.bi{touch-action:manipulation;}
 .btn:active,.chip:active,.bi:active,.nb:active,.ri:active{opacity:.6;}
+.COL-H.kyiv{background:rgba(224,123,57,.22);color:#E07B39;}
 .AB.confirmed{background:rgba(92,138,168,.2);border-left:3px solid #5C8AA8;}
 .AB.noshow{background:rgba(196,164,106,.16);border-left:3px solid var(--wrn);}
 .AB.noshow .AB-N{text-decoration:line-through;opacity:.8;}
@@ -159,7 +160,21 @@ let exceptions=JSON.parse(localStorage.getItem('exc')||'{}');
 let monthSched=JSON.parse(localStorage.getItem('msched')||'{}');
 const getSched=ym=>monthSched[ym]||schedule;
 // Чи робочий день за ШАБЛОНОМ (графік місяця «по датах» або по днях тижня), без винятків окремих дат.
-const templateWork=d=>{const ms=getSched(d.slice(0,7));return ms.byDate?(ms.dates||[]).includes(+d.slice(8,10)):ms.days.includes(new Date(d+'T12:00:00').getDay());};
+// ── Два міста та «маятник» ──
+const CITIES=['Бориспіль','Київ'];   // перше — основне місто (його ціна збережена в полі «Ціна» послуги)
+let dayCity=JSON.parse(localStorage.getItem('dayCity')||'{}');          // {дата: місто} — один день = одне місто
+let pendulum=localStorage.getItem('pendulum')==='1';                    // режим приїздів: робочі лише позначені дати та дні із записами
+let _adCache={v:-1,set:null},_cmCache={v:-1,map:null};
+const hasAppt=d=>{if(_adCache.v!==dataVer){const st=new Set();appts.forEach(a=>{if(!a.isBreak&&a.date&&a.status!=='cancelled')st.add(a.date);});_adCache={v:dataVer,set:st};}return _adCache.set.has(d);};
+// Місто дня: явна позначка → місто записів цього дня → найближчий попередній день (до 14 днів) → останнє обране → Київ
+const cityMap=()=>{if(_cmCache.v!==dataVer){const cnt={};appts.forEach(a=>{if(!a.isBreak&&a.date&&a.city&&a.status!=='cancelled'){const o=cnt[a.date]||(cnt[a.date]={});o[a.city]=(o[a.city]||0)+1;}});const m={};Object.keys(cnt).forEach(d=>{m[d]=Object.keys(cnt[d]).sort((x,y)=>cnt[d][y]-cnt[d][x])[0];});_cmCache={v:dataVer,map:m};}return _cmCache.map;};
+const cityOf=d=>{if(dayCity[d])return dayCity[d];const m=cityMap();if(m[d])return m[d];let x=d;for(let i=0;i<14;i++){x=addDays(x,-1);if(dayCity[x])return dayCity[x];if(m[x])return m[x];}return localStorage.getItem('lastCity')||CITIES[0];};
+const cityShort=c=>c==='Бориспіль'?'Бор.':(c||'');
+// Ціна послуги залежить від міста; без міста (старі записи) — базова ціна
+const svcPrice=(sv,city)=>sv?(+sv.price||0):0;   // одна ціна; різницю Київ/Бориспіль ви вводите вручну в записі
+// Місто запису: власне → позначка дня в графіку → основне (Бориспіль). Так старі записи без міста не губляться в аналітиці.
+const apptCity=a=>dayCity[a.date]||CITIES[0];
+const templateWork=d=>{if(pendulum)return hasAppt(d);const ms=getSched(d.slice(0,7));return ms.byDate?(ms.dates||[]).includes(+d.slice(8,10)):ms.days.includes(new Date(d+'T12:00:00').getDay());};
 
 const d0=new Date();
 let calDate=d0.getFullYear()+'-'+String(d0.getMonth()+1).padStart(2,'0')+'-'+String(d0.getDate()).padStart(2,'0');
@@ -204,7 +219,7 @@ const CATS=['Фарби','Окислювачі','Порошки','Шампуні
 // via the "+ Нова категорія" option in expModal is remembered in
 // localStorage (customExpCats) and appended after them, same pattern as
 // the schedule/exceptions persistence used elsewhere in the app.
-const BASE_EXP_CATS=['Оренда','Податки','Комунальні','Подарунки','Реклама','Інше'];
+const BASE_EXP_CATS=['Оренда','Дорога','Податки','Комунальні','Подарунки','Реклама','Інше'];
 const getExpCats=()=>[...BASE_EXP_CATS,...customExpCats.filter(c=>!BASE_EXP_CATS.includes(c))];
 const svg=(d,s=16,c='currentColor')=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
 const ic={plus:'M12 5v14M5 12h14',edit:'M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z',del:'M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6',x:'M18 6L6 18M6 6l12 12',l:'M15 18l-6-6 6-6',r:'M9 18l6-6-6-6',w:'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01',h:'M16 16l-4 4-4-4M12 12v8M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3'};
@@ -408,10 +423,10 @@ function apptTotalPrice(a){
     return a.services.reduce((s,ss)=>{
       const sid=typeof ss==='object'?ss.serviceId:ss;
       const adj=typeof ss==='object'?(ss.adj||0):0;
-      return s+Math.max(0,(svcs.find(sv=>sv.id===sid)?.price||0)+adj);
+      return s+Math.max(0,svcPrice(svcs.find(sv=>sv.id===sid),a.city)+adj);
     },0);
   }
-  return svcs.find(sv=>sv.id===a.serviceId)?.price||0;
+  return svcPrice(svcs.find(sv=>sv.id===a.serviceId),a.city);
 }
 
 // Single global gesture manager for drag & resize — avoids stale closures.
@@ -552,8 +567,8 @@ function drawCal(){
     <div style="width:44px;flex-shrink:0"></div>
     ${dates.map(d=>{
       const isT=d===todayStr,dn=DN[new Date(d+'T12:00:00').getDay()],day=new Date(d+'T12:00:00').getDate();
-      return`<div class="CAL-COL COL-H ${isT?'tod':''}" style="position:relative;padding-top:6px;padding-bottom:6px;height:auto;min-height:28px">
-        <span style="position:relative;z-index:1">${dn} <b>${day}</b>${isWorkDay(d)?'':' <span style="font-size:9px;color:var(--dim)">вих.</span>'}</span>
+      return`<div class="CAL-COL COL-H ${isT?'tod':''}${isWorkDay(d)&&cityOf(d)==='Київ'?' kyiv':''}" data-hd="${d}" style="position:relative;padding-top:6px;padding-bottom:6px;height:auto;min-height:28px;cursor:pointer">
+        <span style="position:relative;z-index:1">${dn} <b>${day}</b>${isWorkDay(d)?(cityOf(d)==='Київ'?' <span style="font-size:9px;font-weight:700">Київ</span>':''):' <span style="font-size:9px;color:var(--dim)">вих.</span>'}</span>
       </div>`;
     }).join('')}
   </div>`;
@@ -595,7 +610,7 @@ function drawCal(){
       }).join('');
       // Two 30px sub-rows per hour
       const _dh=getDayHours(d),_off=!isWorkDay(d)||h<_dh.start||h>=_dh.end;
-      return`<div class="CAL-COL" style="position:relative;height:60px;border-left:1px solid var(--brd)">
+      return`<div class="CAL-COL" style="position:relative;height:60px;border-left:1px solid var(--brd)${(!_off&&cityOf(d)==='Київ')?';background:rgba(224,123,57,.09)':''}">
         <div style="position:absolute;inset:0;pointer-events:none">
           <div style="height:30px;border-bottom:1px solid rgba(128,128,128,.05)"></div>
           <div style="height:30px;border-bottom:1px solid rgba(128,128,128,.08)"></div>
@@ -643,7 +658,7 @@ function drawCal(){
       <div style="position:relative">${rows}</div>
     </div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:10px;color:var(--mut)">
-      <span><span style="color:var(--acc)">■</span> очікує</span><span><span style="color:#5C8AA8">■</span> підтверджена</span><span><span style="color:var(--ok)">■</span> прийшла</span><span><span style="color:var(--wrn)">■</span> не прийшла</span><span><span style="color:var(--err)">■</span> скасовано</span>
+      <span><span style="color:var(--acc)">■</span> очікує</span><span><span style="color:#5C8AA8">■</span> підтверджена</span><span><span style="color:var(--ok)">■</span> прийшла</span><span><span style="color:var(--wrn)">■</span> не прийшла</span><span><span style="color:var(--err)">■</span> скасовано</span><span><span style="color:#E07B39">■</span> день у Києві (тап по даті зверху — позначити/зняти)</span>
     </div>`;
 
   $('cprev').onclick=e=>{e.stopPropagation();calDate=addDays(calDate,-calView);drawCal();};
@@ -654,6 +669,13 @@ function drawCal(){
   $('cbreak').onclick=()=>breakModal(null,calDate);
   $('csched').onclick=()=>datesSchedModal(calDate.slice(0,7));
   el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{calView=+b.dataset.cv;drawCal();}));
+  // Тап по даті у шапці: день у Києві ↔ звичайний день (Бориспіль)
+  el.querySelectorAll('[data-hd]').forEach(h=>h.addEventListener('click',()=>{
+    const d=h.dataset.hd;
+    dayCity[d]=cityOf(d)==='Київ'?CITIES[0]:'Київ';
+    try{localStorage.setItem('dayCity',JSON.stringify(dayCity));}catch(e){}
+    _cmCache.v=-1;drawCal();
+  }));
   el.querySelectorAll('.TC').forEach(c=>c.addEventListener('click',e=>{if(!e.target.closest('.AB'))apptModal(null,c.dataset.d,c.dataset.h);}));
   el.querySelectorAll('.AB').forEach(b=>b.addEventListener('click',e=>{
     e.stopPropagation();
@@ -786,6 +808,7 @@ function miniCalModal(){
       const dot = (isT||isSel)?`<div style="position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:var(--acc)"></div>`:'';
       cells+=`<div style="position:relative;width:40px;height:40px;margin:3px auto;cursor:${isW||isSel?'pointer':'default'}" data-date="${ds}">
         ${ring}
+        ${isW&&cityOf(ds)==='Київ'?'<div style="position:absolute;top:0;right:2px;font-size:9px;font-weight:800;color:#E07B39">К</div>':''}
         <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:${numColor}">
           ${d}
         </div>
@@ -888,11 +911,11 @@ function dayHoursModal(d,onDone){
 function datesSchedModal(initYM){
   let ym=initYM||today().slice(0,7);
   const base0=getSched(ym);
-  const brush={start:base0.start,end:base0.end};
+  const brush={start:base0.start,end:base0.end,city:localStorage.getItem('lastCity')||CITIES[0]};
   const draft={}; // дата -> {work,start,end}; застосовується лише після «Зберегти»
   const mk=(y,m,d)=>y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-  const tmplOf=d=>{const ms=getSched(d.slice(0,7));return{work:ms.days.includes(new Date(d+'T12:00:00').getDay()),start:ms.start,end:ms.end};};
-  const stateOf=d=>{if(draft[d])return draft[d];const h=getDayHours(d);return{work:isWorkDay(d),start:h.start,end:h.end};};
+  const tmplOf=d=>{const ms=getSched(d.slice(0,7));return{work:templateWork(d),start:ms.start,end:ms.end,city:cityOf(d)};};
+  const stateOf=d=>{if(draft[d])return draft[d];const h=getDayHours(d);return{work:isWorkDay(d),start:h.start,end:h.end,city:cityOf(d)};};
   const daysOf=()=>{const[y,m]=ym.split('-').map(Number);const n=new Date(y,m,0).getDate();return Array.from({length:n},(_,i)=>mk(y,m,i+1));};
   const ho=h=>Array.from({length:24},(_,i)=>`<option value="${i}" ${i===h?'selected':''}>${i}:00</option>`).join('');
   function render(){
@@ -907,11 +930,11 @@ function datesSchedModal(initYM){
       if(st.work){workN++;hoursN+=st.end-st.start;}
       const isT=d===todayStr;
       const style=st.work
-        ?`background:rgba(168,155,194,.22);border:1px solid var(--acc);color:var(--txt)`
+        ?(st.city==='Київ'?`background:rgba(224,123,57,.22);border:1px solid #E07B39;color:var(--txt)`:`background:rgba(168,155,194,.22);border:1px solid var(--acc);color:var(--txt)`)
         :`background:transparent;border:1px solid var(--brd);color:var(--dim)`;
       cells+=`<div data-d="${d}" style="${style};border-radius:8px;min-height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;${isT?'box-shadow:0 0 0 2px var(--acs);':''}">
         <div style="font-size:14px;font-weight:700;${st.work?'':'text-decoration:line-through'}">${+d.slice(8)}</div>
-        <div style="font-size:9px;color:${st.work?'var(--acs)':'var(--dim)'}">${st.work?st.start+'–'+st.end:'вих.'}</div>
+        <div style="font-size:9px;color:${st.work?'var(--acs)':'var(--dim)'}">${st.work?cityShort(st.city)+' '+st.start+'–'+st.end:'вих.'}</div>
       </div>`;
     });
     $('modal').innerHTML=`
@@ -925,6 +948,7 @@ function datesSchedModal(initYM){
         <div class="field"><label>Години: початок</label><select class="fi" id="bstart">${ho(brush.start)}</select></div>
         <div class="field"><label>Години: кінець</label><select class="fi" id="bend">${ho(brush.end)}</select></div>
       </div>
+      <div class="field"><label>Місто дня (Київ — помаранчевий)</label><select class="fi" id="bcity">${CITIES.map(x=>`<option value="${x}" ${brush.city===x?'selected':''}>${x}</option>`).join('')}</select></div>
       <div style="font-size:11px;color:var(--dim);margin-bottom:10px">Оберіть години вище, потім торкайтесь дат: вихідний стає робочим із цими годинами; робочий із такими самими годинами стає вихідним; робочий з іншими годинами отримує обрані. Зміни зберігаються після «Зберегти».</div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;text-align:center">${['пн','вт','ср','чт','пт','сб','нд'].map(x=>`<div style="font-size:10px;font-weight:600;color:var(--dim)">${x}</div>`).join('')}</div>
       <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:10px">${cells}</div>
@@ -934,9 +958,13 @@ function datesSchedModal(initYM){
         <button class="btn bg bs" id="dallo">Усі вихідні</button>
         <button class="btn bg bs" id="dtmpl">До шаблону</button>
         <button class="btn bg bs" id="dweek">⚙️ Шаблон по днях тижня</button>
+        <button class="btn ${pendulum?'bp':'bg'} bs" id="dpend">${pendulum?'✅':'⬜'} Режим «приїзди»</button>
       </div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:10px">Режим «приїзди»: робочими вважаються лише дні, які ви позначили, і дні із записами. Решта — вихідні, тож у завантаженні й «Вільно» не рахуються місяці, коли вас немає. Один день = одне місто.</div>
       <div class="mf"><button class="btn bg" id="dcancel">Скасувати</button><button class="btn bp" id="dsave">Зберегти</button></div>`;
     $('mx').onclick=hide;$('dcancel').onclick=hide;
+    $('bcity').onchange=e=>{brush.city=e.target.value;};
+    $('dpend').onclick=()=>{pendulum=!pendulum;try{localStorage.setItem('pendulum',pendulum?'1':'0');}catch(e){}render();};
     $('dprev').onclick=()=>{const d=new Date(y,m-2,1);ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');render();};
     $('dnext').onclick=()=>{const d=new Date(y,m,1);ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');render();};
     $('bstart').onchange=e=>{brush.start=+e.target.value;};
@@ -944,11 +972,11 @@ function datesSchedModal(initYM){
     $('modal').querySelectorAll('[data-d]').forEach(c=>c.onclick=()=>{
       if(brush.end<=brush.start){alert('Кінець має бути пізніше за початок');return;}
       const d=c.dataset.d,st=stateOf(d);
-      if(st.work&&st.start===brush.start&&st.end===brush.end)draft[d]={work:false,start:st.start,end:st.end};
-      else draft[d]={work:true,start:brush.start,end:brush.end};
+      if(st.work&&st.start===brush.start&&st.end===brush.end&&st.city===brush.city)draft[d]={work:false,start:st.start,end:st.end,city:st.city};
+      else draft[d]={work:true,start:brush.start,end:brush.end,city:brush.city};
       render();
     });
-    $('dallw').onclick=()=>{if(brush.end<=brush.start){alert('Кінець має бути пізніше за початок');return;}daysOf().forEach(d=>{draft[d]={work:true,start:brush.start,end:brush.end};});render();};
+    $('dallw').onclick=()=>{if(brush.end<=brush.start){alert('Кінець має бути пізніше за початок');return;}daysOf().forEach(d=>{draft[d]={work:true,start:brush.start,end:brush.end,city:brush.city};});render();};
     $('dallo').onclick=()=>{daysOf().forEach(d=>{const st=stateOf(d);draft[d]={work:false,start:st.start,end:st.end};});render();};
     $('dtmpl').onclick=()=>{daysOf().forEach(d=>{draft[d]=tmplOf(d);});render();};
     $('dweek').onclick=()=>schedModal(ym);
@@ -959,8 +987,11 @@ function datesSchedModal(initYM){
         if(matches)delete exceptions[d];
         else if(!st.work)exceptions[d]={work:false};
         else exceptions[d]={work:true,start:st.start,end:st.end};
+        if(st.work&&st.city)dayCity[d]=st.city;   // місто дня зберігаємо окремо від годин
       });
       localStorage.setItem('exc',JSON.stringify(exceptions));
+      localStorage.setItem('dayCity',JSON.stringify(dayCity));
+      _cmCache.v=-1;
       hide();drawCal();
     };
   }
@@ -1117,7 +1148,7 @@ function apptModal(a,date,time,prefill){
   // before the person has hit "Зберегти" even once still have somewhere
   // to be saved to. Does nothing (and any not-yet-persisted edits simply
   // wait) if those two aren't filled in yet.
-  let dirty=false,savedFinal=false;
+  let dirty=false,savedFinal=false,cityTouched=!!(a&&a.city);
   const myToken={};apptToken=myToken;
   if(a)markOpen(a.id);
   const setSaveNote=t=>$('modal').querySelectorAll('[data-savenote]').forEach(e=>{e.textContent=t;});
@@ -1193,7 +1224,7 @@ function apptModal(a,date,time,prefill){
   // or removing a service) — otherwise anything the user just typed gets
   // thrown away and replaced with the original appointment's values.
   let fClient=a?.client||prefill?.client||'', fPhone=a?.phone||prefill?.phone||'', fDate=a?.date||date||today(),
-      fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fPaid=a?.paid||0, fTips=a?.tips||0, fNote=a?.note||'', fFormula=a?.formula||'', fSource=a?.source||'';
+      fTime=a?.time||time||'10:00', fStatus=a?.status||'pending', fPaid=a?.paid||0, fTips=a?.tips||0, fNote=a?.note||'', fFormula=a?.formula||'', fSource=a?.source||'', fCity=a?.city||cityOf(a?.date||date||today());
   let matSearchQ='';
   const captureFields=()=>{
     if($('fc'))fClient=$('fc').value;
@@ -1206,16 +1237,17 @@ function apptModal(a,date,time,prefill){
     if($('fn'))fNote=$('fn').value;
     if($('fform'))fFormula=$('fform').value;
     if($('fsrc'))fSource=$('fsrc').value;
+    if($('fcity'))fCity=$('fcity').value;
     if($('fmsearch'))matSearchQ=$('fmsearch').value;
     const hEl=$('fdh'),mEl=$('fdm');if(hEl&&mEl)durOverride=+hEl.value*60+ +mEl.value;
   };
 
   function renderApptModal(){
-    const opts=svcs.map(s=>`<option value="${s.id}">${s.name} — ${fmt(s.price)} грн</option>`).join('');
+    const opts=svcs.map(s=>`<option value="${s.id}">${s.name} — ${fmt(svcPrice(s,fCity))} грн</option>`).join('');
     const fmtDur=d=>{const h=Math.floor(d/60),m=d%60;return(h>0?h+'г ':'')+( m>0?m+'хв':'');};
     const selRows=selSvcs.map((ss,i)=>{
       const svc=svcs.find(s=>s.id===ss.serviceId);
-      const baseP=svc?.price||0;
+      const baseP=svcPrice(svc,fCity);
       const adj=ss.adj||0; // positive=markup, negative=discount
       const finalP=Math.max(0,baseP+adj);
       return`<div style="background:var(--surf);border:1px solid var(--brd);border-radius:8px;padding:10px;margin-bottom:8px">
@@ -1236,7 +1268,7 @@ function apptModal(a,date,time,prefill){
         </div>
       </div>`;
     }).join('');
-    const totalPrice=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
+    const totalPrice=selSvcs.reduce((s,ss)=>s+Math.max(0,svcPrice(svcs.find(sv=>sv.id===ss.serviceId),fCity)+(ss.adj||0)),0);
     const totalDurMin=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.duration||60),0);
     const totalDur=totalDurMin; // keep for compat
     const fmtTotalDur=d=>{const h=Math.floor(d/60),m=d%60;return(h>0?h+'г ':'')+( m>0?m+'хв':'');};
@@ -1452,7 +1484,7 @@ function apptModal(a,date,time,prefill){
     // next add/remove.
     const fmtDurLive=d=>{const h=Math.floor(d/60),m=d%60;return(h>0?h+'г ':'')+(m>0?m+'хв':'');};
     function updateAllLiveDisplays(){
-      const totalPrice2=selSvcs.reduce((s,ss)=>s+Math.max(0,(svcs.find(sv=>sv.id===ss.serviceId)?.price||0)+(ss.adj||0)),0);
+      const totalPrice2=selSvcs.reduce((s,ss)=>s+Math.max(0,svcPrice(svcs.find(sv=>sv.id===ss.serviceId),fCity)+(ss.adj||0)),0);
       const totalDurMin2=selSvcs.reduce((s,ss)=>s+(svcs.find(sv=>sv.id===ss.serviceId)?.duration||60),0);
       const shownDur2=Math.min(durOverride!==null?durOverride:totalDurMin2,480);
       const hdr=$('svcHeaderInfo');
@@ -1741,6 +1773,15 @@ function clientHistoryModalOld(clientName){
 // ══════════════ KPI: завантаження, скасування, повернення, динаміка, ціль, джерела ══════════════
 const SOURCES=['Instagram','Рекомендація','Реклама','Google/карти','Інше'];
 const apptRev=a=>(a.paid||apptTotalPrice(a));
+// «Приїзд» = серія днів із записами; розрив понад 21 день починає новий.
+function workBlocks(){
+  const dd=(a,b)=>Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000);
+  const ds=[...new Set(appts.filter(a=>!a.isBreak&&a.date&&a.status!=='cancelled').map(a=>a.date))].sort();
+  const bl=[];
+  ds.forEach(d=>{const b=bl[bl.length-1];if(b&&dd(b.to,d)<=21)b.to=d;else bl.push({from:d,to:d});});
+  bl.forEach(b=>{const cnt={};appts.forEach(a=>{if(!a.isBreak&&a.status!=='cancelled'&&a.date>=b.from&&a.date<=b.to){const c=apptCity(a);cnt[c]=(cnt[c]||0)+1;}});b.cities=cnt;});
+  return bl;
+}
 let _notRet=[];
 function kpiStatsHtml(){
   const t=today(),now=new Date();
@@ -1795,6 +1836,27 @@ function kpiStatsHtml(){
     </div>
     <div style="font-size:12px;color:var(--mut)">Вільно: <b style="color:var(--sil)">${hrs(freeMins)} год</b>${perDone>0?` · ≈ недоотримано <b style="color:var(--wrn)">${fmt(lostIdle)} грн</b> (за вашою ставкою за годину)`:''}</div>${overMins>0?`<div style="font-size:11px;color:var(--dim);margin-top:6px">Понад графік: ${hrs(overMins)} год — записи у вихідні або поза робочими годинами. У завантаження не входять, у виручку входять.</div>`:''}</div>`;
 
+  // 1б) Київ і Бориспіль окремо: виручка, матеріали, витрати міста, прибуток
+  const cityAgg={};
+  const ce=c=>cityAgg[c]||(cityAgg[c]={name:c,days:0,visits:0,rev:0,tips:0,mat:0,exp:0});
+  CITIES.forEach(c=>ce(c));
+  dates.forEach(d=>{if(hasAppt(d))ce(cityOf(d)).days++;});   // робочий день = день із записами
+  doneF.forEach(a=>{const o=ce(apptCity(a));o.visits++;o.rev+=apptRev(a);o.tips+=(a.tips||0);o.mat+=(a.materialCost||0);});
+  let generalExp=0;
+  exps.forEach(e=>{if(!e.date||e.date<from||e.date>to)return;const amt=e.amount||0;if(CITIES.includes(e.city))ce(e.city).exp+=amt;else generalExp+=amt;});
+  const cityRows=Object.values(cityAgg);
+  const netOf=o=>o.rev+o.tips-o.mat-o.exp;
+  const totalNet=cityRows.reduce((s,o)=>s+netOf(o),0)-generalExp;
+  const cityCard=`<div class="card"><div class="sec" style="margin-top:0">🏙 Київ і Бориспіль окремо</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">${dates.length?fmtS(from)+' – '+fmtS(toFact):''} · прибуток міста = виручка + чайові − матеріали − витрати міста</div>
+    ${cityRows.map(o=>`<div style="padding:10px 0;border-bottom:1px solid var(--brd)">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;font-weight:700;color:${o.name==='Київ'?'#E07B39':'var(--txt)'}">${o.name}</span><b style="color:var(--sil);font-size:15px">${fmt(o.rev)} грн</b></div>
+      <div style="font-size:11px;color:var(--mut);margin-top:3px">візитів ${o.visits} · сер. чек ${fmt(o.visits?o.rev/o.visits:0)} грн · днів із записами ${o.days}${o.days?' · '+fmt(o.rev/o.days)+' грн/день':''}</div>
+      <div style="font-size:11px;color:var(--mut);margin-top:2px">чайові +${fmt(o.tips)} · матеріали −${fmt(o.mat)} · витрати міста −${fmt(o.exp)}</div>
+      <div style="font-size:13px;font-weight:700;margin-top:4px;color:${netOf(o)>=0?'var(--ok)':'var(--err)'}">Прибуток: ${fmt(netOf(o))} грн${o.days?' <span style="font-weight:500;color:var(--mut)">('+fmt(netOf(o)/o.days)+' грн/день)</span>':''}</div></div>`).join('')}
+    <div style="font-size:11px;color:var(--mut);margin-top:8px">Загальні витрати (без міста): <b>−${fmt(generalExp)} грн</b> · разом після них: <b style="color:${totalNet>=0?'var(--ok)':'var(--err)'}">${fmt(totalNet)} грн</b></div>
+    <div style="font-size:10px;color:var(--dim);margin-top:6px">Виручка йде в місто за позначкою дня в календарі (тап по даті). Минулі київські дні без позначки рахуються як Бориспіль. Оренду й дорогу в Київ вносьте у «Витрати» з містом «Київ».</div></div>`;
+
   // 2) Скасування та неявки (за весь період, включно з майбутніми датами)
   const inFull=real.filter(a=>a.date>=from&&a.date<=to);
   const cDone=inFull.filter(a=>a.status==='done').length,cNo=inFull.filter(a=>a.status==='noshow').length,cCan=inFull.filter(a=>a.status==='cancelled').length;
@@ -1808,26 +1870,70 @@ function kpiStatsHtml(){
     <div style="font-size:12px;color:var(--mut)">Втрачена виручка (за вартістю послуг): <b style="color:var(--err)">${fmt(lostRev)} грн</b> · рахується від ${resolved} завершених записів</div>
     ${unmarked?`<div style="font-size:11px;color:var(--wrn);margin-top:6px">⚠️ ${unmarked} минулих записів без статусу — відмітьте їх, інакше вони не потрапляють у виручку й показники.</div>`:''}</div>`;
 
-  // 3) Повернення клієнток 30/60/90 днів
+  // 3) Приїзди (серії днів із записами) і повернення «у наступний приїзд»
   const cl=buildClients();
-  const ret={30:{e:0,r:0},60:{e:0,r:0},90:{e:0,r:0}};
-  const notRet=[];
-  cl.forEach(c=>{
-    const ds=[...new Set(c.all.filter(a=>a.status==='done').map(a=>a.date))].sort();
-    ds.forEach((d,i)=>{
-      if(d<from||d>toFact)return;
-      const age=diffDays(d,t),next=ds[i+1];
-      [30,60,90].forEach(N=>{if(age>=N){ret[N].e++;if(next&&diffDays(d,next)<=N)ret[N].r++;}});
-      if(age>=90&&!(next&&diffDays(d,next)<=90))notRet.push({c,d});
-    });
+  const blocks=workBlocks();
+  const keyByAppt={};cl.forEach(c=>c.all.forEach(a=>{keyByAppt[a.id]=c.key;}));
+  blocks.forEach(b=>{
+    const ap=appts.filter(a=>!a.isBreak&&a.status==='done'&&a.date>=b.from&&a.date<=b.to);
+    b.rev=ap.reduce((s,a)=>s+apptRev(a),0);
+    b.clients=new Set(ap.map(a=>keyByAppt[a.id]).filter(Boolean));
   });
-  _notRet=notRet;
-  const rr=N=>ret[N].e?ret[N].r/ret[N].e*100:null;
-  const retCard=`<div class="card"><div class="sec" style="margin-top:0">🔁 Повернення клієнток</div>
-    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">Яка частка візитів періоду завершилась новим візитом протягом N днів. Враховуються лише візити, для яких цей строк уже минув.</div>
-    <div class="sg" style="grid-template-columns:repeat(3,1fr);margin-bottom:0">
-      ${[30,60,90].map(N=>stat(pc(rr(N)),'за '+N+' дн.'+(ret[N].e?' (з '+ret[N].e+')':''),rr(N)==null?'var(--mut)':rr(N)>=50?'var(--ok)':rr(N)>=30?'var(--wrn)':'var(--err)')).join('')}
-    </div>${ret[90].e?`<button class="btn bg bs" id="retDetail" style="margin-top:10px;width:100%;justify-content:center">Хто не повернулась за 90 днів (${notRet.length})</button>`:''}</div>`;
+  let retNum=0,retDen=0;const seen=new Set();
+  blocks.forEach((b,i)=>{
+    b.newN=[...b.clients].filter(k=>!seen.has(k)).length;b.retN=b.clients.size-b.newN;
+    const prev=blocks[i-1];
+    const back=prev?[...prev.clients].filter(k=>b.clients.has(k)).length:0;
+    b.fromPrev=prev&&prev.clients.size?back/prev.clients.size*100:null;
+    if(prev&&prev.clients.size&&b.to<t&&b.from>=from&&b.from<=toFact){retNum+=back;retDen+=prev.clients.size;}
+    b.clients.forEach(k=>seen.add(k));
+  });
+  const retPct=retDen?retNum/retDen*100:null;
+  // Хто з минулого приїзду ще не приходив у найновіший (для перевірки дублів імен і для нагадувань)
+  _notRet=[];
+  if(blocks.length>=2){
+    const L=blocks[blocks.length-1],P=blocks[blocks.length-2];
+    [...P.clients].filter(k=>!L.clients.has(k)).forEach(k=>{const c=cl.find(x=>x.key===k);if(c)_notRet.push({c,d:c.lastDone||P.to});});
+  }
+  const tripRows=blocks.slice(-6).reverse().map(b=>{
+    const ongoing=b.from<=t&&b.to>=t;
+    const cities=Object.entries(b.cities).sort((x,y)=>y[1]-x[1]).map(([c,n])=>c+' '+n).join(' · ');
+    return`<div style="padding:8px 0;border-bottom:1px solid var(--brd)">
+      <div style="display:flex;justify-content:space-between"><span style="font-size:13px;font-weight:600">${fmtS(b.from)} – ${fmtS(b.to)}${ongoing?' · триває':''}</span><b style="color:var(--sil)">${fmt(b.rev)} грн</b></div>
+      <div style="font-size:11px;color:var(--mut)">записів: ${cities} · клієнток ${b.clients.size} (нових ${b.newN}, повторних ${b.retN})${b.fromPrev!=null?` · з минулого приїзду прийшли ${Math.round(b.fromPrev)}%`:''}</div></div>`;
+  }).join('');
+  const retCard=`<div class="card"><div class="sec" style="margin-top:0">✈️ Приїзди та повернення</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">Приїзд — серія днів із записами (розрив між ними до 21 дня). Повернення — яка частка клієнток попереднього приїзду прийшла в наступний. Рахуються лише завершені приїзди за обраний період.</div>
+    <div class="sg" style="margin-bottom:8px">${stat(pc(retPct),'Повернулись у наступний приїзд'+(retDen?' (з '+retDen+')':''),retPct==null?'var(--mut)':retPct>=50?'var(--ok)':retPct>=30?'var(--wrn)':'var(--err)')}${stat(blocks.length,'Приїздів усього')}</div>
+    ${tripRows||'<div style="color:var(--dim);text-align:center;padding:14px 0">Немає даних</div>'}
+    ${_notRet.length?`<button class="btn bg bs" id="retDetail" style="margin-top:10px;width:100%;justify-content:center">Хто з минулого приїзду ще не приходила (${_notRet.length})</button>`:''}</div>`;
+
+  // 3б) Окупність приїздів: по кожному приїзду й місту — виручка проти витрат цього міста
+  const dd2=(x,y)=>Math.round((new Date(y+'T12:00:00')-new Date(x+'T12:00:00'))/86400000);
+  const tripAgg=blocks.map(()=>{const o={};CITIES.forEach(c=>{o[c]={rev:0,tips:0,mat:0,exp:0,days:new Set()};});return o;});
+  const blockIdx=d=>blocks.findIndex(b=>d>=b.from&&d<=b.to);
+  appts.forEach(a=>{
+    if(a.isBreak||!a.date||a.status==='cancelled')return;
+    const i=blockIdx(a.date);if(i<0)return;
+    const o=tripAgg[i][apptCity(a)];if(!o)return;
+    o.days.add(a.date);
+    if(a.status==='done'){o.rev+=apptRev(a);o.tips+=(a.tips||0);o.mat+=(a.materialCost||0);}
+  });
+  // Витрата міста належить найближчому приїзду (оренду платять наперед, дорогу — у дні приїзду); далі 45 днів — поза приїздами
+  const nearBlock=d=>{let bi=-1,bd=1e9;blocks.forEach((b,i)=>{const dist=d<b.from?dd2(d,b.from):d>b.to?dd2(b.to,d):0;if(dist<bd){bd=dist;bi=i;}});return bd<=45?bi:-1;};
+  exps.forEach(e=>{if(!e.date||!CITIES.includes(e.city))return;const i=nearBlock(e.date);if(i>=0)tripAgg[i][e.city].exp+=(e.amount||0);});
+  const payRows=blocks.map((b,i)=>({b,i})).slice(-6).reverse().map(({b,i})=>{
+    const ongoing=b.from<=t&&b.to>=t;
+    const lines=CITIES.map(c=>{
+      const o=tripAgg[i][c];if(!(o.rev||o.exp||o.mat))return'';
+      const net=o.rev+o.tips-o.mat-o.exp;
+      return`<div style="font-size:12px;margin-top:4px;color:var(--mut)"><b style="color:${c==='Київ'?'#E07B39':'var(--txt)'}">${c}</b>: виручка ${fmt(o.rev)} · витрати ${fmt(o.exp)} · матеріали ${fmt(o.mat)} → <b style="color:${net>=0?'var(--ok)':'var(--err)'}">${net>=0?'+':''}${fmt(net)} грн</b> ${net>=0?'✅':'⚠️ не окупився'} <span style="color:var(--dim)">· днів ${o.days.size}</span></div>`;
+    }).join('');
+    return`<div style="padding:9px 0;border-bottom:1px solid var(--brd)"><div style="font-size:13px;font-weight:600">${fmtS(b.from)} – ${fmtS(b.to)}${ongoing?' · триває':''}</div>${lines||'<div style="font-size:11px;color:var(--dim)">немає виручки й витрат за містами</div>'}</div>`;
+  }).join('');
+  const payCard=`<div class="card"><div class="sec" style="margin-top:0">💰 Окупність приїздів</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:6px">Для кожного приїзду й міста: виручка + чайові − матеріали − витрати цього міста (оренда, дорога…). Витрати з містом відносяться до найближчого приїзду (до 45 днів). Загальні витрати без міста сюди не входять.</div>
+    ${payRows||'<div style="color:var(--dim);text-align:center;padding:14px 0">Немає даних</div>'}</div>`;
 
   // 4) Ціль місяця і прогноз
   const ym=t.slice(0,7),goal=+(localStorage.getItem('goal')||0);
@@ -1872,7 +1978,7 @@ function kpiStatsHtml(){
       <div style="display:flex;justify-content:space-between"><span style="font-size:13px;font-weight:600">${o.name}</span><b style="color:var(--sil)">${fmt(o.rev)} грн</b></div>
       <div style="font-size:11px;color:var(--mut)">клієнток: ${o.clients} · сер. чек ${fmt(o.visits?o.rev/o.visits:0)} грн · повернулись: ${o.clients?Math.round(o.ret/o.clients*100):0}%</div></div>`).join('')}
     ${srcAgg['Не вказано']&&Object.keys(srcAgg).length===1?'<div style="font-size:11px;color:var(--dim);margin-top:8px">Вкажіть «Звідки клієнтка» у записі — тоді тут з’явиться розбивка.</div>':''}</div>`;
-  return loadCard+cancelCard+retCard+goalCard+dynCard+srcCard;
+  return loadCard+cityCard+cancelCard+retCard+payCard+goalCard+dynCard+srcCard;
 }
 // Діагностика повернень: кого вважаємо «не повернулась» і чи немає схожих імен (можливі дублі однієї клієнтки).
 document.addEventListener('click',e=>{
@@ -1882,8 +1988,8 @@ document.addEventListener('click',e=>{
     const sim=all.filter(o=>o.key!==c.key&&tok(o.name)&&tok(o.name)===tok(c.name)).slice(0,2).map(o=>o.name);
     return`<div class="ri"><div class="rl"><div class="rn">${c.name}</div><div class="rs">візит ${fmtS(d)}${c.lastDone&&c.lastDone!==d?' · останній '+fmtS(c.lastDone):''}</div>${sim.length?`<div class="rs" style="color:var(--wrn)">схожа: ${sim.join(', ')}</div>`:''}</div></div>`;
   }).join('');
-  show(`<div class="mh"><div class="mt">Не повернулись за 90 днів</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
-    <div style="font-size:11px;color:var(--dim);margin-bottom:10px">Якщо поруч є «схожа: …», це, найімовірніше, одна людина з різним написанням імені — об’єднайте їх у Клієнти → Об’єднати дублі, і показники стануть точнішими.</div>${rows||'<div class="empty">Немає</div>'}`);
+  show(`<div class="mh"><div class="mt">З минулого приїзду ще не приходили</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:10px">Це клієнтки минулого приїзду без візиту в найновішому (він може ще тривати) — кому варто написати. Якщо поруч є «схожа: …», це, найімовірніше, одна людина з різним написанням імені — об’єднайте їх у Клієнти → Об’єднати дублі, і показники стануть точнішими.</div>${rows||'<div class="empty">Немає</div>'}`);
   $('mx').onclick=hide;
 });
 document.addEventListener('click',e=>{
@@ -3280,7 +3386,7 @@ function drawExp(){
     <div class="chips">${['Всі',...cats].map(c=>`<button class="chip ${expCat===c?'on':''}" data-ec="${c}">${c}</button>`).join('')}</div>
     ${fil.length===0?'<div class="empty">Витрат немає</div>':fil.map(o=>`
       <div class="ri">
-        <div class="rl"><div class="rn">${o.name||o.category||'Витрата'}</div><div class="rs">${o.category||''} · ${o.date}${o.note?' · '+o.note:''}</div></div>
+        <div class="rl"><div class="rn">${o.name||o.category||'Витрата'}</div><div class="rs">${o.category||''}${o.city?' · '+o.city:''} · ${o.date}${o.note?' · '+o.note:''}</div></div>
         <div class="rr"><div class="rv" style="color:var(--err)">${fmt(o.amount)} грн</div></div>
         <div class="rac">
           <button class="bi bs" data-ee="${o.id}">${svg(ic.edit,13)}</button>
@@ -3297,6 +3403,7 @@ function drawExp(){
 function expModal(id){
   const o=id?exps.find(x=>x.id===id):null;
   let selCat=o?.category||null;
+  let selCity=o?.city||'';   // '' = загальні витрати (не прив’язані до міста)
   function render(){
     const cats=getExpCats();
     if(!selCat||!cats.includes(selCat))selCat=cats[0];
@@ -3307,6 +3414,7 @@ function expModal(id){
         ${cats.map(c=>`<option value="${c}" ${selCat===c?'selected':''}>${c}</option>`).join('')}
         <option value="__new__">+ Нова категорія...</option>
       </select></div>
+      <div class="field"><label>Місто</label><select class="fi" id="ecity"><option value="" ${selCity===''?'selected':''}>Загальні (не прив’язані до міста)</option>${CITIES.map(x=>`<option value="${x}" ${selCity===x?'selected':''}>${x}</option>`).join('')}</select></div>
       <div class="field"><label>Сума (грн)</label><input type="number" class="fi" id="eam" value="${o?.amount||0}"/></div>
       <div class="field"><label>Дата</label><input type="date" class="fi" id="edate" value="${o?.date||today()}"/></div>
       <div class="field"><label>Примітка</label><textarea class="fi" id="enote">${o?.note||''}</textarea></div>
@@ -3316,6 +3424,7 @@ function expModal(id){
         <button class="btn bp" id="esave">Зберегти</button>
       </div>`;
     $('mx').onclick=hide;$('ecancel').onclick=hide;
+    $('ecity').onchange=e=>{selCity=e.target.value;};
     $('ecat').onchange=e=>{
       if(e.target.value==='__new__'){
         const name=(prompt('Назва нової категорії:')||'').trim();
@@ -3333,7 +3442,7 @@ function expModal(id){
       const name=$('en').value.trim();
       const amount=+$('eam').value||0;
       if(!name||!amount){alert('Заповніть назву і суму');return;}
-      const data={name,category:selCat,amount,date:$('edate').value,note:$('enote').value};
+      const data={name,category:selCat,city:$('ecity').value,amount,date:$('edate').value,note:$('enote').value};
       bgWrites([id?updateDoc(doc(db,'expenses',id),data):addDoc(collection(db,'expenses'),data)],'exp-save');
       hide();
     };
@@ -3372,6 +3481,15 @@ function buildClientsRaw(){
   });
   const todayStr=today(),dayMs=86400000;
   const diff=(d1,d2)=>Math.round((new Date(d2+'T12:00:00')-new Date(d1+'T12:00:00'))/dayMs);
+  // «Маятник»: ритм клієнтки задають лише проміжки >30 днів (між приїздами); короткі — в межах одного приїзду.
+  const _rhy=[];
+  Object.values(map).forEach(c=>{
+    const ds=[...new Set(c.all.filter(a=>a.status==='done').map(a=>a.date))].sort();
+    const lg=[];for(let i=1;i<ds.length;i++){const g=diff(ds[i-1],ds[i]);if(g>30)lg.push(g);}
+    if(lg.length)_rhy.push(lg.reduce((s,g)=>s+g,0)/lg.length);
+  });
+  _rhy.sort((x,y)=>x-y);
+  const medRhythm=_rhy.length?_rhy[Math.floor(_rhy.length/2)]:0;
   return Object.values(map).map(c=>{
     const live=c.all.filter(a=>a.status!=='cancelled'&&a.status!=='noshow');
     const done=live.filter(a=>a.status==='done');
@@ -3379,10 +3497,12 @@ function buildClientsRaw(){
     const next=live.filter(a=>(a.status==='pending'||a.status==='confirmed')&&a.date>=todayStr).sort((x,y)=>(x.date+(x.time||'')).localeCompare(y.date+(y.time||'')))[0]||null;
     const gaps=[];
     for(let i=1;i<doneDates.length;i++)gaps.push(diff(doneDates[i-1],doneDates[i]));
-    const avgGap=gaps.length?gaps.reduce((s,g)=>s+g,0)/gaps.length:null;
+    const longGaps=gaps.filter(g=>g>30);
+    const avgGap=longGaps.length?longGaps.reduce((s,g)=>s+g,0)/longGaps.length:(gaps.length?gaps.reduce((s,g)=>s+g,0)/gaps.length:null);
     const lastDone=doneDates[doneDates.length-1]||null;
     const daysSince=lastDone?diff(lastDone,todayStr):null;
-    const threshold=avgGap?Math.max(21,avgGap*1.5):45;
+    const base=longGaps.length?avgGap:medRhythm;   // без власного ритму беремо типовий по базі
+    const threshold=base?Math.max(45,base*1.5):45;
     const booked=!!next;
     const overdue=!booked&&daysSince!==null&&daysSince>threshold;
     const lost=overdue&&daysSince>Math.max(90,threshold*2);
