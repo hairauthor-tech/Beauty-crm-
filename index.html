@@ -168,7 +168,8 @@ let _adCache={v:-1,set:null},_cmCache={v:-1,map:null};
 const hasAppt=d=>{if(_adCache.v!==dataVer){const st=new Set();appts.forEach(a=>{if(!a.isBreak&&a.date&&a.status!=='cancelled')st.add(a.date);});_adCache={v:dataVer,set:st};}return _adCache.set.has(d);};
 // Місто дня: явна позначка → місто записів цього дня → найближчий попередній день (до 14 днів) → останнє обране → Київ
 const cityMap=()=>{if(_cmCache.v!==dataVer){const cnt={};appts.forEach(a=>{if(!a.isBreak&&a.date&&a.city&&a.status!=='cancelled'){const o=cnt[a.date]||(cnt[a.date]={});o[a.city]=(o[a.city]||0)+1;}});const m={};Object.keys(cnt).forEach(d=>{m[d]=Object.keys(cnt[d]).sort((x,y)=>cnt[d][y]-cnt[d][x])[0];});_cmCache={v:dataVer,map:m};}return _cmCache.map;};
-const cityOf=d=>{if(dayCity[d])return dayCity[d];const m=cityMap();if(m[d])return m[d];let x=d;for(let i=0;i<14;i++){x=addDays(x,-1);if(dayCity[x])return dayCity[x];if(m[x])return m[x];}return localStorage.getItem('lastCity')||CITIES[0];};
+// День київський лише якщо ви його позначили; без «успадкування» від сусідніх днів (Київ буває не підряд).
+const cityOf=d=>dayCity[d]||CITIES[0];
 const cityShort=c=>c==='Бориспіль'?'Бор.':(c||'');
 // Ціна послуги залежить від міста; без міста (старі записи) — базова ціна
 const svcPrice=(sv,city)=>sv?(+sv.price||0):0;   // одна ціна; різницю Київ/Бориспіль ви вводите вручну в записі
@@ -651,6 +652,7 @@ function drawCal(){
       <button class="btn bp bs" id="cadd" style="flex-shrink:0">${svg(ic.plus,14)} Запис</button>
       <button class="btn bg bs" id="cclients" style="flex-shrink:0">👤 Клієнти</button>
       <button class="btn bg bs" id="cbreak" style="flex-shrink:0">⏸ Перерва</button>
+      <button class="btn bg bs" id="ckyiv" style="flex-shrink:0;color:#E07B39;border-color:#E07B39">🟠 Київ</button>
       <button class="bi" id="csched" style="flex-shrink:0">⚙️</button>
     </div>
     <div style="overflow-x:auto;border:1px solid var(--brd);border-radius:10px;position:relative" id="calGridWrap">
@@ -668,6 +670,7 @@ function drawCal(){
   $('cclients').onclick=()=>clientsListModal();
   $('cbreak').onclick=()=>breakModal(null,calDate);
   $('csched').onclick=()=>datesSchedModal(calDate.slice(0,7));
+  $('ckyiv').onclick=()=>kyivDaysModal(calDate.slice(0,7));
   el.querySelectorAll('.vb').forEach(b=>b.addEventListener('click',()=>{calView=+b.dataset.cv;drawCal();}));
   // Тап по даті у шапці: день у Києві ↔ звичайний день (Бориспіль)
   el.querySelectorAll('[data-hd]').forEach(h=>h.addEventListener('click',()=>{
@@ -1828,13 +1831,16 @@ function kpiStatsHtml(){
   const perWork=workMins?revF/(workMins/60):0, perDone=doneMins?revF/(doneMins/60):0;
   const freeMins=Math.max(0,workMins-busyMins), lostIdle=freeMins/60*perDone;
   const loadColor=loadPct==null?'var(--mut)':loadPct>=70?'var(--ok)':loadPct>=40?'var(--wrn)':'var(--err)';
+  const sameLD=Math.abs(doneIn-busyMins)<15;   // усі записи виконані — окремий відсоток «виконано» нічого не додає
   const loadCard=`<div class="card"><div class="sec" style="margin-top:0">📈 Завантаження та ефективність</div>
-    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">${dates.length?fmtS(from)+' – '+fmtS(toFact):'період ще не настав'} · робочих годин: ${hrs(workMins)}</div>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:8px">${dates.length?fmtS(from)+' – '+fmtS(toFact):'період ще не настав'} · робочих годин у графіку: ${hrs(workMins)}</div>
     <div class="sg" style="margin-bottom:8px">
-      ${stat(pc(loadPct),'Завантаження (записи)',loadColor)}${stat(pc(donePct),'Відпрацьовано (виконано)','var(--acs)')}
-      ${stat(fmt(perWork)+' грн','Виручка за робочу годину')}${stat(fmt(perDone)+' грн','Виручка за годину роботи')}
+      ${stat(pc(loadPct),'Завантаження: '+hrs(busyMins)+' з '+hrs(workMins)+' год',loadColor)}${stat(hrs(freeMins)+' год','Вільно в графіку','var(--acs)')}
+      ${stat(fmt(perDone)+' грн','За годину з клієнткою')}${stat(fmt(perWork)+' грн','За годину графіка, з порожніми')}
     </div>
-    <div style="font-size:12px;color:var(--mut)">Вільно: <b style="color:var(--sil)">${hrs(freeMins)} год</b>${perDone>0?` · ≈ недоотримано <b style="color:var(--wrn)">${fmt(lostIdle)} грн</b> (за вашою ставкою за годину)`:''}</div>${overMins>0?`<div style="font-size:11px;color:var(--dim);margin-top:6px">Понад графік: ${hrs(overMins)} год — записи у вихідні або поза робочими годинами. У завантаження не входять, у виручку входять.</div>`:''}</div>`;
+    <div style="font-size:11px;color:var(--dim)"><b>За годину з клієнткою</b> — виручка, поділена на години, коли ви реально працювали з клієнтками: ваша фактична ставка. <b>За годину графіка</b> — та сама виручка, поділена на всі робочі години, разом із порожніми, тому вона завжди нижча.</div>
+    ${!sameLD?`<div style="font-size:11px;color:var(--dim);margin-top:6px">З записаних годин виконано ${hrs(doneIn)} год (${pc(donePct)} графіка), решта — ще заплановані.</div>`:''}
+    ${overMins>0?`<div style="font-size:11px;color:var(--dim);margin-top:6px">Понад графік: ${hrs(overMins)} год — записи у вихідні або поза робочими годинами. У завантаження не входять, у виручку входять.</div>`:''}</div>`;
 
   // 1б) Київ і Бориспіль окремо: виручка, матеріали, витрати міста, прибуток
   const cityAgg={};
@@ -2102,6 +2108,50 @@ function apptQuickModal(a){
     const ws=quickSetStatus(a,k,k==='done'?money():(fm!==(a.formula||'')?{formula:fm}:null));
     hide();bgWrites(ws,'quick-status');
   });
+}
+
+// Київські дні: позначити кілька дат (не обов’язково підряд) за один захід, потім «Зберегти».
+function kyivDaysModal(initYM){
+  let ym=initYM||today().slice(0,7);
+  const draft={};   // дата -> true (Київ) / false (звичайний день)
+  const isK=d=>(d in draft)?draft[d]:cityOf(d)==='Київ';
+  function render(){
+    const[y,m]=ym.split('-').map(Number);
+    const lbl=new Date(y,m-1,1).toLocaleDateString('uk-UA',{month:'long',year:'numeric'}).replace(/\s*р\.?\s*$/i,'');
+    const first=new Date(y,m-1,1).getDay(),off=first===0?6:first-1,dim=new Date(y,m,0).getDate(),ts=today();
+    const cnt={};appts.forEach(a=>{if(!a.isBreak&&a.status!=='cancelled'&&a.date)cnt[a.date]=(cnt[a.date]||0)+1;});
+    let cells='',kN=0;for(let i=0;i<off;i++)cells+='<div></div>';
+    for(let i=1;i<=dim;i++){
+      const d=y+'-'+String(m).padStart(2,'0')+'-'+String(i).padStart(2,'0');
+      const k=isK(d);if(k)kN++;
+      const style=k?'background:rgba(224,123,57,.25);border:1px solid #E07B39':'background:transparent;border:1px solid var(--brd)';
+      cells+=`<div data-d="${d}" style="${style};border-radius:8px;min-height:46px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;${d===ts?'box-shadow:0 0 0 2px var(--acs);':''}">
+        <div style="font-size:14px;font-weight:700;color:${k?'#E07B39':'var(--txt)'}">${i}</div>
+        <div style="font-size:9px;color:var(--dim)">${cnt[d]?cnt[d]+' зап.':''}</div></div>`;
+    }
+    $('modal').innerHTML=`
+      <div class="mh"><div class="mt">🟠 Київські дні</div><button class="bi" id="mx">${svg(ic.x,18)}</button></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <button class="bi" id="kprev">${svg(ic.l,16)}</button>
+        <div style="flex:1;text-align:center;font-weight:800;font-size:16px;text-transform:capitalize">${lbl}</div>
+        <button class="bi" id="knext">${svg(ic.r,16)}</button>
+      </div>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:10px">Торкайтесь дат, коли ви працювали (або працюватимете) в Києві, — вони стануть помаранчевими; ще раз торкніться, щоб зняти. Дати не обов’язково підряд. Можна листати місяці. Зміни збережуться після «Зберегти».</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;text-align:center">${['пн','вт','ср','чт','пт','сб','нд'].map(x=>`<div style="font-size:10px;font-weight:600;color:var(--dim)">${x}</div>`).join('')}</div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:10px">${cells}</div>
+      <div style="font-size:12px;color:var(--mut);margin-bottom:6px">Київських днів у цьому місяці: <b style="color:#E07B39">${kN}</b></div>
+      <div class="mf"><button class="btn bg" id="kcancel">Скасувати</button><button class="btn bp" id="ksave">Зберегти</button></div>`;
+    $('mx').onclick=hide;$('kcancel').onclick=hide;
+    $('kprev').onclick=()=>{const d=new Date(y,m-2,1);ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');render();};
+    $('knext').onclick=()=>{const d=new Date(y,m,1);ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');render();};
+    $('modal').querySelectorAll('[data-d]').forEach(c=>c.onclick=()=>{const d=c.dataset.d;draft[d]=!isK(d);render();});
+    $('ksave').onclick=()=>{
+      Object.entries(draft).forEach(([d,k])=>{dayCity[d]=k?'Київ':CITIES[0];});
+      try{localStorage.setItem('dayCity',JSON.stringify(dayCity));}catch(e){}
+      _cmCache.v=-1;hide();drawCal();
+    };
+  }
+  show('');render();
 }
 
 function breakModal(a,date){
