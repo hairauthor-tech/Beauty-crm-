@@ -77,6 +77,9 @@ input[type=date],input[type=time]{color-scheme:dark;}
 button,.chip,.ri,.nb,.bi{touch-action:manipulation;}
 .btn:active,.chip:active,.bi:active,.nb:active,.ri:active{opacity:.6;}
 .COL-H.kyiv{background:rgba(224,123,57,.22);color:#E07B39;}
+details.more>summary{cursor:pointer;list-style:none;padding:12px 14px;margin:6px 0 10px;background:var(--card);border:1px solid var(--brd);border-radius:12px;font-weight:700;font-size:13px;color:var(--acs);text-align:center;}
+details.more>summary::-webkit-details-marker{display:none;}
+details.more[open]>summary{margin-bottom:12px;}
 .AB.confirmed{background:rgba(92,138,168,.2);border-left:3px solid #5C8AA8;}
 .AB.noshow{background:rgba(196,164,106,.16);border-left:3px solid var(--wrn);}
 .AB.noshow .AB-N{text-decoration:line-through;opacity:.8;}
@@ -281,6 +284,7 @@ let dataVer=0;         // версія даних записів/послуг �
 let apptFlush=null;    // «скинути в базу все, що ще не збережено» для відкритого вікна запису
 let apptToken=null;    // який саме екземпляр apptModal зараз на екрані
 let resumeChecked=false;
+let moreOpen=false;   // чи розгорнуто «Ще показники» в Аналітиці
 const markOpen=id=>{try{localStorage.setItem('openAppt',JSON.stringify({id,ts:Date.now()}));}catch(e){}};
 function scheduleDraw(){
   if(drawQueued)return;
@@ -1901,7 +1905,8 @@ function kpiStatsHtml(){
     const L=blocks[blocks.length-1],P=blocks[blocks.length-2];
     [...P.clients].filter(k=>!L.clients.has(k)).forEach(k=>{const c=cl.find(x=>x.key===k);if(c)_notRet.push({c,d:c.lastDone||P.to});});
   }
-  const tripRows=blocks.slice(-6).reverse().map(b=>{
+  const upcoming=blocks.find(b=>b.from>t);   // приїзд, на який записи вже є, але він ще не почався
+  const tripRows=blocks.filter(b=>b.from<=t).slice(-6).reverse().map(b=>{
     const ongoing=b.from<=t&&b.to>=t;
     const cities=Object.entries(b.cities).sort((x,y)=>y[1]-x[1]).map(([c,n])=>c+' '+n).join(' · ');
     return`<div style="padding:8px 0;border-bottom:1px solid var(--brd)">
@@ -1910,7 +1915,8 @@ function kpiStatsHtml(){
   }).join('');
   const retCard=`<div class="card"><div class="sec" style="margin-top:0">✈️ Приїзди та повернення</div>
     <div style="font-size:11px;color:var(--dim);margin-bottom:8px">Приїзд — серія днів із записами (розрив між ними до 21 дня). Повернення — яка частка клієнток попереднього приїзду прийшла в наступний. Рахуються лише завершені приїзди за обраний період.</div>
-    <div class="sg" style="margin-bottom:8px">${stat(pc(retPct),'Повернулись у наступний приїзд'+(retDen?' (з '+retDen+')':''),retPct==null?'var(--mut)':retPct>=50?'var(--ok)':retPct>=30?'var(--wrn)':'var(--err)')}${stat(blocks.length,'Приїздів усього')}</div>
+    <div class="sg" style="margin-bottom:8px">${stat(pc(retPct),'Повернулись у наступний приїзд'+(retDen?' (з '+retDen+')':''),retPct==null?'var(--mut)':retPct>=50?'var(--ok)':retPct>=30?'var(--wrn)':'var(--err)')}${stat(blocks.filter(b=>b.from<=t).length,'Приїздів усього')}</div>
+    ${upcoming?`<div style="font-size:12px;color:var(--wrn);margin-bottom:8px">Найближчий приїзд: ${fmtS(upcoming.from)} – ${fmtS(upcoming.to)} · записів уже: ${Object.values(upcoming.cities).reduce((s2,x)=>s2+x,0)}</div>`:''}
     ${tripRows||'<div style="color:var(--dim);text-align:center;padding:14px 0">Немає даних</div>'}
     ${_notRet.length?`<button class="btn bg bs" id="retDetail" style="margin-top:10px;width:100%;justify-content:center">Хто з минулого приїзду ще не приходила (${_notRet.length})</button>`:''}</div>`;
 
@@ -1933,9 +1939,9 @@ function kpiStatsHtml(){
     const lines=CITIES.map(c=>{
       const o=tripAgg[i][c];if(!(o.rev||o.exp||o.mat))return'';
       const net=o.rev+o.tips-o.mat-o.exp;
-      return`<div style="font-size:12px;margin-top:4px;color:var(--mut)"><b style="color:${c==='Київ'?'#E07B39':'var(--txt)'}">${c}</b>: виручка ${fmt(o.rev)} · витрати ${fmt(o.exp)} · матеріали ${fmt(o.mat)} → <b style="color:${net>=0?'var(--ok)':'var(--err)'}">${net>=0?'+':''}${fmt(net)} грн</b> ${net>=0?'✅':'⚠️ не окупився'} <span style="color:var(--dim)">· днів ${o.days.size}</span></div>`;
+      return`<div style="font-size:12px;margin-top:4px;color:var(--mut)"><b style="color:${c==='Київ'?'#E07B39':'var(--txt)'}">${c}</b>: виручка ${fmt(o.rev)} · витрати ${fmt(o.exp)} · матеріали ${fmt(o.mat)} → <b style="color:${net>=0?'var(--ok)':'var(--err)'}">${net>=0?'+':''}${fmt(net)} грн</b> ${b.to>=t?'· приїзд ще не завершено':(net>=0?'✅':'⚠️ не окупився')} <span style="color:var(--dim)">· днів ${o.days.size}</span></div>`;
     }).join('');
-    return`<div style="padding:9px 0;border-bottom:1px solid var(--brd)"><div style="font-size:13px;font-weight:600">${fmtS(b.from)} – ${fmtS(b.to)}${ongoing?' · триває':''}</div>${lines||'<div style="font-size:11px;color:var(--dim)">немає виручки й витрат за містами</div>'}</div>`;
+    return`<div style="padding:9px 0;border-bottom:1px solid var(--brd)"><div style="font-size:13px;font-weight:600">${fmtS(b.from)} – ${fmtS(b.to)}${ongoing?' · триває':b.from>t?' · попереду':''}</div>${lines||'<div style="font-size:11px;color:var(--dim)">немає виручки й витрат за містами</div>'}</div>`;
   }).join('');
   const payCard=`<div class="card"><div class="sec" style="margin-top:0">💰 Окупність приїздів</div>
     <div style="font-size:11px;color:var(--dim);margin-bottom:6px">Для кожного приїзду й міста: виручка + чайові − матеріали − витрати цього міста (оренда, дорога…). Витрати з містом відносяться до найближчого приїзду (до 45 днів). Загальні витрати без міста сюди не входять.</div>
@@ -1955,8 +1961,9 @@ function kpiStatsHtml(){
     <div style="font-size:12px;color:var(--mut);margin:8px 0 4px">Отримано: <b style="color:var(--ok)">${fmt(monthDone)} грн</b> · заплановано записами: <b style="color:var(--wrn)">${fmt(planned)} грн</b></div>
     ${goal>0?`<div class="pb" style="height:8px"><div class="pf" style="width:${Math.min(100,monthDone/goal*100)}%"></div></div>
       <div style="font-size:12px;color:var(--mut);margin-top:6px">Ціль ${fmt(goal)} грн · виконано ${pc(monthDone/goal*100)}${need>0?` · лишилось ${fmt(need)} грн${remainW?` (≈ ${fmt(need/remainW)} грн на робочий день, днів: ${remainW})`:''}`:' · ціль досягнуто 🎉'}</div>`:''}
-    <div style="font-size:12px;color:var(--mut);margin-top:8px">Прогноз за записами: <b style="color:var(--sil)">${fmt(byBook)} грн</b> · за темпом: <b style="color:var(--sil)">${fmt(pace)} грн</b>${goal>0?` ${byBook>=goal?'✅':'⚠️'}`:''}</div>
-    <div style="font-size:10px;color:var(--dim);margin-top:4px">Темп = виручка за відпрацьовані робочі дні, перенесена на всі робочі дні місяця (${elapsedW} з ${totalW}).</div></div>`;
+    ${totalW===0?'<div style="font-size:12px;color:var(--dim);margin-top:8px">У цьому місяці ще немає робочих днів або записів — прогноз з’явиться, коли вони будуть.</div>':''}
+    <div style="font-size:12px;color:var(--mut);margin-top:8px;${totalW===0?'display:none':''}">Прогноз за записами: <b style="color:var(--sil)">${fmt(byBook)} грн</b> · за темпом: <b style="color:var(--sil)">${fmt(pace)} грн</b>${goal>0?` ${byBook>=goal?'✅':'⚠️'}`:''}</div>
+    <div style="font-size:10px;color:var(--dim);margin-top:4px;${totalW===0?'display:none':''}">Темп = виручка за відпрацьовані робочі дні, перенесена на всі робочі дні місяця (${elapsedW} з ${totalW}).</div></div>`;
 
   // 5) Динаміка за 6 місяців
   const months=Array.from({length:6},(_,i)=>{const d=new Date(now.getFullYear(),now.getMonth()-5+i,1);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');});
@@ -1984,7 +1991,7 @@ function kpiStatsHtml(){
       <div style="display:flex;justify-content:space-between"><span style="font-size:13px;font-weight:600">${o.name}</span><b style="color:var(--sil)">${fmt(o.rev)} грн</b></div>
       <div style="font-size:11px;color:var(--mut)">клієнток: ${o.clients} · сер. чек ${fmt(o.visits?o.rev/o.visits:0)} грн · повернулись: ${o.clients?Math.round(o.ret/o.clients*100):0}%</div></div>`).join('')}
     ${srcAgg['Не вказано']&&Object.keys(srcAgg).length===1?'<div style="font-size:11px;color:var(--dim);margin-top:8px">Вкажіть «Звідки клієнтка» у записі — тоді тут з’явиться розбивка.</div>':''}</div>`;
-  return loadCard+cityCard+cancelCard+retCard+payCard+goalCard+dynCard+srcCard;
+  return{main:cityCard+payCard+retCard,more:loadCard+cancelCard+goalCard+dynCard+srcCard};
 }
 // Діагностика повернень: кого вважаємо «не повернулась» і чи немає схожих імен (можливі дублі однієї клієнтки).
 document.addEventListener('click',e=>{
@@ -3176,6 +3183,7 @@ function drawStats(){
   const maxDyeCnt=Math.max(...topDyesArr.map(d=>d.cnt),1);
   const byDay=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'].map((l,i)=>{const dn=(i+1)%7,r=done.filter(a=>new Date(a.date+'T12:00:00').getDay()===dn).reduce((s,a)=>s+(a.paid||apptTotalPrice(a)),0);return{l,r};});
   const maxD=Math.max(...byDay.map(d=>d.r),1);
+  const K=kpiStatsHtml();
   el.innerHTML=`
     <div class="chips">${[['day','День'],['week','Тиждень'],['month','Місяць'],['year','Рік'],['custom','Період']].map(([k,l])=>`<button class="chip ${period===k?'on':''}" data-p="${k}">${l}</button>`).join('')}</div>
     ${period==='custom'?`<div class="g2" style="margin-bottom:12px">
@@ -3184,17 +3192,21 @@ function drawStats(){
     </div>`:''}
     <div class="sg">
       <div class="sc" id="cardRev" style="cursor:pointer"><div class="sv" style="color:var(--sil)">${fmt(rev)} грн</div><div class="sl">Виручка</div><div style="color:var(--mut);font-size:11px">${done.length} послуг</div></div>
+      <div class="sc"><div class="sv" style="color:${netProfit>=0?'var(--ok)':'var(--err)'}">${fmt(netProfit)} грн</div><div class="sl">Чистий прибуток</div></div>
+      <div class="sc"><div class="sv" style="color:var(--acs)">${fmt(avg)} грн</div><div class="sl">Сер. чек</div></div>
+      <div class="sc" id="cardOtherExp" style="cursor:pointer"><div class="sv" style="color:var(--err)">${fmt(otherExpTotal)} грн</div><div class="sl">Інші витрати</div></div>
+    </div>
+    ${K.main}
+    <details class="more" ${moreOpen?'open':''}><summary>Ще показники</summary>
+    <div class="sg" style="margin-top:10px">
       <div class="sc" id="cardExp" style="cursor:pointer"><div class="sv" style="color:var(--err)">${fmt(exp)} грн</div><div class="sl">Витрати</div></div>
       <div class="sc"><div class="sv" style="color:${profit>=0?'var(--ok)':'var(--err)'}">${fmt(profit)} грн</div><div class="sl">Прибуток</div></div>
-      <div class="sc"><div class="sv" style="color:var(--acs)">${fmt(avg)} грн</div><div class="sl">Сер. чек</div></div>
       <div class="sc" id="cardMatCost" style="cursor:pointer"><div class="sv" style="color:var(--wrn)">${fmt(matCostTotal)} грн</div><div class="sl">Собівартість матеріалів</div></div>
       <div class="sc"><div class="sv" style="color:${svcMargin>=0?'var(--ok)':'var(--err)'}">${fmt(svcMargin)} грн</div><div class="sl">Маржа (${svcMarginPct.toFixed(0)}%)</div></div>
-      <div class="sc" id="cardOtherExp" style="cursor:pointer"><div class="sv" style="color:var(--err)">${fmt(otherExpTotal)} грн</div><div class="sl">Інші витрати</div></div>
       <div class="sc"><div class="sv" style="color:var(--ok)">${fmt(tipsTotal)} грн</div><div class="sl">Чайові</div></div>
       <div class="sc" id="cardSales" style="cursor:pointer"><div class="sv" style="color:var(--acs)">${fmt(salesRevenue)} грн</div><div class="sl">🛍️ Продаж товарів</div><div style="color:${salesMargin>=0?'var(--ok)':'var(--err)'};font-size:11px">маржа ${fmt(salesMargin)} грн</div></div>
-      <div class="sc"><div class="sv" style="color:${netProfit>=0?'var(--ok)':'var(--err)'}">${fmt(netProfit)} грн</div><div class="sl">Чистий прибуток</div></div>
     </div>
-    ${kpiStatsHtml()}
+    ${K.more}
     ${clientsStatsHtml(done,inSelPeriod,avg)}
     <div class="card"><div class="sec" style="margin-top:0">По днях тижня</div>
       <div style="display:flex;align-items:flex-end;gap:5px;height:80px">
@@ -3300,7 +3312,9 @@ function drawStats(){
           <div style="text-align:right"><div style="font-weight:700;color:var(--sil);white-space:nowrap">${fmt(o.total)} грн</div>
           <div style="font-size:11px;color:${(o.margin!==undefined?o.margin:(o.total||0)-(o.costTotal||0))>=0?'var(--ok)':'var(--err)'}">маржа ${fmt(o.margin!==undefined?o.margin:(o.total||0)-(o.costTotal||0))} грн</div></div>
         </div>`).join('')}
-    </div>`;
+    </div>
+    </details>`;
+  const moreEl=el.querySelector('details.more');if(moreEl)moreEl.addEventListener('toggle',()=>{moreOpen=moreEl.open;});
   el.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{period=b.dataset.p;drawStats();});
   el.querySelectorAll('[data-ssort]').forEach(b=>b.onclick=()=>{svcSort=b.dataset.ssort;drawStats();});
   el.querySelectorAll('[data-psort]').forEach(b=>b.onclick=()=>{prodSort=b.dataset.psort;drawStats();});
@@ -3582,10 +3596,16 @@ function clientsListModal(){
     const revTotal=all.reduce((s,c)=>s+c.totalPaid,0);
     const avgCheck=doneTotal?revTotal/doneTotal:0;
     const overdueN=all.filter(c=>c.overdue).length;
-    const segs=[['all','Всі',all.length],['new','Нові (1 візит)',all.filter(c=>c.doneVisits===1).length],
+    // «Кому написати»: були в останньому приїзді, що вже розпочався, і ще не мають запису вперед
+    const _bl=workBlocks().filter(b=>b.from<=today()),LT=_bl.length?_bl[_bl.length-1]:null;
+    const needWrite=c=>!!LT&&!c.booked&&c.all.some(a=>a.status==='done'&&a.date>=LT.from&&a.date<=LT.to);
+    const writeN=all.filter(needWrite).length;
+    const segs=[['all','Всі',all.length],['write','📣 Кому написати',writeN],['write','✉️ Кому написати',all.filter(c=>c.doneVisits>=1&&!c.booked).length],['new','Нові (1 візит)',all.filter(c=>c.doneVisits===1).length],
       ['regular','Постійні (3+)',all.filter(c=>c.doneVisits>=3).length],
       ['overdue','⏰ Пора нагадати',overdueN],['lost','Втрачені',all.filter(c=>c.lost).length]];
     let list=all.filter(c=>{
+      if(seg==='write')return c.doneVisits>=1&&!c.booked;
+      if(seg==='write')return needWrite(c);
       if(seg==='new')return c.doneVisits===1;
       if(seg==='regular')return c.doneVisits>=3;
       if(seg==='overdue')return c.overdue;
@@ -3625,16 +3645,21 @@ function clientsListModal(){
         <div class="sc"><div class="sv" style="color:var(--sil)">${fmt(avgCheck)} грн</div><div class="sl">Сер. чек</div></div>
         <div class="sc" id="cardOverdue" style="cursor:pointer"><div class="sv" style="color:${overdueN?'var(--wrn)':'var(--mut)'}">${overdueN}</div><div class="sl">⏰ Пора нагадати</div></div>
       </div>
-      <button class="btn bg bs" id="cmerge" style="margin-bottom:10px">🔗 Об'єднати дублі</button>
+      <button class="btn bg bs" id="cmerge" style="margin-bottom:10px">🔗 Об'єднати дублі</button>${seg==='write'?`<button class="btn bg bs" id="ccopy" style="margin-bottom:10px;margin-left:6px">📋 Скопіювати список (${list.length})</button>`:''}
       <input class="fi" id="cq" style="margin-bottom:10px" placeholder="🔍 Ім'я або @instagram..." value="${cq}"/>
       <div class="chips">${segs.map(([k,l,n])=>`<button class="chip ${seg===k?'on':''}" data-seg="${k}">${l} · ${n}</button>`).join('')}</div>
       <div class="chips">${[['recent','Останні'],['visits','За візитами'],['spend','За сумою']].map(([k,l])=>`<button class="chip ${sortMode===k?'on':''}" data-sort="${k}">${l}</button>`).join('')}</div>
+      ${seg==='write'&&LT?`<div style="font-size:11px;color:var(--dim);margin-bottom:8px">Були в приїзді ${fmtS(LT.from)} – ${fmtS(LT.to)} і ще не мають запису вперед. Кнопка 💬 відкриває Instagram.</div>`:''}
       ${list.length===0?'<div class="empty">Клієнтів не знайдено</div>':rows}`;
     $('mx').onclick=hide;
     $('cq').addEventListener('input',e=>{cq=e.target.value;render();setTimeout(()=>{const el2=$('cq');if(el2){el2.focus();el2.setSelectionRange(el2.value.length,el2.value.length);}},10);});
     $('modal').querySelectorAll('[data-seg]').forEach(b=>b.onclick=()=>{seg=b.dataset.seg;render();});
     $('modal').querySelectorAll('[data-sort]').forEach(b=>b.onclick=()=>{sortMode=b.dataset.sort;render();});
     $('cmerge').onclick=()=>mergeClientModal();
+    if($('ccopy'))$('ccopy').onclick=()=>{
+      const txt=list.map(c=>c.name+(c.phone?' — '+c.phone:'')).join('\n');
+      (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(()=>alert('Скопійовано: '+list.length),()=>alert('Не вдалося скопіювати'));
+    };
     $('cardOverdue').onclick=()=>{seg='overdue';render();};
     $('modal').querySelectorAll('[data-ckey]').forEach(el2=>el2.onclick=()=>clientHistoryModal(el2.dataset.ckey));
     $('modal').querySelectorAll('[data-tel]').forEach(a=>a.onclick=e=>e.stopPropagation());
